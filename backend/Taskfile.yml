@@ -1,0 +1,87 @@
+version: '3'
+
+vars:
+  PYTHON: uv run python
+  SRC_DIR: src
+  TEST_DIR: tests
+  PROJECT_NAME: workout_api
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - uv sync
+
+  run:
+    desc: Run the development server
+    cmds:
+      - uv run uvicorn {{.PROJECT_NAME}}.core.main:app --reload --host 0.0.0.0 --port ${PORT:-8000}
+
+  test:
+    desc: Run tests
+    cmds:
+      - uv run pytest {{.CLI_ARGS}}
+
+  test-cov:
+    desc: Run tests with coverage
+    cmds:
+      - uv run pytest --cov={{.SRC_DIR}} --cov-report=html --cov-report=term {{.CLI_ARGS}}
+
+  lint:
+    desc: Check code style and linting
+    cmds:
+      - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}}
+      - uv run ruff format --check {{.SRC_DIR}} {{.TEST_DIR}}
+
+  lint-fix:
+    desc: Fix linting issues and format code
+    cmds:
+      - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}} --fix
+      - uv run ruff format {{.SRC_DIR}} {{.TEST_DIR}}
+
+  migrate-new:
+    desc: Generate new migration
+    cmds:
+      - uv run atlas migrate diff --env sqlalchemy
+
+  migrate-up:
+    desc: Apply migrations
+    cmds:
+      - uv run atlas migrate apply --env sqlalchemy --url ${DATABASE_URL}
+
+  migrate-down:
+    desc: Rollback last migration
+    cmds:
+      - uv run atlas migrate down --env sqlalchemy --url ${DATABASE_URL}
+
+  db-reset:
+    desc: Reset database (WARNING destructive)
+    cmds:
+      - echo "Dropping and recreating database..."
+      - task: migrate-down -- --amount 9999
+      - task: migrate-up
+
+  shell:
+    desc: Start IPython shell with app context
+    cmds:
+      - uv run ipython -i -c "from {{.PROJECT_NAME}}.core.main import *"
+
+  docker-up:
+    desc: Start docker services
+    cmds:
+      - docker-compose up -d
+
+  docker-down:
+    desc: Stop docker services
+    cmds:
+      - docker-compose down
+
+  pre-commit:
+    desc: Run pre-commit hooks
+    cmds:
+      - pre-commit run --all-files 
