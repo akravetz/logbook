@@ -51,13 +51,13 @@ class TestExerciseRepository:
     async def test_get_by_name_with_user_scoping(
         self,
         exercise_repository: ExerciseRepository,
-        sample_user: User,
+        test_user: User,
         user_exercise: Exercise,
         another_user_exercise: Exercise,
     ):
         """Test getting exercise by name with user scoping."""
         # Extract IDs early
-        user_id = sample_user.id
+        user_id = test_user.id
         user_exercise_name = user_exercise.name
         another_exercise_name = another_user_exercise.name
 
@@ -167,12 +167,12 @@ class TestExerciseRepository:
     async def test_search_with_user_permission_filtering(
         self,
         exercise_repository: ExerciseRepository,
-        sample_user: User,
+        test_user: User,
         multiple_exercises: list[Exercise],  # noqa: ARG002
     ):
         """Test search respects user permissions."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         filters = ExerciseFilters()
         pagination = Pagination(page=1, size=100)  # Large size to get all
@@ -231,11 +231,11 @@ class TestExerciseRepository:
         self,
         exercise_repository: ExerciseRepository,
         multiple_exercises: list[Exercise],  # noqa: ARG002
-        sample_user: User,
+        test_user: User,
     ):
         """Test getting exercises by body part."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         pagination = Pagination(page=1, size=10)
         result = await exercise_repository.get_by_body_part(
@@ -250,11 +250,11 @@ class TestExerciseRepository:
         self,
         exercise_repository: ExerciseRepository,
         multiple_exercises: list[Exercise],  # noqa: ARG002
-        sample_user: User,
+        test_user: User,
     ):
         """Test getting exercises by modality."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         pagination = Pagination(page=1, size=10)
         result = await exercise_repository.get_by_modality(
@@ -268,12 +268,12 @@ class TestExerciseRepository:
     async def test_get_user_exercises(
         self,
         exercise_repository: ExerciseRepository,
-        sample_user: User,
+        test_user: User,
         multiple_exercises: list[Exercise],  # noqa: ARG002
     ):
         """Test getting exercises created by specific user."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         pagination = Pagination(page=1, size=10)
         result = await exercise_repository.get_user_exercises(user_id, pagination)
@@ -297,11 +297,11 @@ class TestExerciseRepository:
             assert exercise.is_user_created is False
 
     async def test_create_exercise(
-        self, exercise_repository: ExerciseRepository, sample_user: User
+        self, exercise_repository: ExerciseRepository, test_user: User
     ):
         """Test creating new exercise."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         exercise_data = {
             "name": "New Test Exercise",
@@ -376,13 +376,13 @@ class TestExerciseRepository:
     async def test_can_user_modify_own_exercise(
         self,
         exercise_repository: ExerciseRepository,
-        sample_user: User,
+        test_user: User,
         user_exercise: Exercise,
     ):
         """Test user can modify their own exercise."""
         # Extract IDs early
         exercise_id = user_exercise.id
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await exercise_repository.can_user_modify(exercise_id, user_id)
         assert result is True
@@ -390,13 +390,13 @@ class TestExerciseRepository:
     async def test_can_user_modifysystem_exercise(
         self,
         exercise_repository: ExerciseRepository,
-        sample_user: User,
+        test_user: User,
         system_exercise: Exercise,
     ):
         """Test user cannot modify system exercise."""
         # Extract IDs early
         exercise_id = system_exercise.id
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await exercise_repository.can_user_modify(exercise_id, user_id)
         assert result is False
@@ -404,23 +404,23 @@ class TestExerciseRepository:
     async def test_can_user_modify_another_users_exercise(
         self,
         exercise_repository: ExerciseRepository,
-        sample_user: User,
+        test_user: User,
         another_user_exercise: Exercise,
     ):
         """Test user cannot modify another user's exercise."""
         # Extract IDs early
         exercise_id = another_user_exercise.id
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await exercise_repository.can_user_modify(exercise_id, user_id)
         assert result is False
 
     async def test_can_user_modify_nonexistent_exercise(
-        self, exercise_repository: ExerciseRepository, sample_user: User
+        self, exercise_repository: ExerciseRepository, test_user: User
     ):
         """Test checking modification rights for non-existent exercise."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await exercise_repository.can_user_modify(999999, user_id)
         assert result is False
@@ -446,11 +446,11 @@ class TestExerciseRepository:
         self,
         exercise_repository: ExerciseRepository,
         multiple_exercises,  # noqa: ARG002
-        sample_user: User,
+        test_user: User,
     ):
         """Test getting distinct body parts for authenticated user (system + own exercises)."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         body_parts = await exercise_repository.get_distinct_body_parts(user_id=user_id)
 

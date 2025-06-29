@@ -111,11 +111,11 @@ class TestExerciseRouter:
         assert "Exercise not found" in data["detail"]
 
     async def test_create_exercise_success(
-        self, authenticated_client: AsyncClient, sample_user: User
+        self, authenticated_client: AsyncClient, test_user: User
     ):
         """Test successful exercise creation."""
         # Extract user ID early to avoid lazy loading issues
-        user_id = sample_user.id
+        user_id = test_user.id
 
         exercise_data = {
             "name": "My Custom Exercise",
@@ -174,12 +174,12 @@ class TestExerciseRouter:
         self,
         authenticated_client: AsyncClient,
         user_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test successful exercise update."""
         # Extract IDs early to avoid lazy loading issues
         exercise_id = user_exercise.id
-        user_id = sample_user.id
+        user_id = test_user.id
 
         update_data = {"name": "Updated Exercise Name", "body_part": "Shoulders"}
 
@@ -244,11 +244,11 @@ class TestExerciseRouter:
         self,
         authenticated_client: AsyncClient,
         user_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test getting user's own exercises."""
         # Extract IDs early to avoid lazy loading issues
-        user_id = sample_user.id
+        user_id = test_user.id
         exercise_id = user_exercise.id
 
         response = await authenticated_client.get("/api/v1/exercises/my-exercises")

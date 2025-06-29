@@ -22,36 +22,7 @@ async def exercise_service(session: AsyncSession) -> ExerciseService:
     return ExerciseService(session)
 
 
-@pytest.fixture
-async def sample_user(session: AsyncSession) -> User:
-    """Create a sample user for testing."""
-    user = User(
-        email_address="testuser@example.com",
-        google_id="test_google_id_123",
-        name="Test User",
-        is_active=True,
-        is_admin=False,
-    )
-    session.add(user)
-    await session.flush()
-    await session.refresh(user)
-    return user
-
-
-@pytest.fixture
-async def another_user(session: AsyncSession) -> User:
-    """Create another user for permission testing."""
-    user = User(
-        email_address="anotheruser@example.com",
-        google_id="another_google_id_456",
-        name="Another User",
-        is_active=True,
-        is_admin=False,
-    )
-    session.add(user)
-    await session.flush()
-    await session.refresh(user)
-    return user
+# Note: User fixtures (test_user, another_user, etc.) are now provided by main conftest.py
 
 
 @pytest.fixture
@@ -73,7 +44,7 @@ async def system_exercise(session: AsyncSession) -> Exercise:
 
 
 @pytest.fixture
-async def user_exercise(session: AsyncSession, sample_user: User) -> Exercise:
+async def user_exercise(session: AsyncSession, test_user: User) -> Exercise:
     """Create a user exercise for testing."""
     exercise = Exercise(
         name="Custom Push Up",
@@ -81,8 +52,8 @@ async def user_exercise(session: AsyncSession, sample_user: User) -> Exercise:
         modality=ExerciseModality.BODYWEIGHT,
         picture_url="https://example.com/pushup.jpg",
         is_user_created=True,
-        created_by_user_id=sample_user.id,
-        updated_by_user_id=sample_user.id,
+        created_by_user_id=test_user.id,
+        updated_by_user_id=test_user.id,
     )
     session.add(exercise)
     await session.flush()
@@ -110,7 +81,7 @@ async def another_user_exercise(session: AsyncSession, another_user: User) -> Ex
 
 @pytest.fixture
 async def multiple_exercises(
-    session: AsyncSession, sample_user: User, another_user: User
+    session: AsyncSession, test_user: User, another_user: User
 ) -> list[Exercise]:
     """Create multiple exercises for testing."""
     exercises = [
@@ -145,16 +116,16 @@ async def multiple_exercises(
             body_part="Chest",
             modality=ExerciseModality.DUMBBELL,
             is_user_created=True,
-            created_by_user_id=sample_user.id,
-            updated_by_user_id=sample_user.id,
+            created_by_user_id=test_user.id,
+            updated_by_user_id=test_user.id,
         ),
         Exercise(
             name="User Leg Press",
             body_part="Legs",
             modality=ExerciseModality.MACHINE,
             is_user_created=True,
-            created_by_user_id=sample_user.id,
-            updated_by_user_id=sample_user.id,
+            created_by_user_id=test_user.id,
+            updated_by_user_id=test_user.id,
         ),
         # Another user's exercises
         Exercise(
@@ -202,40 +173,4 @@ def sample_filters() -> ExerciseFilters:
 @pytest.fixture
 def sample_pagination() -> Pagination:
     """Sample pagination parameters."""
-    return Pagination(page=1, size=20)
-
-
-@pytest.fixture
-async def authenticated_client(client, sample_user: User):
-    """Create an authenticated client by overriding the auth dependency."""
-    from workout_api.auth.dependencies import get_current_user_from_token
-    from workout_api.core.main import app
-
-    async def override_get_current_user():
-        return sample_user
-
-    app.dependency_overrides[get_current_user_from_token] = override_get_current_user
-
-    yield client
-
-    # Clean up
-    if get_current_user_from_token in app.dependency_overrides:
-        del app.dependency_overrides[get_current_user_from_token]
-
-
-@pytest.fixture
-async def another_authenticated_client(client, another_user: User):
-    """Create an authenticated client for another user."""
-    from workout_api.auth.dependencies import get_current_user_from_token
-    from workout_api.core.main import app
-
-    async def override_get_current_user():
-        return another_user
-
-    app.dependency_overrides[get_current_user_from_token] = override_get_current_user
-
-    yield client
-
-    # Clean up
-    if get_current_user_from_token in app.dependency_overrides:
-        del app.dependency_overrides[get_current_user_from_token]
+    return Pagination(page=1, per_page=10)

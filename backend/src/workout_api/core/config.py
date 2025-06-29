@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     # Server settings
     host: str = Field(default="0.0.0.0", description="Server host")
-    port: int = Field(default=8000, description="Server port")
+    port: int = Field(default=8080, description="Server port")
     reload: bool = Field(default=False, description="Auto-reload on code changes")
 
     # Database
@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     google_client_id: str = Field(description="Google OAuth client ID")
     google_client_secret: str = Field(description="Google OAuth client secret")
     google_redirect_uri: str = Field(
-        default="http://localhost:8000/api/v1/auth/google/callback",
+        default="http://localhost:8080/api/v1/auth/google/callback",
         description="Google OAuth redirect URI",
     )
     google_discovery_url: str = Field(
@@ -92,7 +92,7 @@ class Settings(BaseSettings):
 
     # CORS
     allowed_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"],
+        default=["http://localhost:3000", "http://localhost:8080"],
         description="Allowed CORS origins",
     )
     allowed_methods: list[str] = Field(
