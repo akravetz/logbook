@@ -5,75 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from workout_api.exercises.models import Exercise, ExerciseModality
 from workout_api.users.models import User
-from workout_api.users.repository import UserRepository
-from workout_api.workouts.dependencies import (
-    get_workout_repository,
-    get_workout_service,
-)
 from workout_api.workouts.models import ExerciseExecution, Set, Workout
 from workout_api.workouts.repository import WorkoutRepository
 from workout_api.workouts.service import WorkoutService
 
-
-@pytest.fixture
-def user_data():
-    """Sample user data for testing."""
-    return {
-        "email_address": "test@example.com",
-        "google_id": "google123",
-        "name": "Test User",
-        "profile_image_url": "https://example.com/profile.jpg",
-        "is_active": True,
-        "is_admin": False,
-    }
-
-
-@pytest.fixture
-async def sample_user(session: AsyncSession, user_data: dict) -> User:
-    """Create a sample user for testing."""
-    user_repository = UserRepository(session)
-    user = await user_repository.create(user_data)
-    # Extract attributes early to prevent lazy loading issues
-    _ = (
-        user.id,
-        user.email_address,
-        user.google_id,
-        user.name,
-        user.profile_image_url,
-        user.is_active,
-        user.is_admin,
-        user.created_at,
-        user.updated_at,
-    )
-    return user
-
-
-@pytest.fixture
-async def another_user(session: AsyncSession) -> User:
-    """Create another user for testing permissions."""
-    user_repository = UserRepository(session)
-    user_data = {
-        "email_address": "another@example.com",
-        "google_id": "google456",
-        "name": "Another User",
-        "profile_image_url": "https://example.com/another.jpg",
-        "is_active": True,
-        "is_admin": False,
-    }
-    user = await user_repository.create(user_data)
-    # Extract attributes early
-    _ = (
-        user.id,
-        user.email_address,
-        user.google_id,
-        user.name,
-        user.profile_image_url,
-        user.is_active,
-        user.is_admin,
-        user.created_at,
-        user.updated_at,
-    )
-    return user
+# Note: User fixtures (test_user, another_user, etc.) are now provided by main conftest.py
 
 
 @pytest.fixture
@@ -139,9 +75,9 @@ async def another_exercise(session: AsyncSession) -> Exercise:
 
 
 @pytest.fixture
-async def sample_workout(session: AsyncSession, sample_user: User) -> Workout:
+async def sample_workout(session: AsyncSession, test_user: User) -> Workout:
     """Create a sample workout for testing."""
-    user_id = sample_user.id
+    user_id = test_user.id
 
     workout = Workout(
         created_by_user_id=user_id,
@@ -164,11 +100,11 @@ async def sample_workout(session: AsyncSession, sample_user: User) -> Workout:
 
 
 @pytest.fixture
-async def finished_workout(session: AsyncSession, sample_user: User) -> Workout:
+async def finished_workout(session: AsyncSession, test_user: User) -> Workout:
     """Create a finished workout for testing."""
     from datetime import UTC, datetime
 
-    user_id = sample_user.id
+    user_id = test_user.id
 
     workout = Workout(
         created_by_user_id=user_id,
@@ -198,76 +134,92 @@ async def workout_with_exercises(
     another_exercise: Exercise,
 ) -> Workout:
     """Create a workout with exercise executions and sets."""
-    workout_id = sample_workout.id
-    exercise1_id = sample_exercise.id
-    exercise2_id = another_exercise.id
+    workout = sample_workout
+    # Extract workout id early
+    workout_id = workout.id
+    sample_exercise_id = sample_exercise.id
+    another_exercise_id = another_exercise.id
 
-    # Create first exercise execution
+    # Create exercise executions
     execution1 = ExerciseExecution(
         workout_id=workout_id,
-        exercise_id=exercise1_id,
+        exercise_id=sample_exercise_id,
         exercise_order=1,
-        note_text="First exercise notes",
     )
-    session.add(execution1)
-
-    # Create second exercise execution
     execution2 = ExerciseExecution(
         workout_id=workout_id,
-        exercise_id=exercise2_id,
+        exercise_id=another_exercise_id,
         exercise_order=2,
-        note_text="Second exercise notes",
     )
-    session.add(execution2)
 
+    session.add(execution1)
+    session.add(execution2)
     await session.flush()
+    await session.refresh(execution1)
+    await session.refresh(execution2)
 
     # Create sets for first exercise
-    set1 = Set(
-        workout_id=workout_id,
-        exercise_id=exercise1_id,
-        note_text="First set",
-        weight=20.0,
-        clean_reps=12,
-        forced_reps=0,
-    )
-    set2 = Set(
-        workout_id=workout_id,
-        exercise_id=exercise1_id,
-        note_text="Second set",
-        weight=20.0,
-        clean_reps=10,
-        forced_reps=2,
-    )
+    sets1 = [
+        Set(
+            workout_id=workout_id,
+            exercise_id=sample_exercise_id,
+            weight=100,
+            clean_reps=10,
+            forced_reps=0,
+        ),
+        Set(
+            workout_id=workout_id,
+            exercise_id=sample_exercise_id,
+            weight=100,
+            clean_reps=8,
+            forced_reps=2,
+        ),
+    ]
 
     # Create sets for second exercise
-    set3 = Set(
-        workout_id=workout_id,
-        exercise_id=exercise2_id,
-        note_text="Heavy set",
-        weight=50.0,
-        clean_reps=8,
-        forced_reps=0,
-    )
+    sets2 = [
+        Set(
+            workout_id=workout_id,
+            exercise_id=another_exercise_id,
+            weight=80,
+            clean_reps=12,
+            forced_reps=0,
+        ),
+    ]
 
-    session.add_all([set1, set2, set3])
+    for set_obj in sets1 + sets2:
+        session.add(set_obj)
+
     await session.flush()
+    for set_obj in sets1 + sets2:
+        await session.refresh(set_obj)
 
-    # Refresh workout to load relationships
-    await session.refresh(sample_workout)
+    # Extract set attributes early
+    for set_obj in sets1 + sets2:
+        _ = (
+            set_obj.id,
+            set_obj.workout_id,
+            set_obj.exercise_id,
+            set_obj.weight,
+            set_obj.clean_reps,
+            set_obj.forced_reps,
+            set_obj.note_text,
+            set_obj.created_at,
+            set_obj.updated_at,
+        )
 
-    return sample_workout
+    return workout
 
 
 @pytest.fixture
 def workout_repository(session: AsyncSession) -> WorkoutRepository:
-    """Get workout repository instance."""
-    return get_workout_repository(session)
+    """Get workout repository for testing."""
+    return WorkoutRepository(session)
 
 
 @pytest.fixture
 def workout_service(
     session: AsyncSession, workout_repository: WorkoutRepository
 ) -> WorkoutService:
-    """Get workout service instance."""
-    return get_workout_service(workout_repository, session)
+    """Get workout service for testing."""
+    return WorkoutService(workout_repository, session)

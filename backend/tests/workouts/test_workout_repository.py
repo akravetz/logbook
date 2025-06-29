@@ -25,10 +25,10 @@ class TestWorkoutRepository:
     """Test workout repository operations."""
 
     async def test_create_workout(
-        self, workout_repository: WorkoutRepository, sample_user: User
+        self, workout_repository: WorkoutRepository, test_user: User
     ):
         """Test creating a new workout."""
-        user_id = sample_user.id
+        user_id = test_user.id
 
         workout = await workout_repository.create(user_id)
 
@@ -43,10 +43,10 @@ class TestWorkoutRepository:
         self,
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
-        sample_user: User,
+        test_user: User,
     ):
         """Test getting workout by ID successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
 
         result = await workout_repository.get_by_id(workout_id, user_id)
@@ -70,10 +70,10 @@ class TestWorkoutRepository:
         assert result is None
 
     async def test_get_by_id_not_found(
-        self, workout_repository: WorkoutRepository, sample_user: User
+        self, workout_repository: WorkoutRepository, test_user: User
     ):
         """Test getting non-existent workout returns None."""
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await workout_repository.get_by_id(99999, user_id)
 
@@ -83,10 +83,10 @@ class TestWorkoutRepository:
         self,
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
-        sample_user: User,
+        test_user: User,
     ):
         """Test searching workouts without filters."""
-        user_id = sample_user.id
+        user_id = test_user.id
         filters = WorkoutFilters()
         pagination = Pagination(page=1, size=10)
 
@@ -101,10 +101,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
         finished_workout: Workout,
-        sample_user: User,
+        test_user: User,
     ):
         """Test searching workouts with finished filter."""
-        user_id = sample_user.id
+        user_id = test_user.id
 
         # Test unfinished workouts
         filters = WorkoutFilters(finished=False)
@@ -125,10 +125,10 @@ class TestWorkoutRepository:
         self,
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
-        sample_user: User,
+        test_user: User,
     ):
         """Test searching workouts with date filters."""
-        user_id = sample_user.id
+        user_id = test_user.id
 
         # Test start_date filter
         start_date = datetime.now(UTC).replace(
@@ -148,10 +148,10 @@ class TestWorkoutRepository:
         assert any(w.id == sample_workout.id for w in page.items)
 
     async def test_search_pagination(
-        self, workout_repository: WorkoutRepository, sample_user: User
+        self, workout_repository: WorkoutRepository, test_user: User
     ):
         """Test workout search pagination."""
-        user_id = sample_user.id
+        user_id = test_user.id
 
         # Create multiple workouts
         for _i in range(5):
@@ -171,10 +171,10 @@ class TestWorkoutRepository:
         self,
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
-        sample_user: User,
+        test_user: User,
     ):
         """Test finishing a workout successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
 
         result = await workout_repository.finish_workout(workout_id, user_id)
@@ -187,20 +187,20 @@ class TestWorkoutRepository:
         self,
         workout_repository: WorkoutRepository,
         finished_workout: Workout,
-        sample_user: User,
+        test_user: User,
     ):
         """Test finishing an already finished workout raises error."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = finished_workout.id
 
         with pytest.raises(ValidationError, match="already finished"):
             await workout_repository.finish_workout(workout_id, user_id)
 
     async def test_finish_workout_not_found(
-        self, workout_repository: WorkoutRepository, sample_user: User
+        self, workout_repository: WorkoutRepository, test_user: User
     ):
         """Test finishing non-existent workout returns None."""
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await workout_repository.finish_workout(99999, user_id)
 
@@ -210,10 +210,10 @@ class TestWorkoutRepository:
         self,
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
-        sample_user: User,
+        test_user: User,
     ):
         """Test deleting workout successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
 
         result = await workout_repository.delete(workout_id, user_id)
@@ -224,10 +224,10 @@ class TestWorkoutRepository:
         assert deleted_workout is None
 
     async def test_delete_workout_not_found(
-        self, workout_repository: WorkoutRepository, sample_user: User
+        self, workout_repository: WorkoutRepository, test_user: User
     ):
         """Test deleting non-existent workout returns False."""
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await workout_repository.delete(99999, user_id)
 
@@ -238,10 +238,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test getting exercise execution successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
 
@@ -260,10 +260,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test getting non-existent exercise execution returns None."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
         exercise_id = sample_exercise.id
 
@@ -278,10 +278,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test creating new exercise execution."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
         exercise_id = sample_exercise.id
 
@@ -311,10 +311,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test updating existing exercise execution (full replace)."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
 
@@ -342,10 +342,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         finished_workout: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test upserting exercise execution on finished workout raises error."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = finished_workout.id
         exercise_id = sample_exercise.id
 
@@ -364,10 +364,10 @@ class TestWorkoutRepository:
         self,
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
-        sample_user: User,
+        test_user: User,
     ):
         """Test upserting with invalid exercise ID raises error."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
         invalid_exercise_id = 99999
 
@@ -387,10 +387,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test deleting exercise execution successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
 
@@ -411,10 +411,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test deleting non-existent exercise execution returns False."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
         exercise_id = sample_exercise.id
 
@@ -429,10 +429,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test creating a new set successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
 
@@ -459,10 +459,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test creating set without exercise execution raises error."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
         exercise_id = sample_exercise.id
 
@@ -478,10 +478,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test updating a set successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
 
@@ -513,10 +513,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test updating non-existent set returns None."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
         invalid_set_id = 99999
@@ -534,10 +534,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test deleting a set successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
 
@@ -567,10 +567,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test deleting non-existent set returns False."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
         invalid_set_id = 99999
@@ -586,10 +586,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test updating exercise execution metadata successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise_id = sample_exercise.id
 
@@ -611,10 +611,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         sample_workout: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test updating non-existent exercise execution metadata returns None."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = sample_workout.id
         exercise_id = sample_exercise.id
 
@@ -632,10 +632,10 @@ class TestWorkoutRepository:
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
         another_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test reordering exercise executions successfully."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise1_id = sample_exercise.id
         exercise2_id = another_exercise.id
@@ -665,10 +665,10 @@ class TestWorkoutRepository:
         workout_repository: WorkoutRepository,
         workout_with_exercises: Workout,
         sample_exercise: Exercise,
-        sample_user: User,
+        test_user: User,
     ):
         """Test reordering with mismatched exercise IDs raises error."""
-        user_id = sample_user.id
+        user_id = test_user.id
         workout_id = workout_with_exercises.id
         exercise1_id = sample_exercise.id
         invalid_exercise_id = 99999

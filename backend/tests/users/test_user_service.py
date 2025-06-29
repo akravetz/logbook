@@ -20,53 +20,23 @@ async def user_service(session: AsyncSession):
     return UserService(session)
 
 
-@pytest.fixture
-async def sample_user(session: AsyncSession):
-    """Create a sample user for testing."""
-    user = User(
-        email_address="test@example.com",
-        google_id="google123",
-        name="Test User",
-        profile_image_url="https://example.com/profile.jpg",
-        is_active=True,
-    )
-    session.add(user)
-    await session.flush()  # Get the ID without committing
-    await session.refresh(user)
-    # Explicitly load all attributes to prevent lazy loading issues
-    _ = user.id, user.email_address, user.name, user.is_active
-    return user
-
-
-@pytest.fixture
-async def inactive_user(session: AsyncSession):
-    """Create an inactive user for testing."""
-    user = User(
-        email_address="inactive@example.com",
-        google_id="google456",
-        name="Inactive User",
-        is_active=False,
-    )
-    session.add(user)
-    await session.flush()
-    await session.refresh(user)
-    # Explicitly load all attributes to prevent lazy loading issues
-    _ = user.id, user.email_address, user.name, user.is_active
-    return user
+# Note: User fixtures are now provided by main conftest.py
+# - test_user: Standard active user for testing
+# - inactive_user: Inactive user for testing
 
 
 class TestUserService:
     """Test cases for UserService."""
 
     async def test_get_user_profile_success(
-        self, user_service: UserService, sample_user: User
+        self, user_service: UserService, test_user: User
     ):
         """Test successful user profile retrieval."""
         # Act
-        result = await user_service.get_user_profile(sample_user.id)
+        result = await user_service.get_user_profile(test_user.id)
 
         # Assert
-        assert result.id == sample_user.id
+        assert result.id == test_user.id
         assert result.email_address == "test@example.com"
         assert result.name == "Test User"
         assert result.is_active is True
@@ -86,12 +56,12 @@ class TestUserService:
             await user_service.get_user_profile(inactive_user.id)
 
     async def test_update_user_profile_success(
-        self, user_service: UserService, sample_user: User
+        self, user_service: UserService, test_user: User
     ):
         """Test successful user profile update."""
         # Arrange
-        user_id = sample_user.id
-        original_email = sample_user.email_address
+        user_id = test_user.id
+        original_email = test_user.email_address
         update_data = UserProfileUpdate(
             name="Updated Name", profile_image_url="https://example.com/new_profile.jpg"
         )
@@ -111,12 +81,12 @@ class TestUserService:
         assert fresh_user.email_address == original_email  # Unchanged
 
     async def test_update_user_profile_empty_data(
-        self, user_service: UserService, sample_user: User
+        self, user_service: UserService, test_user: User
     ):
         """Test user profile update with no changes."""
         # Arrange
-        user_id = sample_user.id
-        original_name = sample_user.name
+        user_id = test_user.id
+        original_name = test_user.name
         update_data = UserProfileUpdate()
 
         # Act
@@ -131,7 +101,7 @@ class TestUserService:
     async def test_update_user_profile_empty_name(
         self,
         user_service: UserService,  # noqa: ARG002
-        sample_user: User,  # noqa: ARG002
+        test_user: User,  # noqa: ARG002
     ):
         """Test user profile update with empty name."""
         # Act & Assert - Pydantic validation should catch this
@@ -141,7 +111,7 @@ class TestUserService:
             UserProfileUpdate(name="")
 
     async def test_update_user_profile_whitespace_name(
-        self, user_service: UserService, sample_user: User
+        self, user_service: UserService, test_user: User
     ):
         """Test user profile update with whitespace-only name."""
         # Arrange - This should pass Pydantic validation but be caught by service layer
@@ -149,7 +119,7 @@ class TestUserService:
 
         # Act & Assert
         with pytest.raises(ValidationError, match="Name cannot be empty"):
-            await user_service.update_user_profile(sample_user.id, update_data)
+            await user_service.update_user_profile(test_user.id, update_data)
 
     async def test_update_user_profile_not_found(self, user_service: UserService):
         """Test user profile update for non-existent user."""
@@ -161,11 +131,11 @@ class TestUserService:
             await user_service.update_user_profile(999, update_data)
 
     async def test_deactivate_user_success(
-        self, user_service: UserService, sample_user: User
+        self, user_service: UserService, test_user: User
     ):
         """Test successful user deactivation."""
         # Act
-        success = await user_service.deactivate_user(sample_user.id)
+        success = await user_service.deactivate_user(test_user.id)
 
         # Assert
         assert success is True
@@ -197,11 +167,11 @@ class TestUserService:
         assert success is False
 
     async def test_get_user_statistics_success(
-        self, user_service: UserService, sample_user: User
+        self, user_service: UserService, test_user: User
     ):
         """Test successful user statistics retrieval."""
         # Act
-        stats = await user_service.get_user_statistics(sample_user.id)
+        stats = await user_service.get_user_statistics(test_user.id)
 
         # Assert
         assert stats.total_workouts == 0  # Mock data
@@ -218,7 +188,7 @@ class TestUserService:
         assert stats.streak_info.last_workout_date is None
 
     async def test_get_user_statistics_with_date_range(
-        self, user_service: UserService, sample_user: User
+        self, user_service: UserService, test_user: User
     ):
         """Test user statistics retrieval with date range."""
         # Arrange
@@ -227,7 +197,7 @@ class TestUserService:
 
         # Act
         stats = await user_service.get_user_statistics(
-            sample_user.id, start_date=start_date, end_date=end_date
+            test_user.id, start_date=start_date, end_date=end_date
         )
 
         # Assert - Should return mock data regardless of date range for now
@@ -240,11 +210,11 @@ class TestUserService:
             await user_service.get_user_statistics(999)
 
     async def test_check_user_exists_active_user(
-        self, user_service: UserService, sample_user: User
+        self, user_service: UserService, test_user: User
     ):
         """Test checking existence of active user."""
         # Act
-        exists = await user_service.check_user_exists(sample_user.id)
+        exists = await user_service.check_user_exists(test_user.id)
 
         # Assert
         assert exists is True

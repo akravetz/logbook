@@ -43,11 +43,11 @@ class TestExerciseService:
         self,
         exercise_service: ExerciseService,
         system_exercise,  # noqa: ARG002
-        sample_user: User,
+        test_user: User,
     ):
         """Test getting exercise by existing name."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await exercise_service.get_by_name("Barbell Bench Press", user_id)
 
@@ -56,11 +56,11 @@ class TestExerciseService:
         assert result.name == "Barbell Bench Press"
 
     async def test_get_by_name_nonexistent(
-        self, exercise_service: ExerciseService, sample_user: User
+        self, exercise_service: ExerciseService, test_user: User
     ):
         """Test getting exercise by non-existent name returns None."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await exercise_service.get_by_name("Non Existent Exercise", user_id)
         assert result is None
@@ -99,12 +99,12 @@ class TestExerciseService:
     async def test_search_with_user_permissions(
         self,
         exercise_service: ExerciseService,
-        sample_user: User,
+        test_user: User,
         multiple_exercises,  # noqa: ARG002
     ):
         """Test search respects user permissions."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         filters = ExerciseFilters()
         pagination = Pagination(page=1, size=100)
@@ -129,11 +129,11 @@ class TestExerciseService:
         assert len(other_user_exercises) == 0
 
     async def test_create_user_exercise(
-        self, exercise_service: ExerciseService, sample_user: User
+        self, exercise_service: ExerciseService, test_user: User
     ):
         """Test creating user exercise."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         exercise_data = ExerciseCreate(
             name="New Service Test Exercise",
@@ -154,12 +154,12 @@ class TestExerciseService:
     async def test_create_duplicate_name_validation(
         self,
         exercise_service: ExerciseService,
-        sample_user: User,
+        test_user: User,
         system_exercise,  # noqa: ARG002
     ):
         """Test creating exercise with duplicate name raises ValidationError."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         exercise_data = ExerciseCreate(
             name="Barbell Bench Press",  # Duplicate name
@@ -174,12 +174,12 @@ class TestExerciseService:
             await exercise_service.create(exercise_data, user_id)
 
     async def test_update_existing_exercise(
-        self, exercise_service: ExerciseService, sample_user: User, user_exercise
+        self, exercise_service: ExerciseService, test_user: User, user_exercise
     ):
         """Test updating existing exercise."""
         # Extract IDs and values early
         exercise_id = user_exercise.id
-        user_id = sample_user.id
+        user_id = test_user.id
         original_modality = user_exercise.modality
 
         update_data = ExerciseUpdate(
@@ -194,11 +194,11 @@ class TestExerciseService:
         assert result.modality == original_modality  # Unchanged
 
     async def test_update_nonexistent_exercise(
-        self, exercise_service: ExerciseService, sample_user: User
+        self, exercise_service: ExerciseService, test_user: User
     ):
         """Test updating non-existent exercise raises NotFoundError."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         update_data = ExerciseUpdate(name="Updated Name")
 
@@ -208,13 +208,13 @@ class TestExerciseService:
     async def test_update_permission_denied(
         self,
         exercise_service: ExerciseService,
-        sample_user: User,
+        test_user: User,
         system_exercise,  # noqa: ARG002
     ):
         """Test updating exercise without permission raises ValidationError."""
         # Extract IDs early
         exercise_id = system_exercise.id
-        user_id = sample_user.id
+        user_id = test_user.id
 
         update_data = ExerciseUpdate(name="Hacked Name")
 
@@ -224,22 +224,22 @@ class TestExerciseService:
             await exercise_service.update(exercise_id, update_data, user_id)
 
     async def test_delete_existing_exercise(
-        self, exercise_service: ExerciseService, sample_user: User, user_exercise
+        self, exercise_service: ExerciseService, test_user: User, user_exercise
     ):
         """Test deleting existing exercise."""
         # Extract IDs early
         exercise_id = user_exercise.id
-        user_id = sample_user.id
+        user_id = test_user.id
 
         result = await exercise_service.delete(exercise_id, user_id)
         assert result is True
 
     async def test_delete_nonexistent_exercise(
-        self, exercise_service: ExerciseService, sample_user: User
+        self, exercise_service: ExerciseService, test_user: User
     ):
         """Test deleting non-existent exercise raises NotFoundError."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         with pytest.raises(NotFoundError, match="Exercise not found with ID: 999999"):
             await exercise_service.delete(999999, user_id)
@@ -247,13 +247,13 @@ class TestExerciseService:
     async def test_delete_permission_denied(
         self,
         exercise_service: ExerciseService,
-        sample_user: User,
+        test_user: User,
         system_exercise,  # noqa: ARG002
     ):
         """Test deleting exercise without permission raises ValidationError."""
         # Extract IDs early
         exercise_id = system_exercise.id
-        user_id = sample_user.id
+        user_id = test_user.id
 
         with pytest.raises(
             ValidationError, match="You can only delete your own exercises"
@@ -263,12 +263,12 @@ class TestExerciseService:
     async def test_get_user_exercises(
         self,
         exercise_service: ExerciseService,
-        sample_user: User,
+        test_user: User,
         multiple_exercises,  # noqa: ARG002
     ):
         """Test getting user's own exercises."""
         # Extract user ID early
-        user_id = sample_user.id
+        user_id = test_user.id
 
         pagination = Pagination(page=1, size=10)
         result = await exercise_service.get_user_exercises(user_id, pagination)

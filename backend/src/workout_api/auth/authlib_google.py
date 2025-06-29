@@ -70,16 +70,26 @@ class AuthlibGoogleManager:
         self.scopes = ["openid", "email", "profile"]
 
         # Initialize OAuth client with Authlib
+        # Use explicit endpoints instead of discovery URL to avoid 404 issues with Python HTTP clients
         self.oauth = OAuth()
         self.oauth.register(
             name="google",
             client_id=self.client_id,
             client_secret=self.client_secret,
-            server_metadata_url=self.discovery_url,
-            client_kwargs={"scope": " ".join(self.scopes)},
+            # Explicit Google OAuth endpoints (from working discovery document)
+            authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
+            access_token_url="https://oauth2.googleapis.com/token",
+            userinfo_endpoint="https://openidconnect.googleapis.com/v1/userinfo",
+            issuer="https://accounts.google.com",
+            jwks_uri="https://www.googleapis.com/oauth2/v3/certs",
+            client_kwargs={
+                "scope": " ".join(self.scopes),
+                # Ensure we use correct response type for authorization code flow
+                "response_type": "code",
+            },
         )
 
-        logger.info("Authlib Google OAuth manager initialized")
+        logger.info("Authlib Google OAuth manager initialized with explicit endpoints")
 
     async def authorize_redirect(
         self, request: Request, redirect_uri: str | None = None

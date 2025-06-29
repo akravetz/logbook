@@ -22,18 +22,18 @@ class TestWorkoutBasic:
         assert workout_service is not None
 
     async def test_sample_workout_fixture(
-        self, sample_workout: Workout, sample_user: User
+        self, sample_workout: Workout, test_user: User
     ):
         """Test that sample workout fixture works."""
         assert sample_workout.id is not None
-        assert sample_workout.created_by_user_id == sample_user.id
+        assert sample_workout.created_by_user_id == test_user.id
         assert sample_workout.finished_at is None
 
     async def test_create_workout(
-        self, workout_repository: WorkoutRepository, sample_user: User
+        self, workout_repository: WorkoutRepository, test_user: User
     ):
         """Test creating a workout through repository."""
-        user_id = sample_user.id
+        user_id = test_user.id
 
         workout = await workout_repository.create(user_id)
 

@@ -36,7 +36,7 @@ def test_settings():
         database_url="postgresql://test:test@localhost/test",
         google_client_id="test_client_id",
         google_client_secret="test_client_secret",
-        google_redirect_uri="http://localhost:8000/callback",
+        google_redirect_uri="http://localhost:8080/callback",
     )
 
 
