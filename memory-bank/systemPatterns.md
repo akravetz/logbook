@@ -65,7 +65,8 @@ src/
 ## Core Patterns
 
 ### Repository Pattern
-Encapsulate all database operations:
+Encapsulate all database operations and enforce strict data access boundaries:
+
 ```python
 class ExerciseRepository:
     def __init__(self, session: AsyncSession):
@@ -83,8 +84,32 @@ class ExerciseRepository:
         return result.scalars().all()
 ```
 
+**Critical Pattern Enforcement:**
+- **NO direct database queries outside repositories** - Services must use repository methods
+- **NO helper functions that bypass repositories** - All data access must go through the repository layer
+- **Repository injection required** - Services receive repositories through constructor injection
+- **Single source of truth** - Each entity type has one repository that handles all its database operations
+
+**Example of proper service layer usage:**
+```python
+class AuthService:
+    def __init__(self, session: AsyncSession, jwt_manager: JWTManager, user_repository: UserRepository):
+        self.session = session
+        self.jwt_manager = jwt_manager
+        self.user_repository = user_repository  # Injected repository
+
+    async def authenticate_with_google(self, google_user_info: GoogleUserInfo):
+        # Correct: Use repository methods
+        user = await self.user_repository.get_by_google_id(google_user_info.google_id)
+
+        if not user:
+            existing_user = await self.user_repository.get_by_email(google_user_info.email)
+            # ... business logic
+```
+
 ### Service Layer Pattern
 Business logic separate from data access:
+
 ```python
 class ExerciseService:
     def __init__(self, repo: ExerciseRepository):
@@ -101,6 +126,20 @@ class ExerciseService:
 
         # Create via repository
         return await self.repo.create(data)
+```
+
+**Service Layer Responsibilities:**
+- **Business logic only** - No direct database queries
+- **Repository coordination** - Use repository methods for all data access
+- **Transaction management** - Handle commits/rollbacks for complex operations
+- **Exception translation** - Convert repository exceptions to business exceptions
+
+**Repository Factory Pattern:**
+```python
+def get_auth_service(session: AsyncSession, jwt_manager: JWTManager) -> AuthService:
+    """Factory function to create AuthService with proper dependencies."""
+    user_repository = UserRepository(session)
+    return AuthService(session, jwt_manager, user_repository)
 ```
 
 ### Dependency Injection (Enhanced)

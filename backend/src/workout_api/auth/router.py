@@ -3,7 +3,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import get_settings
@@ -34,6 +34,7 @@ router = APIRouter()
     description="Start Google OAuth authentication process and return authorization URL",
 )
 async def initiate_google_oauth(
+    response: Response,
     redirect_url: str | None = Query(  # noqa: ARG001
         default=None, description="Post-auth redirect URL"
     ),
@@ -44,7 +45,17 @@ async def initiate_google_oauth(
         # Generate OAuth authorization URL with state
         authorization_url, state = google_oauth.generate_authorization_url()
 
-        logger.info("OAuth flow initiated")
+        # Store state in secure, HTTP-only cookie for CSRF protection
+        response.set_cookie(
+            key="oauth_state",
+            value=state,
+            max_age=600,  # 10 minutes
+            httponly=True,
+            secure=True,  # Use HTTPS in production
+            samesite="lax",  # Protect against CSRF
+        )
+
+        logger.info("OAuth flow initiated with state validation")
         return OAuthInitiateResponse(
             authorization_url=authorization_url,
             state=state,
@@ -72,6 +83,8 @@ async def initiate_google_oauth(
     },
 )
 async def google_oauth_callback(
+    request: Request,
+    response: Response,
     code: str = Query(description="Authorization code from Google"),
     state: str = Query(description="OAuth state parameter"),
     error: str | None = Query(default=None, description="OAuth error"),
@@ -91,6 +104,25 @@ async def google_oauth_callback(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"OAuth error: {error_description or error}",
             )
+
+        # CSRF Protection: Validate state parameter
+        stored_state = request.cookies.get("oauth_state")
+        if not stored_state:
+            logger.warning("OAuth callback: Missing stored state cookie")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OAuth state: missing state cookie",
+            )
+
+        if not google_oauth.validate_state(state, stored_state):
+            logger.warning("OAuth callback: State validation failed")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OAuth state: state parameter validation failed",
+            )
+
+        # Clear the state cookie after successful validation
+        response.delete_cookie("oauth_state")
 
         # Handle OAuth callback
         google_tokens = await google_oauth.exchange_code_for_tokens(code, state)
@@ -117,6 +149,8 @@ async def google_oauth_callback(
             tokens=token_response,
         )
 
+    except HTTPException:
+        raise  # Re-raise HTTPExceptions (like our CSRF validation errors)
     except AuthenticationError as e:
         logger.warning(f"Authentication failed: {e}")
         raise HTTPException(

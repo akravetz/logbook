@@ -331,3 +331,67 @@ async def delete_with_cascade(session: AsyncSession, model_class, object_id: int
 - **`session.expire_all()`**: Synchronous call that clears SQLAlchemy's identity map
 - **Order matters**: Always flush before expire_all
 - **Transaction scope**: Both operations work within the current transaction
+
+### Critical Database Transaction Patterns
+
+#### ⚠️ Service Layer Transaction Responsibility
+**The session dependency does NOT auto-commit transactions. Transaction management is the service layer's responsibility.**
+
+```python
+# ✅ CORRECT: Service layer handles commits
+class UserService:
+    async def update_user_profile(self, user_id: int, data: dict) -> UserResponse:
+        updated_user = await self.repository.update(user_id, data)
+        user_response = UserResponse.model_validate(updated_user)
+        await self.session.commit()  # Explicit commit
+        return user_response
+
+# ❌ WRONG: Depending on automatic commits
+class UserService:
+    async def update_user_profile(self, user_id: int, data: dict) -> UserResponse:
+        updated_user = await self.repository.update(user_id, data)
+        # Missing commit - changes would be lost!
+        return UserResponse.model_validate(updated_user)
+```
+
+#### Transaction Boundary Guidelines
+1. **Complete Units of Work**: Commit only when entire business operation is complete
+2. **Error Handling**: Always rollback on exceptions in service methods
+3. **Session Dependency**: Only provides session, handles cleanup and rollback on errors
+4. **Multiple Operations**: Commit after all related changes in a single transaction
+
+#### Example Service Pattern
+```python
+class WorkoutService:
+    async def create_workout_with_exercises(self, user_id: int, data: WorkoutCreate):
+        try:
+            # Multiple related operations in one transaction
+            workout = await self.repository.create_workout(user_id)
+            for exercise_data in data.exercises:
+                await self.repository.create_exercise_execution(workout.id, exercise_data)
+
+            # Convert to response models before commit
+            response = WorkoutResponse.model_validate(workout)
+
+            # Commit entire unit of work
+            await self.session.commit()
+            return response
+
+        except Exception as e:
+            await self.session.rollback()  # Rollback on any error
+            raise ServiceError("Failed to create workout") from e
+```
+
+#### Session Dependency Implementation
+```python
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provides session with cleanup - NO automatic commits."""
+    async with session_maker() as session:
+        try:
+            yield session  # Service layer manages commits
+        except Exception as e:
+            await session.rollback()  # Auto-rollback on errors
+            raise
+        finally:
+            await session.close()  # Always cleanup
+```

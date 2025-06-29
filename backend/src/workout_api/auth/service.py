@@ -3,12 +3,11 @@
 import logging
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..shared.exceptions import AuthenticationError, DuplicateError, NotFoundError
 from ..users.models import User
-from .dependencies import get_user_by_email, get_user_by_google_id
+from ..users.repository import UserRepository
 from .google import GoogleUserInfo
 from .jwt import JWTManager, TokenPair
 
@@ -18,9 +17,15 @@ logger = logging.getLogger("workout_api.auth.service")
 class AuthService:
     """Authentication service for handling login, logout, and user management."""
 
-    def __init__(self, session: AsyncSession, jwt_manager: JWTManager):
+    def __init__(
+        self,
+        session: AsyncSession,
+        jwt_manager: JWTManager,
+        user_repository: UserRepository,
+    ):
         self.session = session
         self.jwt_manager = jwt_manager
+        self.user_repository = user_repository
 
     async def authenticate_with_google(
         self, google_user_info: GoogleUserInfo
@@ -28,7 +33,9 @@ class AuthService:
         """Authenticate or create user from Google OAuth and return user with tokens."""
         try:
             # Look for existing user by Google ID first
-            user = await get_user_by_google_id(self.session, google_user_info.google_id)
+            user = await self.user_repository.get_by_google_id(
+                google_user_info.google_id
+            )
 
             if user:
                 # Update existing user info if needed
@@ -36,8 +43,8 @@ class AuthService:
                 logger.info(f"Existing user authenticated: {user.email_address}")
             else:
                 # Check if user exists by email (account linking case)
-                existing_user = await get_user_by_email(
-                    self.session, google_user_info.email
+                existing_user = await self.user_repository.get_by_email(
+                    google_user_info.email
                 )
 
                 if existing_user:
@@ -71,19 +78,18 @@ class AuthService:
     async def _create_user_from_google(self, google_info: GoogleUserInfo) -> User:
         """Create a new user from Google OAuth information."""
         try:
-            # Create new user
-            user = User(
-                email_address=google_info.email,
-                google_id=google_info.google_id,
-                name=google_info.name or google_info.email.split("@")[0],
-                profile_image_url=google_info.picture,
-                is_active=True,
-                is_admin=False,
-            )
+            # Create new user using repository
+            user_data = {
+                "email_address": google_info.email,
+                "google_id": google_info.google_id,
+                "name": google_info.name or google_info.email.split("@")[0],
+                "profile_image_url": google_info.picture,
+                "is_active": True,
+                "is_admin": False,
+            }
 
-            self.session.add(user)
+            user = await self.user_repository.create(user_data)
             await self.session.commit()
-            await self.session.refresh(user)
 
             logger.info(f"Created new user: {user.id} - {user.email_address}")
             return user
@@ -129,10 +135,8 @@ class AuthService:
     async def refresh_user_token(self, user_id: int) -> TokenPair:
         """Create new token pair for user (used for token refresh)."""
         try:
-            # Get user from database
-            stmt = select(User).where(User.id == user_id)
-            result = await self.session.execute(stmt)
-            user = result.scalar_one_or_none()
+            # Get user from database using repository
+            user = await self.user_repository.get_by_id(user_id)
 
             if not user:
                 logger.warning(f"User {user_id} not found for token refresh")
@@ -155,18 +159,14 @@ class AuthService:
     async def deactivate_user(self, user_id: int) -> bool:
         """Deactivate user account (soft delete)."""
         try:
-            stmt = select(User).where(User.id == user_id)
-            result = await self.session.execute(stmt)
-            user = result.scalar_one_or_none()
+            success = await self.user_repository.soft_delete(user_id)
 
-            if not user:
+            if not success:
                 logger.warning(f"User {user_id} not found for deactivation")
                 raise NotFoundError("User not found")
 
-            user.is_active = False
             await self.session.commit()
-
-            logger.info(f"Deactivated user: {user.email_address}")
+            logger.info(f"Deactivated user: {user_id}")
             return True
 
         except Exception as e:
@@ -177,9 +177,7 @@ class AuthService:
     async def get_user_profile(self, user_id: int) -> User:
         """Get user profile information."""
         try:
-            stmt = select(User).where(User.id == user_id)
-            result = await self.session.execute(stmt)
-            user = result.scalar_one_or_none()
+            user = await self.user_repository.get_by_id(user_id)
 
             if not user:
                 logger.warning(f"User {user_id} not found")
@@ -196,32 +194,22 @@ class AuthService:
     ) -> User:
         """Update user profile information."""
         try:
-            stmt = select(User).where(User.id == user_id)
-            result = await self.session.execute(stmt)
-            user = result.scalar_one_or_none()
+            # Filter to only allowed fields
+            allowed_fields = {"name", "profile_image_url"}
+            filtered_data = {
+                key: value
+                for key, value in update_data.items()
+                if key in allowed_fields
+            }
+
+            user = await self.user_repository.update(user_id, filtered_data)
 
             if not user:
                 logger.warning(f"User {user_id} not found for update")
                 raise NotFoundError("User not found")
 
-            # Update allowed fields
-            allowed_fields = {"name", "profile_image_url"}
-            updated = False
-
-            for field, value in update_data.items():
-                if (
-                    field in allowed_fields
-                    and hasattr(user, field)
-                    and getattr(user, field) != value
-                ):
-                    setattr(user, field, value)
-                    updated = True
-
-            if updated:
-                await self.session.commit()
-                await self.session.refresh(user)
-                logger.info(f"Updated user profile: {user.email_address}")
-
+            await self.session.commit()
+            logger.info(f"Updated user profile: {user.email_address}")
             return user
 
         except Exception as e:
@@ -232,10 +220,7 @@ class AuthService:
     async def validate_user_access(self, user_id: int) -> bool:
         """Validate that user exists and is active."""
         try:
-            stmt = select(User).where(User.id == user_id)
-            result = await self.session.execute(stmt)
-            user = result.scalar_one_or_none()
-
+            user = await self.user_repository.get_by_id(user_id)
             return user is not None and user.is_active
 
         except Exception as e:
@@ -245,4 +230,7 @@ class AuthService:
 
 def get_auth_service(session: AsyncSession, jwt_manager: JWTManager) -> AuthService:
     """Factory function to create AuthService instance."""
-    return AuthService(session, jwt_manager)
+    from ..users.repository import UserRepository
+
+    user_repository = UserRepository(session)
+    return AuthService(session, jwt_manager, user_repository)

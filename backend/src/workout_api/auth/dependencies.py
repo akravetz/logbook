@@ -158,56 +158,6 @@ async def verify_token_only(
         ) from e
 
 
-async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
-    """Helper function to get user by ID from database."""
-    try:
-        from sqlalchemy import select
-
-        stmt = select(User).where(User.id == user_id)
-        result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
-
-        return user
-
-    except Exception as e:
-        logger.error(f"Database error while fetching user {user_id}: {e}")
-        return None
-
-
-async def get_user_by_google_id(session: AsyncSession, google_id: str) -> User | None:
-    """Helper function to get user by Google ID from database."""
-    try:
-        from sqlalchemy import select
-
-        stmt = select(User).where(User.google_id == google_id)
-        result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
-
-        return user
-
-    except Exception as e:
-        logger.error(
-            f"Database error while fetching user by Google ID {google_id}: {e}"
-        )
-        return None
-
-
-async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
-    """Helper function to get user by email from database."""
-    try:
-        from sqlalchemy import select
-
-        stmt = select(User).where(User.email_address == email)
-        result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
-
-        return user
-
-    except Exception as e:
-        logger.error(f"Database error while fetching user by email {email}: {e}")
-        return None
-
-
 # Type aliases for dependency injection
 CurrentUser = Annotated[User, Depends(get_current_user_from_token)]
 OptionalUser = Annotated[User | None, Depends(get_current_user_optional)]

@@ -79,15 +79,14 @@ class DatabaseManager:
         return self._session_maker
 
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
-        """Get database session with automatic cleanup and error handling."""
+        """Get database session with proper cleanup. Transaction commit is service layer responsibility."""
         if self._session_maker is None:
             self._initialize_engine()
 
         async with self._session_maker() as session:
             try:
                 yield session
-                await session.commit()
-                logger.debug("Database session committed successfully")
+                logger.debug("Database session yielded successfully")
             except Exception as e:
                 await session.rollback()
                 logger.error(f"Database session rolled back due to error: {e}")

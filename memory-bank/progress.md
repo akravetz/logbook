@@ -311,3 +311,13 @@
 - ✅ Workout Management (100%)
 
 The MVP is complete with all core functionality implemented. The foundation is solid, patterns are established, and all critical SQLAlchemy lessons are documented to prevent future foreign key constraint issues. Ready for frontend development and deployment.
+
+## Recent Achievements
+
+### Backend Architecture Enforcement (December 2024)
+✅ **Repository Pattern Enforcement**
+- Removed problematic helper functions (`get_user_by_id`, `get_user_by_google_id`, `get_user_by_email`) from `dependencies.py`
+- Refactored `AuthService` to use `UserRepository` through constructor injection
+- Eliminated all direct database queries in service layer
+- All 206 tests passing with improved architectural consistency
+- **Impact**: Enforced single source of truth for data access, improved testability, eliminated scattered database logic
