@@ -15,7 +15,7 @@ from ..core.database import get_session
 from ..shared.exceptions import AuthenticationError
 from ..users.models import User
 from ..users.repository import UserRepository
-from .google import GoogleOAuthManager
+from .authlib_google import AuthlibGoogleManager
 from .jwt import JWTManager, TokenData
 
 logger = logging.getLogger("workout_api.auth.dependencies")
@@ -172,15 +172,15 @@ async def get_http_client() -> AsyncGenerator[httpx.AsyncClient, None]:
 
 
 @lru_cache
-def get_google_oauth_manager(
+def get_authlib_google_manager(
     settings: Annotated[Settings, Depends(get_settings)],
-) -> GoogleOAuthManager:
-    """Get Google OAuth manager instance."""
-    # Note: We don't inject http_client here because it's async
-    # The manager will create its own client when needed
-    return GoogleOAuthManager(settings)
+) -> AuthlibGoogleManager:
+    """Get Authlib Google OAuth manager instance."""
+    return AuthlibGoogleManager(settings)
 
 
-# Export Google OAuth manager dependency
-GoogleOAuthDep = Annotated[GoogleOAuthManager, Depends(get_google_oauth_manager)]
+# Export Authlib Google OAuth manager dependency
+AuthlibGoogleOAuthDep = Annotated[
+    AuthlibGoogleManager, Depends(get_authlib_google_manager)
+]
 HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]

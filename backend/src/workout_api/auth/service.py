@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..shared.exceptions import AuthenticationError, DuplicateError, NotFoundError
 from ..users.models import User
 from ..users.repository import UserRepository
-from .google import GoogleUserInfo
+from .authlib_google import GoogleUserInfo
 from .jwt import JWTManager, TokenPair
 
 logger = logging.getLogger("workout_api.auth.service")
@@ -56,6 +56,8 @@ class AuthService:
                     )
 
                     await self.session.commit()
+                    # Refresh the object to ensure it stays attached to the session
+                    await self.session.refresh(existing_user)
                     user = existing_user
                     logger.info(
                         f"Linked Google account to existing user: {user.email_address}"
@@ -90,10 +92,15 @@ class AuthService:
 
             user = await self.user_repository.create(user_data)
             await self.session.commit()
+            # Refresh the object to ensure it stays attached to the session
+            await self.session.refresh(user)
 
             logger.info(f"Created new user: {user.id} - {user.email_address}")
             return user
 
+        except (DuplicateError, AuthenticationError):
+            # Re-raise specific exceptions without wrapping
+            raise
         except Exception as e:
             await self.session.rollback()
             logger.error(f"Failed to create user: {e}")
@@ -127,6 +134,9 @@ class AuthService:
 
             return user
 
+        except (NotFoundError, AuthenticationError):
+            # Re-raise specific exceptions without wrapping
+            raise
         except Exception as e:
             await self.session.rollback()
             logger.error(f"Failed to update user: {e}")
@@ -152,6 +162,9 @@ class AuthService:
             logger.info(f"Refreshed tokens for user: {user.email_address}")
             return tokens
 
+        except (NotFoundError, AuthenticationError):
+            # Re-raise specific exceptions without wrapping
+            raise
         except Exception as e:
             logger.error(f"Token refresh failed for user {user_id}: {e}")
             raise AuthenticationError("Token refresh failed") from e
@@ -169,6 +182,9 @@ class AuthService:
             logger.info(f"Deactivated user: {user_id}")
             return True
 
+        except (NotFoundError, AuthenticationError):
+            # Re-raise specific exceptions without wrapping
+            raise
         except Exception as e:
             await self.session.rollback()
             logger.error(f"Failed to deactivate user {user_id}: {e}")
@@ -185,6 +201,9 @@ class AuthService:
 
             return user
 
+        except (NotFoundError, AuthenticationError):
+            # Re-raise specific exceptions without wrapping
+            raise
         except Exception as e:
             logger.error(f"Failed to get user profile {user_id}: {e}")
             raise AuthenticationError("Failed to retrieve user profile") from e
@@ -209,9 +228,14 @@ class AuthService:
                 raise NotFoundError("User not found")
 
             await self.session.commit()
+            # Refresh the object to ensure it stays attached to the session
+            await self.session.refresh(user)
             logger.info(f"Updated user profile: {user.email_address}")
             return user
 
+        except (NotFoundError, AuthenticationError):
+            # Re-raise specific exceptions without wrapping
+            raise
         except Exception as e:
             await self.session.rollback()
             logger.error(f"Failed to update user profile {user_id}: {e}")

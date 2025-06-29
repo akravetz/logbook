@@ -3,18 +3,17 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import get_settings
 from ..core.database import get_session
 from ..shared.exceptions import AuthenticationError
-from .dependencies import CurrentUser, GoogleOAuthDep, JWTManagerDep, TokenOnly
+from .dependencies import AuthlibGoogleOAuthDep, CurrentUser, JWTManagerDep, TokenOnly
 from .schemas import (
     AuthenticationResponse,
     AuthErrorResponse,
     LogoutResponse,
-    OAuthInitiateResponse,
     SessionInfoResponse,
     TokenRefreshRequest,
     TokenRefreshResponse,
@@ -27,46 +26,26 @@ logger = logging.getLogger("workout_api.auth.router")
 router = APIRouter()
 
 
-@router.post(
+@router.get(
     "/google",
-    response_model=OAuthInitiateResponse,
     summary="Initiate Google OAuth flow",
-    description="Start Google OAuth authentication process and return authorization URL",
+    description="Start Google OAuth authentication process and redirect to Google",
 )
 async def initiate_google_oauth(
-    response: Response,
+    request: Request,
     redirect_url: str | None = Query(  # noqa: ARG001
         default=None, description="Post-auth redirect URL"
     ),
-    google_oauth: GoogleOAuthDep = None,
-) -> OAuthInitiateResponse:
+    google_oauth: AuthlibGoogleOAuthDep = None,
+):
     """Initiate Google OAuth 2.0 authentication flow."""
     try:
-        # Generate OAuth authorization URL with state
-        authorization_url, state = google_oauth.generate_authorization_url()
+        # Generate OAuth authorization redirect using Authlib
+        # This automatically handles state generation and CSRF protection via sessions
+        redirect_response = await google_oauth.authorize_redirect(request)
 
-        # Get settings to determine cookie security based on environment
-        settings = get_settings()
-
-        # Store state in secure, HTTP-only cookie for CSRF protection
-        # For OAuth flows in development, use SameSite=none to allow cross-site OAuth redirects
-        # In production with HTTPS, SameSite=lax works fine for OAuth redirects
-        response.set_cookie(
-            key="oauth_state",
-            value=state,
-            max_age=600,  # 10 minutes
-            httponly=True,
-            secure=not settings.is_development,  # Only secure in production
-            samesite="none"
-            if settings.is_development
-            else "lax",  # none for dev, lax for prod
-        )
-
-        logger.info("OAuth flow initiated with state validation")
-        return OAuthInitiateResponse(
-            authorization_url=authorization_url,
-            state=state,
-        )
+        logger.info("OAuth flow initiated with Authlib session-based state management")
+        return redirect_response
 
     except Exception as e:
         logger.error(f"Failed to initiate OAuth: {e}")
@@ -91,16 +70,13 @@ async def initiate_google_oauth(
 )
 async def google_oauth_callback(
     request: Request,
-    response: Response,
-    code: str = Query(description="Authorization code from Google"),
-    state: str = Query(description="OAuth state parameter"),
     error: str | None = Query(default=None, description="OAuth error"),
     error_description: str | None = Query(
         default=None, description="OAuth error description"
     ),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     jwt_manager: JWTManagerDep = None,
-    google_oauth: GoogleOAuthDep = None,
+    google_oauth: AuthlibGoogleOAuthDep = None,
 ) -> AuthenticationResponse:
     """Handle Google OAuth 2.0 callback and authenticate user."""
     try:
@@ -112,36 +88,12 @@ async def google_oauth_callback(
                 detail=f"OAuth error: {error_description or error}",
             )
 
-        # CSRF Protection: Validate state parameter
-        stored_state = request.cookies.get("oauth_state")
-        if not stored_state:
-            logger.warning("OAuth callback: Missing stored state cookie")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid OAuth state: missing state cookie",
-            )
+        # Exchange authorization code for tokens and get user info
+        # This automatically validates state for CSRF protection
+        token_data = await google_oauth.authorize_access_token(request)
 
-        if not google_oauth.validate_state(state, stored_state):
-            logger.warning("OAuth callback: State validation failed")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid OAuth state: state parameter validation failed",
-            )
-
-        # Clear the state cookie after successful validation
-        # Use same security settings as when cookie was set
-        settings = get_settings()
-        response.delete_cookie(
-            "oauth_state",
-            secure=not settings.is_development,
-            samesite="none" if settings.is_development else "lax",
-        )
-
-        # Handle OAuth callback
-        google_tokens = await google_oauth.exchange_code_for_tokens(code, state)
-        google_user_info = await google_oauth.get_user_info(
-            google_tokens["access_token"]
-        )
+        # Parse user info from token response
+        google_user_info = google_oauth.parse_user_info(token_data["userinfo"])
 
         # Authenticate or create user
         auth_service = get_auth_service(session, jwt_manager)
@@ -163,7 +115,7 @@ async def google_oauth_callback(
         )
 
     except HTTPException:
-        raise  # Re-raise HTTPExceptions (like our CSRF validation errors)
+        raise  # Re-raise HTTPExceptions (like OAuth errors)
     except AuthenticationError as e:
         logger.warning(f"Authentication failed: {e}")
         raise HTTPException(

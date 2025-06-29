@@ -19,7 +19,7 @@ data "external_schema" "sqlalchemy" {
 
 env "local" {
     src = data.external_schema.sqlalchemy.url
-    url = local.envfile["DATABASE_URL"]
+    url = "${local.envfile["DATABASE_URL"]}?sslmode=disable"
     dev = "docker://postgres/16/dev?search_path=public"
     migration {
         dir = "file://migrations"

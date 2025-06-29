@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from workout_api.auth.google import GoogleUserInfo
+from workout_api.auth.authlib_google import GoogleUserInfo
 from workout_api.auth.jwt import JWTManager, TokenPair
 from workout_api.core.config import Settings
 from workout_api.users.models import User
@@ -18,7 +18,7 @@ pytestmark = pytest.mark.anyio
 def mock_google_user_info() -> GoogleUserInfo:
     """Create mock Google user info for testing."""
     data = {
-        "sub": "google_user_123",
+        "id": "google_user_123",
         "email": "test@example.com",
         "name": "Test User",
         "picture": "https://example.com/avatar.jpg",
@@ -124,7 +124,7 @@ def mock_google_token_response() -> dict[str, Any]:
 def mock_google_userinfo_response() -> dict[str, Any]:
     """Mock Google userinfo API response."""
     return {
-        "sub": "google_user_123",
+        "id": "google_user_123",
         "email": "test@example.com",
         "name": "Test User",
         "picture": "https://example.com/avatar.jpg",

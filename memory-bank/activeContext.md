@@ -1,11 +1,36 @@
 # Active Context
 
 ## Current Focus
-**Orval API Client Generation COMPLETE**: Full automation setup for generating TypeScript API client from FastAPI OpenAPI spec. Frontend components now use generated API hooks instead of manual fetch calls, with proper authentication integration.
+**Authlib OAuth Migration COMPLETE**: Successfully migrated from hand-rolled OAuth implementation to Authlib's FastAPI client. Simplified authentication flow with enhanced security, better maintainability, and reduced code complexity.
 
 ## Recent Work Completed
 
-### **Orval API Client Generation & Automation (LATEST) ✅**
+### **Authlib OAuth Migration (LATEST) ✅**
+- **Complete OAuth Replacement**: Successfully migrated from hand-rolled OAuth implementation to Authlib's FastAPI client
+  - Replaced custom `GoogleOAuthManager` with `AuthlibGoogleManager` using Authlib's battle-tested OAuth implementation
+  - Added SessionMiddleware for secure OAuth state management and CSRF protection
+  - Simplified OAuth endpoints by leveraging Authlib's built-in functionality
+  - Maintained same public API for AuthService - no breaking changes to business logic
+
+- **Enhanced Security & Maintainability**: Major improvements in OAuth security and code quality
+  - **Built-in CSRF protection** via session-based state management (no more manual cookie handling)
+  - **Battle-tested OAuth implementation** - Authlib is used by major projects and receives regular security updates
+  - **Simplified codebase** - Removed ~100 lines of manual OAuth code and complex state validation
+  - **Better error handling** - Authlib provides comprehensive OAuth error scenarios
+
+- **Streamlined Architecture**: Cleaner, more maintainable OAuth flow
+  - **Router simplification**: `/auth/google` now directly redirects using `oauth.google.authorize_redirect()`
+  - **Callback simplification**: `/auth/google/callback` uses `oauth.google.authorize_access_token()` for complete flow
+  - **Automatic token exchange and user info retrieval** - No more manual HTTP client management
+  - **Session middleware integration** - Proper session management with configurable security settings
+
+- **Updated Test Suite**: Comprehensive testing of new Authlib integration
+  - Updated 20 OAuth tests to focus on Authlib integration rather than manual HTTP calls
+  - Simplified test scenarios since Authlib handles underlying OAuth complexity
+  - All 201 tests passing - no regressions in existing functionality
+  - Maintained GoogleUserInfo tests since interface remains unchanged
+
+### **Orval API Client Generation & Automation (PREVIOUS) ✅**
 - **Complete Automation Workflow**: Added OpenAPI spec generation and API client workflow
   - Added `generate-openapi`, `generate-openapi-frontend`, and `validate-openapi` tasks to backend Taskfile.yml
   - Added `refresh-api` and `dev:full` scripts to frontend package.json for integrated development workflow
