@@ -45,14 +45,21 @@ async def initiate_google_oauth(
         # Generate OAuth authorization URL with state
         authorization_url, state = google_oauth.generate_authorization_url()
 
+        # Get settings to determine cookie security based on environment
+        settings = get_settings()
+
         # Store state in secure, HTTP-only cookie for CSRF protection
+        # For OAuth flows in development, use SameSite=none to allow cross-site OAuth redirects
+        # In production with HTTPS, SameSite=lax works fine for OAuth redirects
         response.set_cookie(
             key="oauth_state",
             value=state,
             max_age=600,  # 10 minutes
             httponly=True,
-            secure=True,  # Use HTTPS in production
-            samesite="lax",  # Protect against CSRF
+            secure=not settings.is_development,  # Only secure in production
+            samesite="none"
+            if settings.is_development
+            else "lax",  # none for dev, lax for prod
         )
 
         logger.info("OAuth flow initiated with state validation")
@@ -122,7 +129,13 @@ async def google_oauth_callback(
             )
 
         # Clear the state cookie after successful validation
-        response.delete_cookie("oauth_state")
+        # Use same security settings as when cookie was set
+        settings = get_settings()
+        response.delete_cookie(
+            "oauth_state",
+            secure=not settings.is_development,
+            samesite="none" if settings.is_development else "lax",
+        )
 
         # Handle OAuth callback
         google_tokens = await google_oauth.exchange_code_for_tokens(code, state)
