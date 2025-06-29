@@ -101,19 +101,47 @@ All configuration via environment variables:
 
 ### Task Commands
 ```bash
-task dev       # Run development server
-task test      # Run all tests
-task lint      # Run linting
-task migrate   # Run database migrations
-task db:reset  # Reset database
+task dev         # Run development server
+task test        # Run all tests
+task lint        # Run linting
+task db:migrate  # Apply database migrations
+task db:status   # Check migration status
+task db:diff     # Generate new migration
+task db:reset    # Reset database
 ```
 
-### Testing Strategy
-- **Unit Tests**: Business logic in services
-- **Integration Tests**: API endpoints with real database
-- **Test Isolation**: Transaction rollback pattern
-- **Test Database**: testcontainers PostgreSQL
-- **Fixtures**: pytest fixtures for common data
+### Testing Strategy (Updated)
+- **Unit Tests**: Business logic in services (69+ service tests)
+- **Integration Tests**: API endpoints with real database (26+ router tests)
+- **Repository Tests**: Database operations with complex queries (26+ repository tests)
+- **Test Isolation**: Transaction rollback with savepoints - perfect isolation
+- **Test Database**: PostgreSQL testcontainers for realistic testing
+- **Modern Async**: pytest-anyio for better async handling
+- **Authentication Testing**: Dependency injection patterns instead of patching
+
+#### ⚠️ CRITICAL: Pytest Fixture Patterns
+**NEVER remove fixture parameters from test functions - they are always used for test setup**
+
+```python
+# ✅ CORRECT: Fixtures create test data even if not directly referenced
+async def test_user_statistics(
+    self, authenticated_client: AsyncClient, test_user: User  # noqa: ARG002
+):
+    """The test_user fixture creates a user in the database for authentication."""
+    response = await authenticated_client.get("/api/v1/users/me/stats")
+    assert response.status_code == 200
+
+# ❌ WRONG: Removing fixtures breaks test setup
+async def test_user_statistics(self, authenticated_client: AsyncClient):
+    """Without test_user fixture, authenticated_client has no user to authenticate!"""
+    response = await authenticated_client.get("/api/v1/users/me/stats")  # Will fail
+```
+
+**Fixture Usage Rules:**
+- Fixtures perform setup even when not directly referenced in test code
+- Use `# noqa: ARG002` to suppress "unused argument" warnings for fixtures
+- Common fixtures: `test_user`, `sample_workout`, `authenticated_client`, `session`
+- Never remove fixture parameters to "fix" linting warnings
 
 ### Code Quality
 - **Pre-commit Hooks**: Format, lint, security checks
@@ -182,6 +210,25 @@ task db:reset  # Reset database
 - Documentation for public APIs
 - Follow functional cohesion structure
 
+## Current Implementation Status
+
+### ✅ Completed Modules
+- **User Management**: Full CRUD with JWT/OAuth authentication (41 tests)
+- **Exercise Management**: Complete CRUD with search, filtering, pagination (69 tests)
+- **Database Schema**: Deployed with Atlas migrations (5 tables with relationships)
+- **Testing Infrastructure**: 171 tests passing with modern async patterns
+
+### 🚧 In Progress
+- **Workout Management**: Next major module (0% complete)
+
+### 📋 Architecture Patterns Established
+- Service layer returns Pydantic models (prevents session issues)
+- Repository layer handles database operations
+- Router layer uses Pydantic directly (no .model_validate())
+- Dependency injection for all services and testing
+- Route ordering for FastAPI (specific before generic)
+- Mixed authentication (public read, protected write)
+
 ## Future Considerations
 - WebSocket support for real-time features
 - Redis for caching/sessions
@@ -214,4 +261,137 @@ task db:reset  # Reset database
 - Content Security Policy
 - XSS protection
 - CSRF tokens
-- Rate limiting 
+- Rate limiting
+
+## Critical SQLAlchemy ORM Patterns
+
+### ⚠️ CRITICAL: ORM Delete Operations vs Raw SQL
+**NEVER use raw SQL DELETE for operations involving foreign key relationships**
+
+#### ❌ WRONG: Raw SQL bypasses cascade behavior
+```python
+# This causes foreign key constraint violations
+delete_stmt = delete(ExerciseExecution).where(
+    ExerciseExecution.id == execution_id
+)
+result = await session.execute(delete_stmt)
+return result.rowcount > 0
+```
+
+#### ✅ CORRECT: ORM operations respect cascade relationships
+```python
+# This properly triggers cascade="all, delete-orphan"
+execution_stmt = select(ExerciseExecution).where(
+    ExerciseExecution.id == execution_id
+)
+result = await session.execute(execution_stmt)
+execution = result.scalar_one_or_none()
+
+if not execution:
+    return False
+
+# Use ORM delete - triggers SQLAlchemy cascades
+await session.delete(execution)
+await session.flush()           # Ensure deletion visible within transaction
+session.expire_all()           # Clear cached relationships (synchronous!)
+return True
+```
+
+### Why This Pattern is Critical
+1. **Cascade Behavior**: Raw SQL DELETE bypasses SQLAlchemy's `cascade="all, delete-orphan"` settings
+2. **Foreign Key Constraints**: Database constraints prevent deletion when related records exist
+3. **Cache Issues**: SQLAlchemy caches relationship queries, showing stale data after deletion
+4. **Transaction Visibility**: `flush()` ensures changes are visible within the same transaction
+5. **Cache Invalidation**: `expire_all()` clears cached relationships to prevent stale reads
+
+### Foreign Key Constraint Resolution Pattern
+```python
+async def delete_with_cascade(session: AsyncSession, model_class, object_id: int) -> bool:
+    """Safe deletion pattern that respects SQLAlchemy cascades."""
+    # Get the object first
+    stmt = select(model_class).where(model_class.id == object_id)
+    result = await session.execute(stmt)
+    obj = result.scalar_one_or_none()
+
+    if not obj:
+        return False
+
+    # Use ORM delete (not raw SQL)
+    await session.delete(obj)
+
+    # Ensure changes are visible and clear cache
+    await session.flush()       # Makes deletion visible in transaction
+    session.expire_all()        # Clears cached relationships (sync call!)
+
+    return True
+```
+
+### Cache Management Rules
+- **`session.flush()`**: Async call that pushes changes to database within transaction
+- **`session.expire_all()`**: Synchronous call that clears SQLAlchemy's identity map
+- **Order matters**: Always flush before expire_all
+- **Transaction scope**: Both operations work within the current transaction
+
+### Critical Database Transaction Patterns
+
+#### ⚠️ Service Layer Transaction Responsibility
+**The session dependency does NOT auto-commit transactions. Transaction management is the service layer's responsibility.**
+
+```python
+# ✅ CORRECT: Service layer handles commits
+class UserService:
+    async def update_user_profile(self, user_id: int, data: dict) -> UserResponse:
+        updated_user = await self.repository.update(user_id, data)
+        user_response = UserResponse.model_validate(updated_user)
+        await self.session.commit()  # Explicit commit
+        return user_response
+
+# ❌ WRONG: Depending on automatic commits
+class UserService:
+    async def update_user_profile(self, user_id: int, data: dict) -> UserResponse:
+        updated_user = await self.repository.update(user_id, data)
+        # Missing commit - changes would be lost!
+        return UserResponse.model_validate(updated_user)
+```
+
+#### Transaction Boundary Guidelines
+1. **Complete Units of Work**: Commit only when entire business operation is complete
+2. **Error Handling**: Always rollback on exceptions in service methods
+3. **Session Dependency**: Only provides session, handles cleanup and rollback on errors
+4. **Multiple Operations**: Commit after all related changes in a single transaction
+
+#### Example Service Pattern
+```python
+class WorkoutService:
+    async def create_workout_with_exercises(self, user_id: int, data: WorkoutCreate):
+        try:
+            # Multiple related operations in one transaction
+            workout = await self.repository.create_workout(user_id)
+            for exercise_data in data.exercises:
+                await self.repository.create_exercise_execution(workout.id, exercise_data)
+
+            # Convert to response models before commit
+            response = WorkoutResponse.model_validate(workout)
+
+            # Commit entire unit of work
+            await self.session.commit()
+            return response
+
+        except Exception as e:
+            await self.session.rollback()  # Rollback on any error
+            raise ServiceError("Failed to create workout") from e
+```
+
+#### Session Dependency Implementation
+```python
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provides session with cleanup - NO automatic commits."""
+    async with session_maker() as session:
+        try:
+            yield session  # Service layer manages commits
+        except Exception as e:
+            await session.rollback()  # Auto-rollback on errors
+            raise
+        finally:
+            await session.close()  # Always cleanup
+```

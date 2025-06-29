@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_session
-from .schemas import DatabaseHealthResponse, FullHealthResponse, SimpleHealthResponse
+from .schemas import (
+    DatabaseHealthResponse,
+    FullHealthResponse,
+    SimpleHealthResponse,
+    SystemInfoResponse,
+)
 from .service import HealthService
 
 router = APIRouter()
@@ -42,3 +47,11 @@ async def full_health_check(
 ):
     """Comprehensive health check - app and database status."""
     return await health_service.get_full_health()
+
+
+@router.get("/system", response_model=SystemInfoResponse)
+async def system_info(
+    health_service: HealthService = Depends(get_health_service_no_db),
+):
+    """Get system configuration and runtime information."""
+    return health_service.get_system_info()

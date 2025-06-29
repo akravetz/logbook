@@ -1,0 +1,26 @@
+# Gitleaks configuration to allow test secrets while maintaining security
+title = "Gitleaks configuration for workout API"
+
+# Global allowlist
+[allowlist]
+# Allow specific fingerprints for known test secrets
+fingerprints = [
+    "backend/tests/auth/conftest.py:generic-api-key:84",
+    "backend/tests/auth/test_google.py:generic-api-key:20",
+    "backend/tests/auth/test_jwt.py:generic-api-key:32",
+    "backend/tests/auth/test_jwt.py:generic-api-key:286"
+]
+
+# Allow all files in test directories
+paths = [
+    "tests/",
+    ".env.example"
+]
+
+# Allow patterns that are clearly test data
+regexes = [
+    "test_secret_key_",
+    "wrong_secret_key_",
+    "mock_.*_token",
+    "test_client_secret"
+]
