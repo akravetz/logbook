@@ -283,11 +283,6 @@ async def authenticated_client(client: AsyncClient, test_user: User) -> AsyncCli
         del app.dependency_overrides[get_current_user_from_token]
 
 
-# ================================
-# Repository Fixtures
-# ================================
-
-
 @pytest.fixture
 async def admin_authenticated_client(
     client: AsyncClient, test_admin_user: User
