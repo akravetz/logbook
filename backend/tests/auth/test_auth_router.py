@@ -26,35 +26,6 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def test_user(session):
-    """Create a test user for authentication."""
-    user = User(
-        email_address="test@example.com",
-        google_id="google123",
-        name="Test User",
-        profile_image_url="https://example.com/profile.jpg",
-        is_active=True,
-        is_admin=False,
-    )
-    session.add(user)
-    await session.flush()
-    await session.refresh(user)
-    # Extract all attributes to prevent lazy loading issues
-    _ = (
-        user.id,
-        user.email_address,
-        user.name,
-        user.is_active,
-        user.profile_image_url,
-        user.google_id,
-        user.is_admin,
-        user.created_at,
-        user.updated_at,
-    )
-    return user
-
-
-@pytest.fixture
 def mock_token_data(test_user: User):
     """Create mock token data for testing."""
     # Extract user attributes early

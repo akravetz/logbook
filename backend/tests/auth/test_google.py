@@ -10,23 +10,6 @@ from workout_api.auth.authlib_google import (
     GoogleOAuthError,
     GoogleUserInfo,
 )
-from workout_api.core.config import Settings
-
-
-@pytest.fixture
-def test_settings():
-    """Create test settings for Google OAuth."""
-    return Settings(
-        jwt_secret_key="test_secret_key_12345678901234567890",  # gitleaks:allow
-        jwt_algorithm="HS256",
-        access_token_expire_minutes=30,
-        refresh_token_expire_days=7,
-        database_url="postgresql://test:test@localhost/test",
-        google_client_id="test_client_id",
-        google_client_secret="test_client_secret",
-        google_redirect_uri="http://localhost:8080/api/v1/auth/google/callback",
-        google_discovery_url="https://accounts.google.com/.well-known/openid_configuration",
-    )
 
 
 @pytest.fixture

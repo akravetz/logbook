@@ -26,21 +26,6 @@ class MockTimeProvider:
 
 
 @pytest.fixture
-def test_settings():
-    """Create test settings."""
-    return Settings(
-        jwt_secret_key="test_secret_key_12345678901234567890",  # gitleaks:allow
-        jwt_algorithm="HS256",
-        access_token_expire_minutes=30,
-        refresh_token_expire_days=7,
-        database_url="postgresql://test:test@localhost/test",
-        google_client_id="test_client_id",
-        google_client_secret="test_client_secret",
-        google_redirect_uri="http://localhost:8080/callback",
-    )
-
-
-@pytest.fixture
 def fixed_time():
     """Fixed time for testing."""
     return datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)

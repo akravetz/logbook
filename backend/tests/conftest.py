@@ -303,6 +303,19 @@ async def admin_authenticated_client(
         del app.dependency_overrides[get_current_user_from_token]
 
 
+# ================================
+# Repository Fixtures
+# ================================
+
+
+@pytest.fixture
+async def user_repository(session: AsyncSession):
+    """Create UserRepository instance with injected session - shared across modules."""
+    from workout_api.users.repository import UserRepository
+
+    return UserRepository(session)
+
+
 @pytest.fixture
 async def another_authenticated_client(
     client: AsyncClient, another_user: User

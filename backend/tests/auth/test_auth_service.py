@@ -21,12 +21,6 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def user_repository(session: AsyncSession):
-    """Create UserRepository instance with injected session."""
-    return UserRepository(session)
-
-
-@pytest.fixture
 async def auth_service(
     session: AsyncSession, jwt_manager: JWTManager, user_repository: UserRepository
 ):
