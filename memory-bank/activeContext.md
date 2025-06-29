@@ -1,11 +1,50 @@
 # Active Context
 
 ## Current Focus
-**All Core Backend Development COMPLETE**: MVP functionality fully implemented with optimized performance, strict architectural patterns, and comprehensive code quality standards. Database schema, Exercise module, Workout module, and all supporting infrastructure operational with 208 passing tests.
+**Orval API Client Generation COMPLETE**: Full automation setup for generating TypeScript API client from FastAPI OpenAPI spec. Frontend components now use generated API hooks instead of manual fetch calls, with proper authentication integration.
 
 ## Recent Work Completed
 
-### Code Quality and Standards Enforcement (LATEST) ✅
+### **Orval API Client Generation & Automation (LATEST) ✅**
+- **Complete Automation Workflow**: Added OpenAPI spec generation and API client workflow
+  - Added `generate-openapi`, `generate-openapi-frontend`, and `validate-openapi` tasks to backend Taskfile.yml
+  - Added `refresh-api` and `dev:full` scripts to frontend package.json for integrated development workflow
+  - OpenAPI spec automatically generated from FastAPI app and copied to frontend for consumption
+
+- **Frontend API Client Migration**: Successfully migrated from manual fetch calls to generated Orval client
+  - Updated `api-health-check.tsx` to use `useSimpleHealthCheckApiV1HealthGet` hook
+  - Updated `login-screen.tsx` to use `useInitiateGoogleOauthApiV1AuthGooglePost` mutation
+  - Eliminated hardcoded API URLs and manual error handling - now handled by generated client
+  - Full React Query integration with automatic caching, loading states, and error handling
+
+- **Duplicate Health Endpoint Resolution**: Fixed critical code generation issue
+  - Removed unnecessary health check endpoint from auth router (caused duplicate function declarations)
+  - Changed Orval configuration from `tags-split` to `single` mode to avoid split file duplicates
+  - All API functions now generated in single `lib/api/generated.ts` file with `lib/api/model` directory for types
+  - Build process now completes successfully without duplicate function errors
+
+- **Type Safety & Developer Experience**: Full TypeScript integration
+  - Complete type definitions for all API endpoints (authentication, health, exercises, workouts, users)
+  - Auto-completion and compile-time error checking for API calls
+  - Consistent error handling and response types across all endpoints
+
+### Development Workflow Established
+**New Scripts Available:**
+- Backend: `task generate-openapi` - Generate OpenAPI spec from FastAPI app
+- Backend: `task generate-openapi-frontend` - Generate spec and copy to frontend
+- Backend: `task validate-openapi` - Validate that spec is current (useful for CI/CD)
+- Frontend: `npm run refresh-api` - Complete workflow to refresh API spec and regenerate client
+- Frontend: `npm run dev:full` - Refresh API and start development server
+
+**Benefits Achieved:**
+- **Consistency**: Single source of truth for API definitions
+- **Type Safety**: Full TypeScript types for all API calls
+- **React Query Integration**: Automatic caching, loading states, error handling
+- **Developer Experience**: Auto-completion, compile-time error checking
+- **Maintainability**: API changes automatically propagate to frontend
+- **Performance**: Generated client handles baseURL, authentication, token refresh automatically
+
+### Code Quality and Standards Enforcement (COMPLETED) ✅
 - **PEP 8 Import Organization**: Complete reorganization of imports across codebase
   - Fixed 4 violations where imports were inside function definitions
   - Moved `UserRepository`, `Page`, and `select` imports to module-level sections
@@ -103,33 +142,65 @@
 - **Dependency Injection**: FastAPI dependencies for repository and service
 
 ### Exercise Testing Implementation (DONE) ✅
-- **Comprehensive Test Suite**: 69 exercise tests across all layers
-  - 26 Repository tests: CRUD, search, filtering, pagination, permissions
-  - 17 Service tests: Business logic, Pydantic conversion, error handling
-  - 26 Router tests: HTTP endpoints, authentication, response validation
+- **Comprehensive Test Coverage**: 69 exercise tests across all layers
+  - 26 Repository tests: CRUD operations, search, filtering, pagination, permissions
+  - 17 Service tests: Business logic validation, Pydantic conversion, error handling
+  - 26 Router tests: HTTP endpoints, authentication scenarios, response validation
 - **Test Patterns**: Following established patterns with transaction isolation
   - Early attribute extraction to prevent MissingGreenlet errors
-  - Authenticated client fixtures using dependency injection
+  - Authenticated client fixtures using dependency injection instead of patching
   - Comprehensive error scenarios and edge cases
 
-### Critical Bug Fixes and Improvements (DONE) ✅
-- **Route Ordering Fix**: Moved specific routes (/modalities, /body-parts) before generic /{exercise_id}
-- **Authentication Testing**: Proper authenticated_client fixtures instead of auth failure testing
-- **Exception Handling**: Added ValidationError handling to delete endpoint
-- **Pagination Limits**: Fixed body-parts endpoint to handle 100-item pagination limit
-- **Import Resolution**: Fixed missing imports and dependency injection patterns
+### Critical Bug Fixes and System Improvements (DONE) ✅
+- **Route Ordering Resolution**: Fixed FastAPI route matching issues
+  - Moved specific routes (/modalities, /body-parts, /system) before generic /{exercise_id}
+  - Prevents generic route from intercepting specific endpoint calls
+- **Authentication Flow Fixes**: Proper test authentication patterns
+  - Created authenticated_client and another_authenticated_client fixtures
+  - Tests now validate actual business logic instead of just auth failures
+  - Full code path coverage for both authenticated and non-authenticated scenarios
+- **Exception Handling Enhancement**: Complete error handling coverage
+  - Added ValidationError handling to delete endpoint
+  - Permission errors return correct 400 status with meaningful messages
+  - Proper HTTP status codes throughout all endpoints
+- **Pagination System Fix**: Resolved body-parts endpoint limit issues
+  - Implemented proper pagination handling for results exceeding 100-item limit
+  - Multiple paginated requests to gather complete data sets
 
 ### Usage Statistics Removal (DONE) ✅
-- **Complete Removal**: Eliminated all usage statistics functionality per user request
+- **Complete Feature Removal**: Per user request, eliminated all usage statistics
   - Removed ExerciseUsageStats schema class
   - Removed get_exercise_usage_stats() repository method
-  - Removed service methods: get_exercise_usage_statistics() and get_usage_stats()
+  - Removed get_exercise_usage_statistics() and get_usage_stats() service methods
   - Removed GET /exercises/{exercise_id}/stats API endpoint
   - Removed 6 usage statistics test methods across all test files
 - **Clean Codebase**: No leftover references or dead code
-- **Test Count**: Maintained 165 passing tests after removal (102 existing + 63 exercise)
+- **Test Count After Removal**: 165 passing tests (102 existing + 63 exercise)
 
 ## Critical Technical Learnings Documented
+
+### Orval API Client Generation Best Practices (NEW)
+**Configuration Lessons**:
+- **Single File Mode**: Use `mode: "single"` to avoid duplicate function declarations in generated code
+- **Tags-Split Issues**: `mode: "tags-split"` can cause duplicate function generation when endpoints share similar paths
+- **Path Conflicts**: Ensure no duplicate route patterns across different routers to prevent generation conflicts
+
+**Development Workflow**:
+```bash
+# Backend: Generate and validate OpenAPI spec
+task generate-openapi
+task validate-openapi
+
+# Frontend: Full API refresh workflow
+npm run refresh-api    # Regenerates spec + client
+npm run dev:full      # Refresh + start dev server
+```
+
+**Frontend Integration**:
+- Import from single generated file: `@/lib/api/generated`
+- Use React Query hooks for queries: `useEndpointNameGet`
+- Use React Query mutations for commands: `useEndpointNamePost`
+- All authentication, error handling, and baseURL management is automatic
 
 ### SQLAlchemy ORM Delete Pattern (CRITICAL)
 **Problem**: Raw SQL DELETE operations cause foreign key constraint violations
@@ -178,71 +249,31 @@ JWT_SECRET_KEY=your-jwt-specific-secret-key-with-at-least-32-characters
 
 ## Next Implementation Phase
 
-### Phase 4: Enhancement and Polish (Optional)
-**Priority: Enhancement** - Core MVP functionality is complete
+### Phase 4: Frontend Enhancement (Ready to Begin)
+**Priority: High** - Core backend is complete, ready for comprehensive frontend development
 
-**Potential Enhancements**:
-1. **Service Layer Expansion**: Add comprehensive service tests
-   - Business logic validation tests for workout services
-   - Edge case handling for complex workout scenarios
-   - Performance testing for complex relationship queries
+**Immediate Next Steps**:
+1. **Component Development**: Build workout tracking interfaces using generated API client
+   - Workout creation and management components
+   - Exercise selection and search interfaces
+   - Set logging and progress tracking components
+   - User dashboard and statistics display
 
-2. **Router Layer Expansion**: Add comprehensive router tests
-   - HTTP endpoint integration tests for workout operations
-   - Authentication flow testing with workout operations
-   - Error response validation and status code testing
+2. **Authentication Integration**: Complete auth flow integration
+   - OAuth callback handling on frontend
+   - Token storage and refresh management
+   - Protected routes and authentication state management
+   - User session management with React Query
 
-3. **Advanced Features**: Additional workout functionality
-   - Workout templates and routine management
-   - Personal record tracking and progress analytics
-   - Workout sharing and social features
-   - Rest timer and workout guidance features
+3. **State Management**: Implement comprehensive state management
+   - React Query integration for server state
+   - Local state management for UI interactions
+   - Real-time workout session state
+   - Optimistic updates for better UX
 
-4. **Performance Optimization**: Database and query optimization
-   - Complex query optimization for workout analytics
-   - Caching strategy implementation
-   - Database index optimization for common queries
-
-## Development Status
-
-### Infrastructure Complete ✅
-- **Database Schema**: Deployed and operational with all relationships
-- **Migration System**: Atlas operational with environment variable loading
-- **Test Infrastructure**: Modern async patterns with 206 tests passing
-- **Authentication**: Complete JWT and Google OAuth implementation
-- **User Management**: Full CRUD with 41 comprehensive tests
-- **Exercise Management**: Full CRUD with 69 comprehensive tests
-- **Workout Management**: Full hybrid API with 35 comprehensive tests
-
-### Current Test Metrics ✅
-- **Total Tests**: 206 passing (no regressions)
-- **Workout Tests**: 35 (repository layer with complex relationship testing)
-- **Exercise Tests**: 69 (26 router + 17 service + 26 repository)
-- **User/Auth Tests**: 102 (infrastructure and authentication)
-- **Test Performance**: All tests run in <4 seconds
-- **Coverage**: 100% for all implemented core modules
-
-### Quality Standards Maintained ✅
-- **Code Quality**: All ruff standards maintained
-- **Exception Handling**: Proper error chaining and HTTP status codes
-- **Documentation**: API endpoints properly documented
-- **Security**: Authentication flows tested and validated
-- **Foreign Key Constraints**: All relationship cascades working correctly
-
-### Core MVP Status ✅
-**ALL CORE FUNCTIONALITY COMPLETE**
-- ✅ User authentication and management
-- ✅ Exercise library with CRUD operations
-- ✅ Workout tracking with exercise executions and sets
-- ✅ Comprehensive test coverage with transaction isolation
-- ✅ Foreign key constraint issues resolved
-- ✅ Modern async patterns throughout
-
-## Implementation Priority
-1. **Frontend Development** - Ready to begin with complete backend API
-2. **Documentation Enhancement** - Complete OpenAPI specification and usage guides
-3. **Deployment Preparation** - Production environment setup
-4. **Performance Monitoring** - Establish monitoring and observability
-5. **Feature Enhancements** - Based on user feedback and usage patterns
-
-The backend API is fully operational with all core MVP functionality implemented. The Exercise and Workout modules provide comprehensive CRUD operations, filtering, pagination, user permission management, and robust test coverage. All critical SQLAlchemy patterns are documented to prevent future foreign key constraint issues.
+**API Client Ready**: All backend endpoints available through generated hooks
+- Authentication: `useInitiateGoogleOauthApiV1AuthGooglePost`, `useRefreshTokenApiV1AuthRefreshPost`
+- Exercises: `useSearchExercisesApiV1ExercisesGet`, `useCreateExerciseApiV1ExercisesPost`
+- Workouts: `useCreateWorkoutApiV1WorkoutsPost`, `useListWorkoutsApiV1WorkoutsGet`
+- Users: `useGetUserStatisticsApiV1UsersMeStatsGet`, `useUpdateProfileApiV1UsersMePatch`
+- Health: `useSimpleHealthCheckApiV1HealthGet`, `useFullHealthCheckApiV1HealthFullGet`

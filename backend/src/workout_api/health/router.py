@@ -12,7 +12,7 @@ from .schemas import (
 )
 from .service import HealthService
 
-router = APIRouter()
+router = APIRouter(prefix="/health", tags=["health"])
 
 
 def get_health_service(session: AsyncSession = Depends(get_session)) -> HealthService:

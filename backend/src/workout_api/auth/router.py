@@ -284,39 +284,3 @@ async def validate_token(
     except Exception as e:
         logger.error(f"Token validation error: {e}")
         return TokenValidationResponse(valid=False)
-
-
-# Health check for auth system
-@router.get(
-    "/health",
-    summary="Authentication system health",
-    description="Check if authentication system is working",
-)
-async def auth_health_check():
-    """Check authentication system health."""
-    try:
-        settings = get_settings()
-
-        # Basic configuration checks
-        config_ok = bool(
-            settings.google_client_id
-            and settings.google_client_secret
-            and settings.jwt_secret_key
-        )
-
-        return {
-            "status": "healthy" if config_ok else "unhealthy",
-            "auth_system": "operational" if config_ok else "configuration_error",
-            "google_oauth": "configured"
-            if settings.google_client_id
-            else "not_configured",
-            "jwt": "configured" if settings.jwt_secret_key else "not_configured",
-        }
-
-    except Exception as e:
-        logger.error(f"Auth health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "auth_system": "error",
-            "error": str(e),
-        }

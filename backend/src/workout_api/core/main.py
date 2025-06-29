@@ -243,7 +243,7 @@ async def root():
 
 
 # Include routers
-app.include_router(health_router, prefix="/health", tags=["Health"])
+app.include_router(health_router, prefix=f"{settings.api_v1_prefix}", tags=["Health"])
 
 # Authentication router
 app.include_router(

@@ -33,7 +33,7 @@ env "local" {
 
 env "prod" {
     src = data.external_schema.sqlalchemy.url
-    url = local.envfile["PROD_DB_CONNECTION_URI"]
+    url = local.envfile["PROD_DATABASE_URL"]
     dev = "docker://postgres/16/dev?search_path=public"
     migration {
         dir = "file://migrations"

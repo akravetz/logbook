@@ -33,6 +33,7 @@ env/
 # Environment Variables
 .env
 .env.local
+.env.prod
 .env.production
 
 # IDE

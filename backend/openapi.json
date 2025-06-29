@@ -23,14 +23,15 @@
         }
       }
     },
-    "/health/": {
+    "/api/v1/health/": {
       "get": {
         "tags": [
-          "Health"
+          "Health",
+          "health"
         ],
         "summary": "Simple Health Check",
         "description": "Simple health check - is the application running?",
-        "operationId": "simple_health_check_health__get",
+        "operationId": "simple_health_check_api_v1_health__get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -45,14 +46,15 @@
         }
       }
     },
-    "/health/db": {
+    "/api/v1/health/db": {
       "get": {
         "tags": [
-          "Health"
+          "Health",
+          "health"
         ],
         "summary": "Database Health Check",
         "description": "Database health check - can we connect to the database?",
-        "operationId": "database_health_check_health_db_get",
+        "operationId": "database_health_check_api_v1_health_db_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -67,14 +69,15 @@
         }
       }
     },
-    "/health/full": {
+    "/api/v1/health/full": {
       "get": {
         "tags": [
-          "Health"
+          "Health",
+          "health"
         ],
         "summary": "Full Health Check",
         "description": "Comprehensive health check - app and database status.",
-        "operationId": "full_health_check_health_full_get",
+        "operationId": "full_health_check_api_v1_health_full_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -89,14 +92,15 @@
         }
       }
     },
-    "/health/system": {
+    "/api/v1/health/system": {
       "get": {
         "tags": [
-          "Health"
+          "Health",
+          "health"
         ],
         "summary": "System Info",
         "description": "Get system configuration and runtime information.",
-        "operationId": "system_info_health_system_get",
+        "operationId": "system_info_api_v1_health_system_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -406,26 +410,6 @@
             "HTTPBearer": []
           }
         ]
-      }
-    },
-    "/api/v1/auth/health": {
-      "get": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Authentication system health",
-        "description": "Check if authentication system is working",
-        "operationId": "auth_health_check_api_v1_auth_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
       }
     },
     "/api/v1/users/me": {

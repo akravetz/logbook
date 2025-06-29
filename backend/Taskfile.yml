@@ -20,12 +20,12 @@ tasks:
   run:
     desc: Run the development server with hypercorn
     cmds:
-      - uv run python -m {{.PROJECT_NAME}}.server
-
-  run:hypercorn:
-    desc: Run server directly with hypercorn CLI
-    cmds:
       - uv run hypercorn {{.PROJECT_NAME}}.core.main:app --bind 0.0.0.0:8080 --reload
+
+  dev:
+    desc: Run development server (alias for run)
+    cmds:
+      - task: run
 
   run:http2:
     desc: Run server with HTTP/2 enabled
@@ -58,6 +58,27 @@ tasks:
     cmds:
       - uv run ruff format {{.SRC_DIR}} {{.TEST_DIR}}
       - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}} --fix
+
+  # OpenAPI Generation Tasks
+  generate-openapi:
+    desc: Generate OpenAPI spec from FastAPI app
+    cmds:
+      - uv run python -c "from {{.PROJECT_NAME}}.core.main import app; import json; open('openapi.json', 'w').write(json.dumps(app.openapi(), indent=2).strip())"
+      - echo "OpenAPI spec generated at openapi.json"
+
+  generate-openapi-frontend:
+    desc: Generate OpenAPI spec and copy to frontend
+    cmds:
+      - task: generate-openapi
+      - cp openapi.json ../frontend/openapi.json
+      - echo "OpenAPI spec copied to frontend/openapi.json"
+
+  validate-openapi:
+    desc: Validate that OpenAPI spec is current
+    cmds:
+      - task: generate-openapi
+      - git diff --exit-code openapi.json || (echo "⚠️  OpenAPI spec is out of date! Run 'task generate-openapi' to update" && exit 1)
+      - echo "✅ OpenAPI spec is current"
 
   # Database Migration Tasks (Atlas)
   db:diff:

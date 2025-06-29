@@ -198,165 +198,109 @@
 - All 208 tests passing, no circular import issues introduced
 - **Impact**: Better code organization, improved readability, compliance with Python style guidelines
 
-## Current Status
+### ✅ Orval API Client Generation & Automation (LATEST COMPLETED)
+- **Complete Automation Workflow**: Added OpenAPI spec generation and API client workflow
+  - Added `generate-openapi`, `generate-openapi-frontend`, and `validate-openapi` tasks to backend Taskfile.yml
+  - Added `refresh-api` and `dev:full` scripts to frontend package.json for integrated development workflow
+  - OpenAPI spec automatically generated from FastAPI app and copied to frontend for consumption
 
-### 🎯 All Core Phases Complete
-- **Database Schema**: Deployed and operational in local environment
-- **Exercise Module**: Full CRUD implementation with comprehensive testing
-- **Workout Module**: Full hybrid API implementation with comprehensive testing
-- **Test Suite**: 206 total tests passing (no regressions)
-  - 102 existing tests (auth, user management, infrastructure)
-  - 69 exercise tests (26 router + 17 service + 26 repository)
-  - 35 workout tests (repository layer with complex relationships)
-- **Code Quality**: All ruff standards maintained, proper error handling
-- **Performance**: All tests complete in <4 seconds
+- **Frontend API Client Migration**: Successfully migrated from manual fetch calls to generated Orval client
+  - Updated `api-health-check.tsx` to use `useSimpleHealthCheckApiV1HealthGet` hook
+  - Updated `login-screen.tsx` to use `useInitiateGoogleOauthApiV1AuthGooglePost` mutation
+  - Eliminated hardcoded API URLs and manual error handling - now handled by generated client
+  - Full React Query integration with automatic caching, loading states, and error handling
 
-### 📊 Test Suite Excellence
-- **Architecture**: pytest-anyio + PostgreSQL testcontainers + transaction isolation
-- **Performance**: All tests run in <4 seconds with real database
-- **Reliability**: 100% test pass rate with proper async handling
-- **Coverage**: Complete coverage of auth, user management, exercise, and workout modules
-- **Patterns**: Established patterns for service layer, router layer, testing, and ORM operations
+- **Duplicate Health Endpoint Resolution**: Fixed critical code generation issue
+  - Removed unnecessary health check endpoint from auth router (caused duplicate function declarations)
+  - Changed Orval configuration from `tags-split` to `single` mode to avoid split file duplicates
+  - All API functions now generated in single `lib/api/generated.ts` file with `lib/api/model` directory for types
+  - Build process now completes successfully without duplicate function errors
 
-### 🔧 Established Patterns (Critical for Future Development)
-- **Service Layer**: Returns Pydantic models, converts within session context
-- **Router Layer**: Uses Pydantic models directly, never calls .model_validate()
-- **Repository Layer**: Returns SQLAlchemy objects, lets service handle conversion
-- **Testing**: Extract SQLAlchemy attributes early to avoid lazy loading issues
-- **Authentication**: Dependency injection for test fixtures instead of patching
-- **Error Handling**: Extract attributes early in functions, proper exception chaining
-- **ORM Deletions**: NEVER use raw SQL DELETE - always use session.delete() with flush() and expire_all()
+- **Type Safety & Developer Experience**: Full TypeScript integration
+  - Complete type definitions for all API endpoints (authentication, health, exercises, workouts, users)
+  - Auto-completion and compile-time error checking for API calls
+  - Consistent error handling and response types across all endpoints
 
-## Next Implementation Steps
+### Development Workflow Established
+**New Scripts Available:**
+- Backend: `task generate-openapi` - Generate OpenAPI spec from FastAPI app
+- Backend: `task generate-openapi-frontend` - Generate spec and copy to frontend
+- Backend: `task validate-openapi` - Validate that spec is current (useful for CI/CD)
+- Frontend: `npm run refresh-api` - Complete workflow to refresh API spec and regenerate client
+- Frontend: `npm run dev:full` - Refresh API and start development server
 
-#### 1. Enhancement and Polish (Optional)
-- [ ] Service layer expansion with comprehensive business logic tests
-- [ ] Router layer expansion with full HTTP endpoint integration tests
-- [ ] Advanced workout features (templates, analytics, sharing)
-- [ ] Performance optimization for complex queries
+**Benefits Achieved:**
+- **Consistency**: Single source of truth for API definitions
+- **Type Safety**: Full TypeScript types for all API calls
+- **React Query Integration**: Automatic caching, loading states, error handling
+- **Developer Experience**: Auto-completion, compile-time error checking
+- **Maintainability**: API changes automatically propagate to frontend
+- **Performance**: Generated client handles baseURL, authentication, token refresh automatically
 
-#### 2. Frontend Preparation & Deployment
-- [ ] Complete OpenAPI documentation
-- [ ] Frontend development with complete backend API
-- [ ] Production deployment preparation
-- [ ] Performance monitoring and observability
-- [ ] Feature enhancements based on user feedback
+## Current Status: ✅ BACKEND MVP COMPLETE + ORVAL CLIENT SETUP COMPLETE
 
-## Architecture Achievements
+**All Core Systems Operational:**
+- ✅ Authentication & Authorization (Google OAuth + JWT)
+- ✅ User Management (CRUD + Statistics)
+- ✅ Exercise Management (Full CRUD + Advanced Search)
+- ✅ Workout Management (Hybrid API + Complex Operations)
+- ✅ Database Schema (Atlas + PostgreSQL)
+- ✅ Testing Infrastructure (208 passing tests)
+- ✅ Code Quality Standards (PEP 8 + Performance optimizations)
+- ✅ API Client Generation (Orval + React Query)
 
-### Dependency Injection Pattern
-- All services use constructor injection
-- Dependencies provided through FastAPI's Depends
-- Singleton behavior with @lru_cache
-- Easy testing with mock injection
+**Frontend Integration Ready:**
+- ✅ Complete TypeScript API client with React Query hooks
+- ✅ Authentication integration (OAuth + token management)
+- ✅ Error handling and loading states
+- ✅ Type safety across all API calls
+- ✅ Development workflow automation
 
-### Exception Handling
-- Proper exception chaining (from e)
-- Custom exceptions for each domain
-- Consistent error responses
-- Detailed logging at each level
+## What's Left to Build
 
-### Testing Patterns
-- Fixtures for all dependencies
-- No patching needed with DI
-- Transaction isolation working
-- Time control for deterministic tests
+### Phase 4: Frontend UI Development (Ready to Begin)
+**Priority: High** - Core backend complete, API client ready
 
-### Session Management (CRITICAL PATTERN)
-- **Service Layer Returns Pydantic Models**: All database-to-API conversion happens within service methods while session is active
-- **Router Uses Pydantic Directly**: No `.model_validate()` calls in router, avoiding session access after close
-- **Test Fixes**: Tests extract SQLAlchemy attributes early to avoid lazy loading outside session context
-- **Zero MissingGreenlet Errors**: Complete elimination of async session issues
+**Major Components Needed:**
+1. **Authentication Flow Pages**
+   - OAuth callback handling
+   - Protected route wrapper
+   - Session management
 
-### Exercise Module Patterns (New)
-- **Public vs Protected Endpoints**: Search/read public, modifications require auth
-- **Route Ordering**: Specific routes before generic patterns to prevent conflicts
-- **Pagination Handling**: Proper limit management for large datasets
-- **Permission System**: User vs system exercises with proper access control
+2. **Dashboard/Home Page**
+   - Recent workouts display
+   - Quick workout start
+   - User statistics overview
 
-## Performance Metrics (Current)
-- Health check: ~50ms
-- Auth endpoints: <100ms
-- User endpoints: <100ms
-- Exercise endpoints: <100ms
-- All 171 tests run in <3s
-- Database pool configured
-- Transaction isolation adds minimal overhead
+3. **Workout Interface**
+   - Active workout session management
+   - Exercise selection with search
+   - Set logging interface
+   - Timer and rest tracking
 
-## Success Metrics
-- [x] Core infrastructure implemented
-- [x] Authentication system complete
-- [x] User management complete
-- [x] Exercise management complete
-- [x] Database schema deployed
-- [x] 100% test coverage for implemented modules
-- [x] No security vulnerabilities
-- [x] Clean code (ruff passing)
-- [x] Development environment working
-- [x] Test suite rebuilt with modern patterns
-- [x] Zero async session issues
-- [x] Workout management complete (NEXT)
-- [ ] All API endpoints implemented
-- [ ] Full OpenAPI documentation
+4. **Exercise Management**
+   - Exercise library browser
+   - Custom exercise creation
+   - Exercise search and filtering
 
-## Technical Lessons Learned
+5. **Progress Tracking**
+   - Workout history
+   - Personal records
+   - Progress charts/graphs
 
-### Exercise Implementation Insights
-- **Route Order Matters**: FastAPI matches routes in order, specific before generic
-- **Authentication Testing**: Test actual business logic, not just auth failures
-- **Pagination Complexity**: Handle limits gracefully with multiple requests
-- **Error Boundaries**: Comprehensive exception handling prevents 500 errors
-- **Service Layer Benefits**: Pydantic conversion in service prevents session issues
+**Technical Requirements:**
+- React Query integration for all server state
+- Optimistic updates for better UX
+- Offline-capable workout logging
+- Mobile-responsive design
+- PWA capabilities for mobile use
 
-### Workout Implementation Insights (NEW)
-- **Foreign Key Constraints**: NEVER use raw SQL DELETE for related entities
-- **ORM Cascade Behavior**: Only `session.delete(object)` respects cascade="all, delete-orphan"
-- **Cache Management**: SQLAlchemy caches relationships, requiring `expire_all()` after deletions
-- **Transaction Visibility**: `session.flush()` needed for changes to be visible within transaction
-- **API Call Order**: flush() (async) must come before expire_all() (sync)
+### Nice to Have (Future Enhancements)
+- Workout templates and routines
+- Social features (sharing workouts)
+- Advanced analytics and insights
+- Exercise video/image integration
+- Nutrition tracking integration
+- Wearable device integration
 
-### Testing Evolution
-- **Authenticated Fixtures**: Dependency injection superior to patching
-- **Transaction Isolation**: Savepoints provide perfect test independence
-- **Early Extraction**: Extract SQLAlchemy attributes immediately to avoid lazy loading
-- **Comprehensive Coverage**: Test both happy path and error scenarios
-
-## MVP Status: 100% Complete ✅
-- ✅ User Management (100%)
-- ✅ Exercise Management (100%)
-- ✅ Workout Management (100%)
-
-The MVP is complete with all core functionality implemented. The foundation is solid, patterns are established, and all critical SQLAlchemy lessons are documented to prevent future foreign key constraint issues. Ready for frontend development and deployment.
-
-## Recent Achievements
-
-### Backend Architecture Enforcement (December 2024)
-✅ **Repository Pattern Enforcement**
-- Removed problematic helper functions (`get_user_by_id`, `get_user_by_google_id`, `get_user_by_email`) from `dependencies.py`
-- Refactored `AuthService` to use `UserRepository` through constructor injection
-- Eliminated all direct database queries in service layer
-- All 206 tests passing with improved architectural consistency
-- **Impact**: Enforced single source of truth for data access, improved testability, eliminated scattered database logic
-
-✅ **ORM Deletion Pattern Enforcement**
-- Replaced raw SQL delete (`session.execute(delete(Set).where(...))`) with ORM deletion in workout repository
-- Fixed `upsert_exercise_execution` to use proper ORM deletion with cascade relationships
-- Removed unused `delete` import from SQLAlchemy
-- All 206 tests passing, proper cascade behavior maintained
-- **Impact**: Leverages ORM relationships and cascade rules, maintains referential integrity, follows established patterns
-
-✅ **Get Body Parts Endpoint Optimization**
-- Replaced inefficient implementation that fetched all exercises (up to 10,000) with optimized SQL DISTINCT query
-- Added `get_distinct_body_parts` repository method with proper permission filtering
-- Fixed security issue where anonymous users could see private user exercise body parts
-- Added comprehensive test coverage for both anonymous and authenticated user scenarios
-- Updated test fixture to include system exercise with "Chest" body part for proper test coverage
-- All 208 tests passing, 99%+ performance improvement achieved
-- **Impact**: Single lightweight database query vs thousands of full objects, proper permission boundaries enforced
-
-✅ **PEP 8 Import Organization**
-- Moved imports from inside function definitions to the top of files in `dependencies.py` and `service.py`
-- Fixed 4 PEP 8 violations where imports were happening inside functions
-- Moved `UserRepository`, `Page`, and `select` imports to proper module-level import sections
-- All 208 tests passing, no circular import issues introduced
-- **Impact**: Better code organization, improved readability, compliance with Python style guidelines
+The backend API is fully functional and battle-tested with comprehensive test coverage. The frontend now has a complete, type-safe API client ready for rapid UI development.
