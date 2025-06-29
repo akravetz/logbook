@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 8%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Gym-optimized styles */
+@layer components {
+  .thumb-target {
+    @apply min-h-[48px] min-w-[48px];
+  }
+
+  .glanceable-text {
+    @apply text-lg font-semibold;
+  }
+
+  .workout-timer {
+    @apply text-2xl font-bold tabular-nums;
+  }
+}
+
+/* Prevent zoom on input focus (iOS) */
+input[type="number"],
+input[type="text"],
+input[type="email"],
+textarea,
+select {
+  font-size: 16px;
+}
+
+/* High contrast for gym lighting */
+.high-contrast {
+  filter: contrast(1.2);
+}
+
+/* Prevent accidental touches */
+.touch-manipulation {
+  touch-action: manipulation;
+}
