@@ -4,6 +4,6 @@
       "builder": "NIXPACKS"
     },
     "deploy": {
-      "startCommand": "hypercorn src.workout_api.main:app --bind \"[::]:$PORT\""
+      "startCommand": "hypercorn src.workout_api.core.main:app --bind \"[::]:$PORT\" --workers 4 --worker-class asyncio"
     }
   }

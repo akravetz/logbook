@@ -629,7 +629,7 @@ tasks:
   dev:
     desc: Run development server
     cmds:
-      - uvicorn workout_api.main:app --reload
+      - hypercorn workout_api.core.main:app --reload
 
   test:
     desc: Run tests

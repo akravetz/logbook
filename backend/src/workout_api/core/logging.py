@@ -92,14 +92,19 @@ def get_logging_config(settings) -> dict[str, Any]:
                 "handlers": ["console", "file"],
                 "propagate": False,
             },
-            "uvicorn": {
+            "hypercorn": {
                 "level": "INFO",
                 "handlers": ["console", "file"],
                 "propagate": False,
             },
-            "uvicorn.access": {
+            "hypercorn.access": {
                 "level": "INFO",
                 "handlers": ["console", "file"],
+                "propagate": False,
+            },
+            "hypercorn.error": {
+                "level": "ERROR",
+                "handlers": ["console", "error_file"],
                 "propagate": False,
             },
         },

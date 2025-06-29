@@ -18,9 +18,24 @@ tasks:
       - uv sync
 
   run:
-    desc: Run the development server
+    desc: Run the development server with hypercorn
     cmds:
       - uv run python -m {{.PROJECT_NAME}}.server
+
+  run:hypercorn:
+    desc: Run server directly with hypercorn CLI
+    cmds:
+      - uv run hypercorn {{.PROJECT_NAME}}.core.main:app --bind 0.0.0.0:8080 --reload
+
+  run:http2:
+    desc: Run server with HTTP/2 enabled
+    cmds:
+      - uv run hypercorn {{.PROJECT_NAME}}.core.main:app --bind 0.0.0.0:8080 --reload --h2
+
+  run:prod:
+    desc: Run production server (multi-worker)
+    cmds:
+      - uv run hypercorn {{.PROJECT_NAME}}.core.main:app --bind 0.0.0.0:8080 --workers 4 --worker-class asyncio
 
   test:
     desc: Run tests

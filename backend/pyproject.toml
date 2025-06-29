@@ -19,7 +19,6 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.20",
     "sqlalchemy[asyncio]>=2.0.41",
-    "uvicorn>=0.34.3",
 ]
 
 [project.scripts]

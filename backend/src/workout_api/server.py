@@ -1,14 +1,16 @@
 """Server script that uses settings for configuration."""
 
-import uvicorn
+import asyncio
 
-from .core.main import get_server_config
+import hypercorn.asyncio
+
+from .core.main import app, get_hypercorn_config
 
 
 def main() -> None:
-    """Run the server with configuration from settings."""
-    config = get_server_config()
-    uvicorn.run("workout_api.core.main:app", **config)
+    """Run the server with hypercorn configuration."""
+    config = get_hypercorn_config()
+    asyncio.run(hypercorn.asyncio.serve(app, config))
 
 
 if __name__ == "__main__":

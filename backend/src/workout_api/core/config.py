@@ -93,6 +93,27 @@ class Settings(BaseSettings):
         default=["*"], description="Allowed HTTP headers"
     )
 
+    # Hypercorn-specific settings
+    workers: int = Field(default=1, description="Number of worker processes")
+    worker_class: str = Field(
+        default="asyncio", description="Worker class (asyncio, uvloop, trio)"
+    )
+    keep_alive_timeout: int = Field(
+        default=75, description="Keep alive timeout in seconds"
+    )
+    max_requests: int = Field(
+        default=1000, description="Max requests per worker before restart"
+    )
+    max_requests_jitter: int = Field(
+        default=100, description="Random jitter for max_requests"
+    )
+
+    # HTTP/2 and performance
+    enable_http2: bool = Field(default=True, description="Enable HTTP/2 support")
+    h2_max_concurrent_streams: int = Field(
+        default=100, description="HTTP/2 max concurrent streams"
+    )
+
     # API settings
     api_v1_prefix: str = Field(default="/api/v1", description="API v1 prefix")
     docs_url: str = Field(default="/docs", description="API documentation URL")

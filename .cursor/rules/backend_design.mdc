@@ -97,7 +97,7 @@ tasks:
   run:
     desc: Run the development server
     cmds:
-      - uv run uvicorn {{.PROJECT_NAME}}.main:app --reload --host 0.0.0.0 --port ${PORT:-8000}
+      - uv run hypercorn {{.PROJECT_NAME}}.core.main:app --reload --bind 0.0.0.0:${PORT:-8000}
 
   test:
     desc: Run tests
