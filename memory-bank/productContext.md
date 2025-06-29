@@ -39,4 +39,4 @@ Gym-goers need a simple, fast way to track their workouts while exercising. Exis
 - Time to log a set: < 5 seconds
 - Workout completion rate: > 90%
 - User retention: > 80% after 1 month
-- Daily active users: > 60% 
+- Daily active users: > 60%

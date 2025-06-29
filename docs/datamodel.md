@@ -2,7 +2,7 @@ User
   id: bigint
   email_address: str
   google_id: str
-  name: str 
+  name: str
   profile_image_url: str
   is_active: bool
   is_admin: bool
@@ -47,6 +47,3 @@ Set
   forced_reps: int
   created_at: timestamp
   updated_at: timestamp
-
-
-

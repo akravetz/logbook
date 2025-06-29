@@ -8,7 +8,16 @@ fingerprints = [
     "backend/tests/auth/conftest.py:generic-api-key:84",
     "backend/tests/auth/test_google.py:generic-api-key:20",
     "backend/tests/auth/test_jwt.py:generic-api-key:32",
-    "backend/tests/auth/test_jwt.py:generic-api-key:286"
+    "backend/tests/auth/test_jwt.py:generic-api-key:286",
+    # Development auth test fingerprints
+    "backend/tests/auth/test_dev_auth.py:generic-api-key:22",
+    "backend/tests/auth/test_dev_auth.py:generic-api-key:60",
+    "backend/tests/auth/test_dev_auth.py:generic-api-key:94",
+    "backend/tests/auth/test_dev_auth.py:generic-api-key:114",
+    "backend/tests/auth/test_dev_auth.py:generic-api-key:138",
+    # Documentation placeholders
+    "DEVELOPMENT_AUTH.md:generic-api-key:107",
+    "DEVELOPMENT_AUTH.md:generic-api-key:108"
 ]
 
 # Allow all files in test directories
@@ -22,5 +31,6 @@ regexes = [
     "test_secret_key_",
     "wrong_secret_key_",
     "mock_.*_token",
-    "test_client_secret"
+    "test_client_secret",
+    "REDACTED"
 ]

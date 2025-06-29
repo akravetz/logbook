@@ -4,9 +4,22 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from workout_api.auth.jwt import JWTManager
+from workout_api.auth.service import AuthService
+from workout_api.users.repository import UserRepository
 
 # Mark all tests in this module as anyio tests
 pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture
+async def auth_service(
+    session: AsyncSession, jwt_manager: JWTManager, user_repository: UserRepository
+):
+    """Create AuthService instance with injected dependencies."""
+    return AuthService(session, jwt_manager, user_repository)
 
 
 @pytest.fixture

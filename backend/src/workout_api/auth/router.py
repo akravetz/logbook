@@ -13,6 +13,8 @@ from .dependencies import AuthlibGoogleOAuthDep, CurrentUser, JWTManagerDep, Tok
 from .schemas import (
     AuthenticationResponse,
     AuthErrorResponse,
+    DevLoginRequest,
+    DevLoginResponse,
     LogoutResponse,
     SessionInfoResponse,
     TokenRefreshRequest,
@@ -247,5 +249,73 @@ async def validate_token(
         )
 
     except Exception as e:
-        logger.error(f"Token validation error: {e}")
-        return TokenValidationResponse(valid=False)
+        logger.error(f"Google user verification error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User verification failed",
+        ) from e
+
+
+# Development Authentication Endpoints
+# Only available when environment=development
+
+
+@router.post(
+    "/dev-login",
+    response_model=DevLoginResponse,
+    summary="Development mode login",
+    description="Create or authenticate user with email for development purposes only",
+    responses={
+        401: {"description": "Not available in production mode"},
+        422: {"description": "Validation Error"},
+    },
+    tags=["Development"],
+    include_in_schema=get_settings().is_development,  # Only show in docs during development
+)
+async def dev_login(
+    request: DevLoginRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    jwt_manager: JWTManagerDep,
+) -> DevLoginResponse:
+    """Development-only authentication endpoint. Only works when environment=development."""
+    try:
+        from .schemas import TokenResponse, UserProfileResponse
+        from .service import get_auth_service
+
+        # Use existing authentication service
+        auth_service = get_auth_service(session, jwt_manager)
+        user, jwt_tokens = await auth_service.authenticate_with_dev_email(
+            email=request.email, name=request.name
+        )
+
+        # Return properly typed response
+        return DevLoginResponse(
+            user=UserProfileResponse(
+                id=user.id,
+                email_address=user.email_address,
+                google_id=user.google_id,
+                name=user.name,
+                profile_image_url=user.profile_image_url,
+                is_active=user.is_active,
+                is_admin=user.is_admin,
+            ),
+            tokens=TokenResponse(
+                access_token=jwt_tokens.access_token,
+                refresh_token=jwt_tokens.refresh_token,
+                expires_in=jwt_tokens.expires_in,
+            ),
+            dev_mode=True,
+        )
+
+    except AuthenticationError as e:
+        logger.warning(f"Development authentication failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        logger.error(f"Development authentication error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Development authentication failed",
+        ) from e

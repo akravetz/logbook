@@ -103,4 +103,4 @@ A workout tracking web application focused on simplicity and efficiency for gym 
 2. Comprehensive testing suite
 3. Frontend UI development
 4. Integration and deployment
-5. User feedback iteration 
+5. User feedback iteration

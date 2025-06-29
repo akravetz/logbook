@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..core.config import Settings
 from ..shared.exceptions import AuthenticationError, DuplicateError, NotFoundError
 from ..users.models import User
 from ..users.repository import UserRepository
@@ -22,10 +23,124 @@ class AuthService:
         session: AsyncSession,
         jwt_manager: JWTManager,
         user_repository: UserRepository,
+        settings: Settings | None = None,
     ):
         self.session = session
         self.jwt_manager = jwt_manager
         self.user_repository = user_repository
+        # Import here to avoid circular imports
+        if settings is None:
+            from ..core.config import get_settings
+
+            settings = get_settings()
+        self.settings = settings
+
+    async def authenticate_with_dev_email(
+        self, email: str, name: str | None = None
+    ) -> tuple[User, TokenPair]:
+        """Development-only authentication bypass. Only works when environment=development."""
+        if not self.settings.is_development:
+            logger.warning("Development auth attempted in non-development environment")
+            raise AuthenticationError(
+                "Development authentication is only available in development mode"
+            )
+
+        try:
+            logger.info(f"Development authentication for email: {email}")
+
+            # Look for existing user by email first
+            user = await self.user_repository.get_by_email(email)
+
+            if user:
+                # Update existing user if it's a development user
+                if user.google_id and user.google_id.startswith("dev:"):
+                    user = await self._update_dev_user(user, name)
+                    logger.info(f"Updated existing dev user: {user.email_address}")
+                else:
+                    # Regular user trying to use dev auth - just return existing user
+                    logger.info(
+                        f"Existing regular user authenticated via dev mode: {user.email_address}"
+                    )
+            else:
+                # Create new development user
+                user = await self._create_dev_user(email, name)
+                logger.info(f"New development user created: {user.email_address}")
+
+            # Create JWT tokens
+            tokens = self.jwt_manager.create_token_pair(user.id, user.email_address)
+
+            return user, tokens
+
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Development authentication error: {e}")
+            raise AuthenticationError(
+                f"Development authentication failed: {str(e)}"
+            ) from e
+
+    async def _create_dev_user(self, email: str, name: str | None = None) -> User:
+        """Create a new development user."""
+        try:
+            # Create new user using repository with dev marker
+            user_data = {
+                "email_address": email,
+                "google_id": f"dev:{email}",  # Special dev marker
+                "name": name or email.split("@")[0],
+                "profile_image_url": None,  # No profile image for dev users
+                "is_active": True,
+                "is_admin": False,
+            }
+
+            user = await self.user_repository.create(user_data)
+            await self.session.commit()
+            # Refresh the object to ensure it stays attached to the session
+            await self.session.refresh(user)
+
+            logger.info(
+                f"Created new development user: {user.id} - {user.email_address}"
+            )
+            return user
+
+        except (DuplicateError, AuthenticationError):
+            # Re-raise specific exceptions without wrapping
+            raise
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Failed to create development user: {e}")
+            raise DuplicateError(
+                "Development user already exists or creation failed"
+            ) from e
+
+    async def _update_dev_user(self, user: User, name: str | None = None) -> User:
+        """Update existing development user."""
+        try:
+            updated = False
+
+            # Update name if provided and different
+            if name and user.name != name:
+                user.name = name
+                updated = True
+
+            # Ensure user is active
+            if not user.is_active:
+                user.is_active = True
+                updated = True
+
+            if updated:
+                await self.session.commit()
+                await self.session.refresh(user)
+                logger.debug(
+                    f"Updated development user information: {user.email_address}"
+                )
+
+            return user
+
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Failed to update development user: {e}")
+            raise AuthenticationError(
+                "Failed to update development user information"
+            ) from e
 
     async def authenticate_with_google(
         self, google_user_info: GoogleUserInfo
@@ -253,8 +368,10 @@ class AuthService:
 
 
 def get_auth_service(session: AsyncSession, jwt_manager: JWTManager) -> AuthService:
-    """Factory function to create AuthService instance."""
+    """Create AuthService instance with dependencies."""
+    from ..core.config import get_settings
     from ..users.repository import UserRepository
 
     user_repository = UserRepository(session)
-    return AuthService(session, jwt_manager, user_repository)
+    settings = get_settings()
+    return AuthService(session, jwt_manager, user_repository, settings)

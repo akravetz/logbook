@@ -388,6 +388,45 @@
         ]
       }
     },
+    "/api/v1/auth/dev-login": {
+      "post": {
+        "tags": [
+          "Authentication",
+          "Development"
+        ],
+        "summary": "Development mode login",
+        "description": "Create or authenticate user with email for development purposes only",
+        "operationId": "dev_login_api_v1_auth_dev_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevLoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not available in production mode"
+          },
+          "422": {
+            "description": "Validation Error"
+          }
+        }
+      }
+    },
     "/api/v1/users/me": {
       "get": {
         "tags": [
@@ -2172,6 +2211,59 @@
         ],
         "title": "DatabaseHealthResponse",
         "description": "Database health check response."
+      },
+      "DevLoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "User's email address for development login"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Optional display name for the user"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "DevLoginRequest",
+        "description": "Development mode login request."
+      },
+      "DevLoginResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserProfileResponse",
+            "description": "User profile information"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenResponse",
+            "description": "JWT token pair"
+          },
+          "dev_mode": {
+            "type": "boolean",
+            "title": "Dev Mode",
+            "description": "Indicates this is a development login",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "tokens"
+        ],
+        "title": "DevLoginResponse",
+        "description": "Development mode login response."
       },
       "ExerciseCreate": {
         "properties": {

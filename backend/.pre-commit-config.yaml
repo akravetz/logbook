@@ -4,6 +4,7 @@ repos:
     rev: v8.18.0
     hooks:
       - id: gitleaks
+        args: ['--config=.gitleaks.toml']
 
   # Python formatting and linting
   - repo: local
