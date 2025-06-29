@@ -1,7 +1,6 @@
 """Test user repository with anyio and transaction isolation."""
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from workout_api.users.models import User
 from workout_api.users.repository import UserRepository
@@ -11,45 +10,28 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def user_repository(session: AsyncSession):
-    """Create UserRepository instance with injected session."""
-    return UserRepository(session)
-
-
-@pytest.fixture
-def user_data():
-    """Sample user data for testing."""
-    return {
-        "email_address": "test@example.com",
-        "google_id": "google123",
-        "name": "Test User",
-        "profile_image_url": "https://example.com/profile.jpg",
-        "is_active": True,
-        "is_admin": False,
-    }
-
-
-@pytest.fixture
-async def created_user(user_repository: UserRepository, user_data: dict):
+async def created_user(user_repository: UserRepository, test_user_data: dict):
     """Create a user in the database for testing."""
-    user = await user_repository.create(user_data)
+    user = await user_repository.create(test_user_data)
     return user
 
 
 class TestUserRepository:
     """Test cases for UserRepository."""
 
-    async def test_create_user(self, user_repository: UserRepository, user_data: dict):
+    async def test_create_user(
+        self, user_repository: UserRepository, test_user_data: dict
+    ):
         """Test user creation through repository."""
         # Act
-        user = await user_repository.create(user_data)
+        user = await user_repository.create(test_user_data)
 
         # Assert
         assert user.id is not None
         assert user.email_address == "test@example.com"
-        assert user.google_id == "google123"
+        assert user.google_id == "google_user_123"
         assert user.name == "Test User"
-        assert user.profile_image_url == "https://example.com/profile.jpg"
+        assert user.profile_image_url == "https://example.com/avatar.jpg"
         assert user.is_active is True
         assert user.is_admin is False
         assert user.created_at is not None
@@ -100,12 +82,12 @@ class TestUserRepository:
     ):
         """Test successful user retrieval by Google ID."""
         # Act
-        found_user = await user_repository.get_by_google_id("google123")
+        found_user = await user_repository.get_by_google_id("google_user_123")
 
         # Assert
         assert found_user is not None
         assert found_user.id == created_user.id
-        assert found_user.google_id == "google123"
+        assert found_user.google_id == "google_user_123"
 
     async def test_get_by_google_id_not_found(self, user_repository: UserRepository):
         """Test user retrieval by non-existent Google ID."""

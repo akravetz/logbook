@@ -786,14 +786,100 @@ async def delete_exercise(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 ```
 
+### Test Fixture Organization Pattern (CRITICAL)
+**Centralize common fixtures to eliminate duplication and enforce consistency**
+
+#### Fixture Hierarchy
+```
+tests/
+├── conftest.py                 # Shared fixtures (ALL modules)
+│   ├── Core Infrastructure     # Database, engine, containers
+│   ├── User Fixtures          # test_user, another_user, inactive_user
+│   └── Authentication         # authenticated_client patterns
+├── auth/conftest.py           # Auth-specific fixtures only
+├── exercises/conftest.py      # Exercise-specific fixtures only
+└── workouts/conftest.py       # Workout-specific fixtures only
+```
+
+#### Main conftest.py Pattern (Required Structure)
+```python
+# backend/tests/conftest.py
+"""Test configuration with anyio and transaction isolation."""
+
+# Core fixtures available to ALL test modules
+@pytest.fixture(scope="session")
+async def postgres_container():
+    """Session-scoped PostgreSQL container for all tests."""
+    with PostgresContainer("postgres:16") as postgres:
+        yield postgres
+
+@pytest.fixture
+def test_settings():
+    """Centralized test settings configuration."""
+    return Settings(
+        jwt_secret_key="test_secret_key_minimum_32_chars_long",
+        google_client_id="test_google_client_id",
+        # ... other test configuration
+    )
+
+@pytest.fixture
+async def test_user(session: AsyncSession) -> User:
+    """Standard test user - CRITICAL: Use consistent naming."""
+    user = User(
+        email_address="test@example.com",
+        google_id="google_test_123",
+        name="Test User",
+        is_active=True,
+    )
+    session.add(user)
+    await session.flush()
+    await session.refresh(user)
+    # Extract attributes early to prevent MissingGreenlet errors
+    _ = user.id, user.email_address, user.name, user.is_active
+    return user
+
+@pytest.fixture
+async def authenticated_client(client: AsyncClient, test_user: User) -> AsyncClient:
+    """HTTP client with authenticated user dependency override."""
+    async def get_current_user_from_token_override():
+        return test_user
+
+    client.app.dependency_overrides[get_current_user_from_token] = get_current_user_from_token_override
+    yield client
+    client.app.dependency_overrides.clear()
+```
+
+#### Domain conftest.py Pattern (Module-Specific Only)
+```python
+# backend/tests/exercises/conftest.py
+"""Exercise test fixtures."""
+
+# Note: User fixtures (test_user, another_user, etc.) are provided by main conftest.py
+
+@pytest.fixture
+async def sample_exercise(session: AsyncSession, test_user: User) -> Exercise:
+    """Exercise-specific fixture using centralized user."""
+    user_id = test_user.id  # Extract early
+    exercise = Exercise(
+        name="Test Exercise",
+        body_part="Chest",
+        modality=ExerciseModality.BARBELL,
+        created_by_user_id=user_id,
+    )
+    session.add(exercise)
+    await session.flush()
+    await session.refresh(exercise)
+    return exercise
+```
+
 ### Test Authentication Pattern
 Use dependency injection for authenticated test clients:
 ```python
 @pytest.fixture
-async def authenticated_client(client, sample_user):
+async def authenticated_client(client, test_user):
     """Client with authenticated user dependency override."""
     async def get_current_user_override():
-        return sample_user
+        return test_user
 
     client.app.dependency_overrides[get_current_user] = get_current_user_override
     yield client
@@ -804,6 +890,84 @@ async def test_create_exercise(authenticated_client):
     response = await authenticated_client.post("/exercises", json={...})
     assert response.status_code == 201
 ```
+
+### ARG002 Linting Pattern for Test Fixtures (CRITICAL)
+**NEVER remove fixture parameters to fix ARG002 warnings - fixtures perform setup even when not directly referenced**
+
+```python
+# ✅ CORRECT: Proper noqa annotation on parameter line
+async def test_user_statistics(
+    self, authenticated_client: AsyncClient, test_user: User  # noqa: ARG002
+):
+    """test_user fixture creates user for authenticated_client to authenticate with."""
+    response = await authenticated_client.get("/api/v1/users/me/stats")
+    assert response.status_code == 200
+
+# ✅ CORRECT: Fixture directly referenced - no noqa needed
+async def test_user_data(self, test_user: User):
+    assert test_user.email == "test@example.com"
+
+# ✅ CORRECT: Multiple fixtures with mixed usage
+async def test_complex(
+    self,
+    authenticated_client: AsyncClient,
+    test_user: User,  # noqa: ARG002
+    sample_workout: Workout  # noqa: ARG002
+):
+    # authenticated_client internally uses test_user
+    # sample_workout creates data in database
+    response = await authenticated_client.get("/api/v1/workouts")
+
+# ❌ WRONG: Removing fixture parameter breaks test
+async def test_user_statistics(self, authenticated_client: AsyncClient):
+    """Without test_user, authenticated_client has no user! Test will fail."""
+    response = await authenticated_client.get("/api/v1/users/me/stats")  # 401 error
+```
+
+**ARG002 Rule Summary:**
+- **Always use `# noqa: ARG002` on parameter line** for fixtures that perform setup but aren't directly referenced
+- **NEVER remove fixture parameters** - they perform critical setup operations
+- **Common fixture purposes**: User creation, database setup, authentication, test data generation
+
+### Fixture Naming Standardization
+**Use consistent naming patterns across entire test suite**
+
+```python
+# ✅ CORRECT: Standardized naming
+test_user          # Primary test user
+another_user       # Secondary user for multi-user scenarios
+inactive_user      # Inactive user for edge cases
+test_settings      # Test configuration
+authenticated_client  # Client with auth user
+
+# ❌ WRONG: Inconsistent naming (causes duplication)
+sample_user        # Conflicts with test_user
+user_fixture       # Vague naming
+auth_client        # Inconsistent with authenticated_client
+```
+
+### Dependency Management Hygiene Pattern (CRITICAL)
+**Regularly audit dependencies to prevent bloat and security risks**
+
+```python
+# Audit pattern to identify unused dependencies
+rg "import requests" --type py    # Search for actual usage
+rg "from requests" --type py      # Search for specific imports
+rg "requests\." --type py         # Search for method usage
+
+# Common unused dependencies to watch for:
+# - requests (when using httpx for async operations)
+# - urllib (when using httpx/requests)
+# - json (builtin, shouldn't be in dependencies)
+# - datetime (builtin, shouldn't be in dependencies)
+```
+
+**Benefits of Fixture Consolidation:**
+- **Eliminated 50+ lines of duplicated code** across test modules
+- **Consistent naming and behavior** across all tests
+- **Better maintainability** - change fixture once, affects all tests
+- **Reduced complexity** - clear hierarchy of fixtures
+- **Improved reliability** - standardized patterns reduce test flakiness
 
 ### PEP 8 Import Organization Pattern
 **All imports must be at module level - never inside functions or methods**

@@ -3,6 +3,8 @@
 ## Current Focus
 **Authlib OAuth Migration COMPLETE**: Successfully migrated from hand-rolled OAuth implementation to Authlib's FastAPI client. Simplified authentication flow with enhanced security, better maintainability, and reduced code complexity.
 
+**Test Infrastructure Optimization**: Successfully consolidated duplicated test fixtures across the test suite, improving maintainability and enforcing consistent patterns. The codebase now has a clean, well-organized test structure with centralized common fixtures.
+
 ## Recent Work Completed
 
 ### **Authlib OAuth Migration (LATEST) ✅**
@@ -29,6 +31,36 @@
   - Simplified test scenarios since Authlib handles underlying OAuth complexity
   - All 201 tests passing - no regressions in existing functionality
   - Maintained GoogleUserInfo tests since interface remains unchanged
+
+### **Test Fixture Consolidation & Dependency Cleanup (LATEST) ✅**
+- **Fixture Consolidation**: Successfully identified and consolidated duplicated fixtures across multiple test modules
+  - Moved 12 common fixtures from domain-specific `conftest.py` files to main `backend/tests/conftest.py`
+  - Centralized core infrastructure: `test_settings`, `test_engine`, `postgres_container`, `session`, `client`
+  - Centralized user fixtures: `test_user_data`, `test_user`, `another_user`, `inactive_user` with standardized naming
+  - Centralized authentication: `authenticated_client`, `another_authenticated_client` with proper dependency injection
+  - **Impact**: Eliminated 50+ lines of duplicated fixture code, improved maintainability
+
+- **Test Organization Hierarchy**: Established clear separation between shared and domain-specific fixtures
+  - **Main `conftest.py`**: Core infrastructure, user management, authentication clients
+  - **Domain `conftest.py`**: Module-specific fixtures (auth mocks, exercise samples, workout data)
+  - **Clean Dependencies**: Domain fixtures now reference centralized fixtures instead of duplicating them
+  - **Consistent Naming**: Standardized on `test_user` vs `sample_user` throughout entire codebase
+
+- **Dependency Management Hygiene**: Identified and removed unused dependencies
+  - Removed `requests>=2.32.4` dependency that was never imported or used anywhere in codebase
+  - **Pattern**: The project uses `httpx` for async HTTP operations, `requests` was legacy bloat
+  - **Impact**: Cleaner dependency graph, reduced attack surface
+
+- **ARG002 Linting Patterns**: Proper handling of pytest fixture parameters
+  - **Critical Rule**: NEVER remove fixture parameters to fix ARG002 warnings - fixtures perform setup even when not directly referenced
+  - **Correct Pattern**: Use `# noqa: ARG002` on parameter line for fixtures that perform setup but aren't directly accessed
+  - **Common Cases**: `test_user` creates database user for `authenticated_client`, `sample_workout` creates test data
+  - Fixed 15+ ARG002 violations across test suite with proper noqa annotations
+
+- **Test Results**: All 257 tests passing (100% success rate) after consolidation
+  - No regressions introduced by fixture centralization
+  - Improved test reliability through consistent fixture patterns
+  - Better test isolation and independence
 
 ### **Orval API Client Generation & Automation (PREVIOUS) ✅**
 - **Complete Automation Workflow**: Added OpenAPI spec generation and API client workflow

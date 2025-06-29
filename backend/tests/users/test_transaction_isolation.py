@@ -1,18 +1,11 @@
 """Test transaction isolation between tests."""
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from workout_api.users.repository import UserRepository
 
 # Mark all tests in this module as anyio tests
 pytestmark = pytest.mark.anyio
-
-
-@pytest.fixture
-async def user_repository(session: AsyncSession):
-    """Create UserRepository instance with injected session."""
-    return UserRepository(session)
 
 
 class TestTransactionIsolation:
