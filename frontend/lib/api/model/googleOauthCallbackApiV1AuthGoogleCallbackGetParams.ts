@@ -8,14 +8,6 @@
 
 export type GoogleOauthCallbackApiV1AuthGoogleCallbackGetParams = {
   /**
-   * Authorization code from Google
-   */
-  code: string;
-  /**
-   * OAuth state parameter
-   */
-  state: string;
-  /**
    * OAuth error
    */
   error?: string | null;

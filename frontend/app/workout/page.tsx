@@ -2,14 +2,14 @@
 
 import { AppShell } from "@/components/app-shell"
 import { WorkoutInterface } from "@/components/workout-interface"
-import { useAuth } from "@/lib/contexts/auth-context"
+import { useSession } from "next-auth/react"
 import { LoginScreen } from "@/components/login-screen"
 import { ErrorBoundary } from "@/components/error-boundary"
 
 function WorkoutPage() {
-  const { user, isLoading } = useAuth()
+  const { data: session, status } = useSession()
 
-  if (isLoading) {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -20,7 +20,7 @@ function WorkoutPage() {
     )
   }
 
-  if (!user) {
+  if (status === "unauthenticated" || !session) {
     return <LoginScreen />
   }
 

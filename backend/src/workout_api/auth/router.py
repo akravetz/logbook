@@ -1,133 +1,27 @@
-"""Authentication router with OAuth and JWT endpoints."""
+"""Authentication router with JWT endpoints for NextAuth.js integration."""
 
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import get_settings
 from ..core.database import get_session
 from ..shared.exceptions import AuthenticationError
-from .dependencies import AuthlibGoogleOAuthDep, CurrentUser, JWTManagerDep, TokenOnly
+from .dependencies import CurrentUser, JWTManagerDep, TokenOnly
 from .schemas import (
-    AuthenticationResponse,
-    AuthErrorResponse,
     LogoutResponse,
+    NextAuthGoogleUserRequest,
+    NextAuthVerificationResponse,
     SessionInfoResponse,
     TokenRefreshRequest,
     TokenRefreshResponse,
     TokenValidationResponse,
-    UserProfileResponse,
 )
-from .service import get_auth_service
 
 logger = logging.getLogger("workout_api.auth.router")
 router = APIRouter()
-
-
-@router.get(
-    "/google",
-    summary="Initiate Google OAuth flow",
-    description="Start Google OAuth authentication process and redirect to Google",
-)
-async def initiate_google_oauth(
-    request: Request,
-    redirect_url: str | None = Query(  # noqa: ARG001
-        default=None, description="Post-auth redirect URL"
-    ),
-    google_oauth: AuthlibGoogleOAuthDep = None,
-):
-    """Initiate Google OAuth 2.0 authentication flow."""
-    try:
-        # Generate OAuth authorization redirect using Authlib
-        # This automatically handles state generation and CSRF protection via sessions
-        redirect_response = await google_oauth.authorize_redirect(request)
-
-        logger.info("OAuth flow initiated with Authlib session-based state management")
-        return redirect_response
-
-    except Exception as e:
-        logger.error(f"Failed to initiate OAuth: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to initiate authentication",
-        ) from e
-
-
-@router.get(
-    "/google/callback",
-    response_model=AuthenticationResponse,
-    summary="Handle Google OAuth callback",
-    description="Process Google OAuth callback and return user with JWT tokens",
-    responses={
-        400: {
-            "model": AuthErrorResponse,
-            "description": "OAuth error or invalid state",
-        },
-        401: {"model": AuthErrorResponse, "description": "Authentication failed"},
-    },
-)
-async def google_oauth_callback(
-    request: Request,
-    error: str | None = Query(default=None, description="OAuth error"),
-    error_description: str | None = Query(
-        default=None, description="OAuth error description"
-    ),
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    jwt_manager: JWTManagerDep = None,
-    google_oauth: AuthlibGoogleOAuthDep = None,
-) -> AuthenticationResponse:
-    """Handle Google OAuth 2.0 callback and authenticate user."""
-    try:
-        # Check for OAuth errors
-        if error:
-            logger.warning(f"OAuth error: {error} - {error_description}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"OAuth error: {error_description or error}",
-            )
-
-        # Exchange authorization code for tokens and get user info
-        # This automatically validates state for CSRF protection
-        token_data = await google_oauth.authorize_access_token(request)
-
-        # Parse user info from token response
-        google_user_info = google_oauth.parse_user_info(token_data["userinfo"])
-
-        # Authenticate or create user
-        auth_service = get_auth_service(session, jwt_manager)
-        user, jwt_tokens = await auth_service.authenticate_with_google(google_user_info)
-
-        # Create response
-        user_profile = UserProfileResponse.model_validate(user)
-        token_response = {
-            "access_token": jwt_tokens.access_token,
-            "refresh_token": jwt_tokens.refresh_token,
-            "token_type": jwt_tokens.token_type,
-            "expires_in": jwt_tokens.expires_in,
-        }
-
-        logger.info(f"User authenticated successfully: {user.email_address}")
-        return AuthenticationResponse(
-            user=user_profile,
-            tokens=token_response,
-        )
-
-    except HTTPException:
-        raise  # Re-raise HTTPExceptions (like OAuth errors)
-    except AuthenticationError as e:
-        logger.warning(f"Authentication failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(f"OAuth callback error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication failed",
-        ) from e
 
 
 @router.post(
@@ -136,7 +30,7 @@ async def google_oauth_callback(
     summary="Refresh access token",
     description="Use refresh token to get new access token",
     responses={
-        401: {"model": AuthErrorResponse, "description": "Invalid refresh token"},
+        401: {"description": "Invalid refresh token"},
     },
 )
 async def refresh_token(
@@ -182,11 +76,6 @@ async def logout(
     current_user: CurrentUser,
 ) -> LogoutResponse:
     """Logout user - invalidate tokens on client side."""
-    # Note: In a production system, you might want to:
-    # 1. Maintain a token blacklist in Redis
-    # 2. Store active sessions in database
-    # 3. Implement proper server-side token invalidation
-
     logger.info(f"User logged out: {current_user.email_address}")
     return LogoutResponse(
         message="Successfully logged out. Please remove tokens from client storage.",
@@ -198,33 +87,36 @@ async def logout(
     "/me",
     response_model=SessionInfoResponse,
     summary="Get current session info",
-    description="Get current user session information",
+    description="Get information about the current authenticated session",
 )
 async def get_session_info(
     current_user: CurrentUser,
     token_data: TokenOnly,
 ) -> SessionInfoResponse:
-    """Get current session information."""
-    try:
-        user_profile = UserProfileResponse.model_validate(current_user)
+    """Get current authenticated session information."""
+    from .schemas import UserProfileResponse
 
-        permissions = ["user"]
-        if current_user.is_admin:
-            permissions.append("admin")
+    user_profile = UserProfileResponse(
+        id=current_user.id,
+        email_address=current_user.email_address,
+        google_id=current_user.google_id,
+        name=current_user.name,
+        profile_image_url=current_user.profile_image_url,
+        is_active=current_user.is_active,
+        is_admin=current_user.is_admin,
+    )
 
-        return SessionInfoResponse(
-            authenticated=True,
-            user=user_profile,
-            session_expires_at=token_data.expires_at.isoformat(),
-            permissions=permissions,
-        )
+    # Determine permissions
+    permissions = ["user"]
+    if current_user.is_admin:
+        permissions.append("admin")
 
-    except Exception as e:
-        logger.error(f"Session info error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get session information",
-        ) from e
+    return SessionInfoResponse(
+        authenticated=True,
+        user=user_profile,
+        session_expires_at=token_data.expires_at.isoformat(),
+        permissions=permissions,
+    )
 
 
 @router.get(
@@ -236,16 +128,70 @@ async def get_session_info(
 async def validate_token(
     token_data: TokenOnly,
 ) -> TokenValidationResponse:
-    """Validate JWT token and return token information."""
+    """Validate JWT token and return basic token information."""
+    return TokenValidationResponse(
+        valid=True,
+        user_id=token_data.user_id,
+        email=token_data.email,
+        expires_at=token_data.expires_at.isoformat(),
+        token_type="access",
+    )
+
+
+# NextAuth.js Integration Endpoints
+
+
+@router.post(
+    "/verify-google-user",
+    response_model=NextAuthVerificationResponse,
+    summary="Verify Google user for NextAuth",
+    description="Create or update user from Google OAuth data via NextAuth.js",
+    responses={
+        401: {"description": "Authentication failed"},
+        422: {"description": "Validation Error"},
+    },
+)
+async def verify_google_user(
+    request: NextAuthGoogleUserRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    jwt_manager: JWTManagerDep,
+) -> NextAuthVerificationResponse:
+    """Verify and create/update user from Google OAuth data via NextAuth.js."""
     try:
-        return TokenValidationResponse(
-            valid=True,
-            user_id=token_data.user_id,
-            email=token_data.email,
-            expires_at=token_data.expires_at.isoformat(),
-            token_type=token_data.token_type,
+        from .schemas import NextAuthTokenResponse, NextAuthUserResponse
+        from .service import get_auth_service
+
+        # Convert NextAuth request to internal format
+        google_user_info = request.to_google_user_info()
+
+        # Use existing authentication service
+        auth_service = get_auth_service(session, jwt_manager)
+        user, jwt_tokens = await auth_service.authenticate_with_google(google_user_info)
+
+        # Return properly typed response
+        return NextAuthVerificationResponse(
+            user=NextAuthUserResponse(
+                id=user.id,
+                email=user.email_address,
+                name=user.name,
+                image=user.profile_image_url,
+            ),
+            tokens=NextAuthTokenResponse(
+                access_token=jwt_tokens.access_token,
+                refresh_token=jwt_tokens.refresh_token,
+                expires_in=jwt_tokens.expires_in,
+            ),
         )
 
+    except AuthenticationError as e:
+        logger.warning(f"Google user verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        ) from e
     except Exception as e:
-        logger.error(f"Token validation error: {e}")
-        return TokenValidationResponse(valid=False)
+        logger.error(f"Google user verification error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User verification failed",
+        ) from e

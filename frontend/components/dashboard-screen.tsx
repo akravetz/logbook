@@ -2,14 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAuth } from "@/lib/contexts/auth-context"
+import { useSession } from "next-auth/react"
 import { useWorkout } from "@/lib/contexts/workout-context"
 import { Flame, Dumbbell, TrendingUp, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
 export function DashboardScreen() {
-  const { user } = useAuth()
+  const { data: session } = useSession()
   const { startWorkout } = useWorkout()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -32,8 +32,8 @@ export function DashboardScreen() {
   }
 
   const getFirstName = () => {
-    if (!user?.name) return "there"
-    return user.name.split(" ")[0]
+    if (!session?.user?.name) return "there"
+    return session.user.name.split(" ")[0]
   }
 
   if (!mounted) {

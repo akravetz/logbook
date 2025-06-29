@@ -1,22 +1,20 @@
 """Test auth router endpoints with anyio and transaction isolation."""
 
 from datetime import UTC
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 from fastapi import status
 from httpx import AsyncClient
 from httpx._transports.asgi import ASGITransport
-from starlette.requests import Request
 
-from workout_api.auth.authlib_google import AuthlibGoogleManager, GoogleUserInfo
 from workout_api.auth.dependencies import (
-    get_authlib_google_manager,
     get_current_user_from_token,
     get_jwt_manager,
     verify_token_only,
 )
 from workout_api.auth.jwt import JWTManager, TokenData
+from workout_api.auth.schemas import GoogleUserInfo
 from workout_api.core.main import app
 from workout_api.shared.exceptions import AuthenticationError
 from workout_api.users.models import User
@@ -66,13 +64,6 @@ async def authenticated_client(
 
 
 @pytest.fixture
-def mock_google_oauth():
-    """Create a mock AuthlibGoogleManager."""
-    mock = AsyncMock(spec=AuthlibGoogleManager)
-    return mock
-
-
-@pytest.fixture
 def mock_jwt_manager():
     """Create a mock JWTManager."""
     mock = Mock(spec=JWTManager)
@@ -80,264 +71,15 @@ def mock_jwt_manager():
 
 
 @pytest.fixture
-def mock_request():
-    """Create a mock Starlette Request."""
-    mock = Mock(spec=Request)
-    mock.url = Mock()
-    mock.url.replace = Mock(return_value="https://example.com/auth/google/callback")
-    return mock
-
-
-@pytest.fixture
 def sample_google_user_info():
     """Sample Google user info for testing."""
     return GoogleUserInfo(
-        {
-            "id": "google123",
-            "email": "test@example.com",
-            "name": "Test User",
-            "picture": "https://example.com/profile.jpg",
-            "email_verified": True,
-        }
+        email="test@example.com",
+        name="Test User",
+        picture="https://example.com/profile.jpg",
+        email_verified=True,
+        google_id="google123",
     )
-
-
-@pytest.fixture
-def sample_oauth_token_response():
-    """Sample OAuth token response from Google."""
-    return {
-        "access_token": "access_token_123",
-        "token_type": "Bearer",
-        "expires_in": 3600,
-        "refresh_token": "refresh_token_123",
-        "userinfo": {
-            "id": "google123",
-            "email": "test@example.com",
-            "name": "Test User",
-            "picture": "https://example.com/profile.jpg",
-        },
-    }
-
-
-class TestAuthRouterOAuth:
-    """Test OAuth endpoints."""
-
-    async def test_initiate_google_oauth_success(
-        self, client: AsyncClient, mock_google_oauth
-    ):
-        """Test successful OAuth initiation."""
-        # Arrange
-        from starlette.responses import RedirectResponse
-
-        mock_redirect_response = RedirectResponse(
-            url="https://accounts.google.com/oauth/authorize?...", status_code=302
-        )
-        mock_google_oauth.authorize_redirect = AsyncMock(
-            return_value=mock_redirect_response
-        )
-
-        # Override the dependency
-        def override_get_authlib_google_manager():
-            return mock_google_oauth
-
-        app.dependency_overrides[get_authlib_google_manager] = (
-            override_get_authlib_google_manager
-        )
-
-        try:
-            # Act
-            response = await client.get("/api/v1/auth/google")
-
-            # Assert
-            assert response.status_code == 302
-            mock_google_oauth.authorize_redirect.assert_called_once()
-
-        finally:
-            # Clean up dependency override
-            app.dependency_overrides.pop(get_authlib_google_manager, None)
-
-    async def test_initiate_google_oauth_with_redirect_url(
-        self, client: AsyncClient, mock_google_oauth
-    ):
-        """Test OAuth initiation with redirect URL parameter."""
-        # Arrange
-        from starlette.responses import RedirectResponse
-
-        mock_redirect_response = RedirectResponse(
-            url="https://accounts.google.com/oauth/authorize?...", status_code=302
-        )
-        mock_google_oauth.authorize_redirect = AsyncMock(
-            return_value=mock_redirect_response
-        )
-
-        def override_get_authlib_google_manager():
-            return mock_google_oauth
-
-        app.dependency_overrides[get_authlib_google_manager] = (
-            override_get_authlib_google_manager
-        )
-
-        try:
-            # Act
-            response = await client.get(
-                "/api/v1/auth/google?redirect_url=https://example.com/dashboard"
-            )
-
-            # Assert
-            assert response.status_code == 302
-            mock_google_oauth.authorize_redirect.assert_called_once()
-
-        finally:
-            app.dependency_overrides.pop(get_authlib_google_manager, None)
-
-    async def test_initiate_google_oauth_error(
-        self, client: AsyncClient, mock_google_oauth
-    ):
-        """Test OAuth initiation with error."""
-        # Arrange
-        mock_google_oauth.authorize_redirect = AsyncMock(
-            side_effect=Exception("OAuth service unavailable")
-        )
-
-        def override_get_authlib_google_manager():
-            return mock_google_oauth
-
-        app.dependency_overrides[get_authlib_google_manager] = (
-            override_get_authlib_google_manager
-        )
-
-        try:
-            # Act
-            response = await client.get("/api/v1/auth/google")
-
-            # Assert
-            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-            data = response.json()
-            assert data["detail"] == "Failed to initiate authentication"
-
-        finally:
-            app.dependency_overrides.pop(get_authlib_google_manager, None)
-
-    async def test_google_oauth_callback_success(
-        self,
-        client: AsyncClient,
-        mock_google_oauth,
-        sample_oauth_token_response,
-        sample_google_user_info,
-    ):
-        """Test successful OAuth callback."""
-        # Arrange
-        mock_google_oauth.authorize_access_token = AsyncMock(
-            return_value=sample_oauth_token_response
-        )
-        mock_google_oauth.parse_user_info = Mock(return_value=sample_google_user_info)
-
-        def override_get_authlib_google_manager():
-            return mock_google_oauth
-
-        app.dependency_overrides[get_authlib_google_manager] = (
-            override_get_authlib_google_manager
-        )
-
-        try:
-            # Act
-            response = await client.get(
-                "/api/v1/auth/google/callback?code=auth_code&state=csrf_state"
-            )
-
-            # Assert
-            assert response.status_code == status.HTTP_200_OK
-            data = response.json()
-
-            # Check response structure
-            assert "user" in data
-            assert "tokens" in data
-
-            # Check user data
-            user_data = data["user"]
-            assert user_data["email_address"] == "test@example.com"
-            assert user_data["name"] == "Test User"
-
-            # Check tokens
-            tokens = data["tokens"]
-            assert "access_token" in tokens
-            assert "refresh_token" in tokens
-            assert tokens["token_type"] == "Bearer"
-
-        finally:
-            app.dependency_overrides.pop(get_authlib_google_manager, None)
-
-    async def test_google_oauth_callback_with_error_param(self, client: AsyncClient):
-        """Test OAuth callback with error parameter."""
-        # Act
-        response = await client.get(
-            "/api/v1/auth/google/callback?error=access_denied&error_description=User%20denied%20access"
-        )
-
-        # Assert
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        data = response.json()
-        assert "OAuth error" in data["detail"]
-        assert "User denied access" in data["detail"]
-
-    async def test_google_oauth_callback_token_exchange_failure(
-        self, client: AsyncClient, mock_google_oauth
-    ):
-        """Test OAuth callback when token exchange fails."""
-        # Arrange
-        mock_google_oauth.authorize_access_token = AsyncMock(
-            side_effect=Exception("Token exchange failed")
-        )
-
-        def override_get_authlib_google_manager():
-            return mock_google_oauth
-
-        app.dependency_overrides[get_authlib_google_manager] = (
-            override_get_authlib_google_manager
-        )
-
-        try:
-            # Act
-            response = await client.get(
-                "/api/v1/auth/google/callback?code=auth_code&state=csrf_state"
-            )
-
-            # Assert
-            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-
-        finally:
-            app.dependency_overrides.pop(get_authlib_google_manager, None)
-
-    async def test_google_oauth_callback_invalid_user_info(
-        self, client: AsyncClient, mock_google_oauth, sample_oauth_token_response
-    ):
-        """Test OAuth callback with invalid user info."""
-        # Arrange
-        mock_google_oauth.authorize_access_token = AsyncMock(
-            return_value=sample_oauth_token_response
-        )
-        mock_google_oauth.parse_user_info = Mock(
-            side_effect=Exception("Invalid user info")
-        )
-
-        def override_get_authlib_google_manager():
-            return mock_google_oauth
-
-        app.dependency_overrides[get_authlib_google_manager] = (
-            override_get_authlib_google_manager
-        )
-
-        try:
-            # Act
-            response = await client.get(
-                "/api/v1/auth/google/callback?code=auth_code&state=csrf_state"
-            )
-
-            # Assert
-            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-
-        finally:
-            app.dependency_overrides.pop(get_authlib_google_manager, None)
 
 
 class TestAuthRouterTokens:
@@ -609,14 +351,6 @@ class TestAuthRouterEdgeCases:
                 response = await client.post(endpoint)
 
             assert response.status_code == status.HTTP_403_FORBIDDEN
-
-    async def test_oauth_callback_malformed_parameters(self, client: AsyncClient):
-        """Test OAuth callback with malformed parameters."""
-        # Act - missing code parameter
-        response = await client.get("/api/v1/auth/google/callback?state=some_state")
-
-        # Assert - should fail during token exchange
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     async def test_refresh_token_malformed_request(self, client: AsyncClient):
         """Test refresh token with malformed request."""

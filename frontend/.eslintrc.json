@@ -1,0 +1,70 @@
+{
+  "extends": [
+    "next/core-web-vitals"
+  ],
+  "plugins": [
+    "jsx-a11y"
+  ],
+  "rules": {
+    "react/self-closing-comp": "error",
+    "react/jsx-curly-brace-presence": [
+      "error",
+      {
+        "props": "never",
+        "children": "never"
+      }
+    ],
+    "react/jsx-boolean-value": ["error", "never"],
+
+    // General JavaScript/ES6+ rules
+    "no-console": "warn",
+    "no-debugger": "error",
+    "no-alert": "warn",
+    "prefer-const": "error",
+    "no-var": "error",
+    "object-shorthand": "error",
+    "prefer-template": "error",
+    "no-duplicate-imports": "error",
+    "no-unused-expressions": "error",
+
+    // Code quality
+    "eqeqeq": ["error", "always"],
+    "no-eval": "error",
+    "no-implied-eval": "error",
+
+    // Accessibility - basic rules
+    "jsx-a11y/alt-text": "error",
+    "jsx-a11y/anchor-has-content": "error",
+    "jsx-a11y/aria-props": "error",
+    "jsx-a11y/role-has-required-aria-props": "error"
+  },
+  "overrides": [
+    {
+      "files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["next.config.*", "tailwind.config.*", "*.config.*"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ],
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    ".next/",
+    "out/",
+    "build/",
+    "dist/",
+    "*.min.js",
+    "lib/api/generated.ts",
+    "lib/api/model/"
+  ]
+}

@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..shared.exceptions import AuthenticationError, DuplicateError, NotFoundError
 from ..users.models import User
 from ..users.repository import UserRepository
-from .authlib_google import GoogleUserInfo
 from .jwt import JWTManager, TokenPair
+from .schemas import GoogleUserInfo
 
 logger = logging.getLogger("workout_api.auth.service")
 
@@ -28,44 +28,25 @@ class AuthService:
         self.user_repository = user_repository
 
     async def authenticate_with_google(
-        self, google_user_info: GoogleUserInfo
+        self, google_user_info: dict | GoogleUserInfo
     ) -> tuple[User, TokenPair]:
         """Authenticate or create user from Google OAuth and return user with tokens."""
         try:
-            # Look for existing user by Google ID first
-            user = await self.user_repository.get_by_google_id(
-                google_user_info.google_id
-            )
+            # Convert dict to GoogleUserInfo if needed (NextAuth.js integration)
+            if isinstance(google_user_info, dict):
+                google_user_info = GoogleUserInfo.from_nextauth(google_user_info)
+
+            # Look for existing user by email first (simplified for NextAuth.js)
+            user = await self.user_repository.get_by_email(google_user_info.email)
 
             if user:
                 # Update existing user info if needed
                 user = await self._update_user_from_google(user, google_user_info)
                 logger.info(f"Existing user authenticated: {user.email_address}")
             else:
-                # Check if user exists by email (account linking case)
-                existing_user = await self.user_repository.get_by_email(
-                    google_user_info.email
-                )
-
-                if existing_user:
-                    # Link Google account to existing user
-                    existing_user.google_id = google_user_info.google_id
-                    existing_user.name = google_user_info.name or existing_user.name
-                    existing_user.profile_image_url = (
-                        google_user_info.picture or existing_user.profile_image_url
-                    )
-
-                    await self.session.commit()
-                    # Refresh the object to ensure it stays attached to the session
-                    await self.session.refresh(existing_user)
-                    user = existing_user
-                    logger.info(
-                        f"Linked Google account to existing user: {user.email_address}"
-                    )
-                else:
-                    # Create new user
-                    user = await self._create_user_from_google(google_user_info)
-                    logger.info(f"New user created: {user.email_address}")
+                # Create new user
+                user = await self._create_user_from_google(google_user_info)
+                logger.info(f"New user created: {user.email_address}")
 
             # Create JWT tokens
             tokens = self.jwt_manager.create_token_pair(user.id, user.email_address)
@@ -83,7 +64,8 @@ class AuthService:
             # Create new user using repository
             user_data = {
                 "email_address": google_info.email,
-                "google_id": google_info.google_id,
+                "google_id": google_info.google_id
+                or google_info.email,  # Use email as fallback
                 "name": google_info.name or google_info.email.split("@")[0],
                 "profile_image_url": google_info.picture,
                 "is_active": True,
@@ -125,6 +107,13 @@ class AuthService:
             # Ensure user is active
             if not user.is_active:
                 user.is_active = True
+                updated = True
+
+            # Update Google ID if not set or is a temporary placeholder
+            if (
+                not user.google_id or user.google_id.startswith("temp_")
+            ) and google_info.google_id:
+                user.google_id = google_info.google_id
                 updated = True
 
             if updated:
@@ -199,6 +188,10 @@ class AuthService:
                 logger.warning(f"User {user_id} not found")
                 raise NotFoundError("User not found")
 
+            if not user.is_active:
+                logger.warning(f"Inactive user {user_id} attempted access")
+                raise AuthenticationError("User account is inactive")
+
             return user
 
         except (NotFoundError, AuthenticationError):
@@ -206,14 +199,14 @@ class AuthService:
             raise
         except Exception as e:
             logger.error(f"Failed to get user profile {user_id}: {e}")
-            raise AuthenticationError("Failed to retrieve user profile") from e
+            raise AuthenticationError("Failed to get user profile") from e
 
     async def update_user_profile(
         self, user_id: int, update_data: dict[str, Any]
     ) -> User:
         """Update user profile information."""
         try:
-            # Filter to only allowed fields
+            # Filter out sensitive fields that should not be updated via profile endpoint
             allowed_fields = {"name", "profile_image_url"}
             filtered_data = {
                 key: value
@@ -221,6 +214,7 @@ class AuthService:
                 if key in allowed_fields
             }
 
+            # Use repository to update user
             user = await self.user_repository.update(user_id, filtered_data)
 
             if not user:
@@ -228,8 +222,8 @@ class AuthService:
                 raise NotFoundError("User not found")
 
             await self.session.commit()
-            # Refresh the object to ensure it stays attached to the session
             await self.session.refresh(user)
+
             logger.info(f"Updated user profile: {user.email_address}")
             return user
 
@@ -246,15 +240,12 @@ class AuthService:
         try:
             user = await self.user_repository.get_by_id(user_id)
             return user is not None and user.is_active
-
         except Exception as e:
             logger.error(f"Failed to validate user access {user_id}: {e}")
             return False
 
 
 def get_auth_service(session: AsyncSession, jwt_manager: JWTManager) -> AuthService:
-    """Factory function to create AuthService instance."""
-    from ..users.repository import UserRepository
-
+    """Factory function to create AuthService with dependencies."""
     user_repository = UserRepository(session)
     return AuthService(session, jwt_manager, user_repository)

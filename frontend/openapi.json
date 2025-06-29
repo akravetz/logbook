@@ -115,170 +115,6 @@
         }
       }
     },
-    "/api/v1/auth/google": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Initiate Google OAuth flow",
-        "description": "Start Google OAuth authentication process and return authorization URL",
-        "operationId": "initiate_google_oauth_api_v1_auth_google_post",
-        "parameters": [
-          {
-            "name": "redirect_url",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Post-auth redirect URL",
-              "title": "Redirect Url"
-            },
-            "description": "Post-auth redirect URL"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OAuthInitiateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/google/callback": {
-      "get": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Handle Google OAuth callback",
-        "description": "Process Google OAuth callback and return user with JWT tokens",
-        "operationId": "google_oauth_callback_api_v1_auth_google_callback_get",
-        "parameters": [
-          {
-            "name": "code",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Authorization code from Google",
-              "title": "Code"
-            },
-            "description": "Authorization code from Google"
-          },
-          {
-            "name": "state",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "OAuth state parameter",
-              "title": "State"
-            },
-            "description": "OAuth state parameter"
-          },
-          {
-            "name": "error",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "OAuth error",
-              "title": "Error"
-            },
-            "description": "OAuth error"
-          },
-          {
-            "name": "error_description",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "OAuth error description",
-              "title": "Error Description"
-            },
-            "description": "OAuth error description"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthenticationResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "OAuth error or invalid state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/auth/refresh": {
       "post": {
         "tags": [
@@ -309,14 +145,7 @@
             }
           },
           "401": {
-            "description": "Invalid refresh token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthErrorResponse"
-                }
-              }
-            }
+            "description": "Invalid refresh token"
           },
           "422": {
             "description": "Validation Error",
@@ -364,7 +193,7 @@
           "Authentication"
         ],
         "summary": "Get current session info",
-        "description": "Get current user session information",
+        "description": "Get information about the current authenticated session",
         "operationId": "get_session_info_api_v1_auth_me_get",
         "responses": {
           "200": {
@@ -410,6 +239,44 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/auth/verify-google-user": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Verify Google user for NextAuth",
+        "description": "Create or update user from Google OAuth data via NextAuth.js",
+        "operationId": "verify_google_user_api_v1_auth_verify_google_user_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NextAuthGoogleUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextAuthVerificationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "422": {
+            "description": "Validation Error"
+          }
+        }
       }
     },
     "/api/v1/users/me": {
@@ -2081,58 +1948,6 @@
   },
   "components": {
     "schemas": {
-      "AuthErrorResponse": {
-        "properties": {
-          "error": {
-            "type": "string",
-            "title": "Error",
-            "description": "Error type"
-          },
-          "error_description": {
-            "type": "string",
-            "title": "Error Description",
-            "description": "Detailed error description"
-          },
-          "error_code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error Code",
-            "description": "Internal error code"
-          }
-        },
-        "type": "object",
-        "required": [
-          "error",
-          "error_description"
-        ],
-        "title": "AuthErrorResponse",
-        "description": "Authentication error response."
-      },
-      "AuthenticationResponse": {
-        "properties": {
-          "user": {
-            "$ref": "#/components/schemas/UserProfileResponse",
-            "description": "User profile information"
-          },
-          "tokens": {
-            "$ref": "#/components/schemas/TokenResponse",
-            "description": "JWT token pair"
-          }
-        },
-        "type": "object",
-        "required": [
-          "user",
-          "tokens"
-        ],
-        "title": "AuthenticationResponse",
-        "description": "Complete authentication response with user and tokens."
-      },
       "DatabaseHealthResponse": {
         "properties": {
           "status": {
@@ -2646,29 +2461,137 @@
         "title": "LogoutResponse",
         "description": "Logout response."
       },
-      "OAuthInitiateResponse": {
+      "NextAuthGoogleUserRequest": {
         "properties": {
-          "authorization_url": {
+          "email": {
             "type": "string",
-            "maxLength": 2083,
-            "minLength": 1,
-            "format": "uri",
-            "title": "Authorization Url",
-            "description": "Google OAuth authorization URL"
+            "format": "email",
+            "title": "Email",
+            "description": "User's email address from Google"
           },
-          "state": {
-            "type": "string",
-            "title": "State",
-            "description": "OAuth state parameter for CSRF protection"
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "User's display name"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image",
+            "description": "URL to user's profile image"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified",
+            "description": "Whether email is verified by Google",
+            "default": true
           }
         },
         "type": "object",
         "required": [
-          "authorization_url",
-          "state"
+          "email"
         ],
-        "title": "OAuthInitiateResponse",
-        "description": "Response with OAuth authorization URL."
+        "title": "NextAuthGoogleUserRequest",
+        "description": "NextAuth.js Google user verification request."
+      },
+      "NextAuthTokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "JWT access token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token",
+            "description": "JWT refresh token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Access token expiration in seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "title": "NextAuthTokenResponse",
+        "description": "JWT tokens in NextAuth.js expected format."
+      },
+      "NextAuthUserResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "User ID"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "User email address"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "User display name"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image",
+            "description": "URL to user's profile image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "name",
+          "image"
+        ],
+        "title": "NextAuthUserResponse",
+        "description": "User data in NextAuth.js expected format."
+      },
+      "NextAuthVerificationResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/NextAuthUserResponse",
+            "description": "User information"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/NextAuthTokenResponse",
+            "description": "JWT token pair"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "tokens"
+        ],
+        "title": "NextAuthVerificationResponse",
+        "description": "Complete NextAuth.js verification response."
       },
       "Page_ExerciseResponse_": {
         "properties": {
@@ -3136,39 +3059,6 @@
         ],
         "title": "TokenRefreshResponse",
         "description": "Token refresh response."
-      },
-      "TokenResponse": {
-        "properties": {
-          "access_token": {
-            "type": "string",
-            "title": "Access Token",
-            "description": "JWT access token"
-          },
-          "refresh_token": {
-            "type": "string",
-            "title": "Refresh Token",
-            "description": "JWT refresh token"
-          },
-          "token_type": {
-            "type": "string",
-            "title": "Token Type",
-            "description": "Token type",
-            "default": "Bearer"
-          },
-          "expires_in": {
-            "type": "integer",
-            "title": "Expires In",
-            "description": "Access token expiration in seconds"
-          }
-        },
-        "type": "object",
-        "required": [
-          "access_token",
-          "refresh_token",
-          "expires_in"
-        ],
-        "title": "TokenResponse",
-        "description": "JWT token response."
       },
       "TokenValidationResponse": {
         "properties": {

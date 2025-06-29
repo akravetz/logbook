@@ -8,8 +8,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
-from workout_api.auth.authlib_google import GoogleUserInfo
 from workout_api.auth.jwt import JWTManager, TokenPair
+from workout_api.auth.schemas import GoogleUserInfo
 from workout_api.core.config import Settings
 from workout_api.core.database import get_session
 from workout_api.core.main import app
@@ -238,16 +238,13 @@ async def inactive_user(session: AsyncSession) -> User:
 @pytest.fixture
 def mock_google_user_info() -> GoogleUserInfo:
     """Create mock Google user info for OAuth testing - shared across modules."""
-    data = {
-        "id": "google_user_123",
-        "email": "test@example.com",
-        "name": "Test User",
-        "picture": "https://example.com/avatar.jpg",
-        "email_verified": True,
-        "given_name": "Test",
-        "family_name": "User",
-    }
-    return GoogleUserInfo(data)
+    return GoogleUserInfo(
+        email="test@example.com",
+        name="Test User",
+        picture="https://example.com/avatar.jpg",
+        email_verified=True,
+        google_id="google_user_123",
+    )
 
 
 @pytest.fixture
