@@ -863,3 +863,107 @@ def get_results() -> Page[Item]:
 - **TYPE_CHECKING for types only** - Only for classes used solely in type annotations
 - **Runtime imports are regular** - Objects used at runtime get normal imports
 - **Avoid `if TYPE_CHECKING: pass`** - Serves no purpose and should never exist
+
+## OAuth Authentication Patterns (Authlib Migration)
+
+### Authlib OAuth Client Pattern
+**Modern OAuth implementation using Authlib's FastAPI integration for secure, maintainable authentication**
+
+```python
+from authlib.integrations.starlette_client import OAuth
+from starlette.requests import Request
+
+class AuthlibGoogleManager:
+    """Authlib-based Google OAuth 2.0 flow manager."""
+
+    def __init__(self, settings: Settings):
+        self.oauth = OAuth()
+        self.oauth.register(
+            name="google",
+            client_id=settings.google_client_id,
+            client_secret=settings.google_client_secret,
+            server_metadata_url=settings.google_discovery_url,
+            client_kwargs={"scope": "openid email profile"},
+        )
+
+    async def authorize_redirect(self, request: Request, redirect_uri: str | None = None):
+        """Generate OAuth authorization redirect with automatic state management."""
+        return await self.oauth.google.authorize_redirect(request, redirect_uri or self.redirect_uri)
+
+    async def authorize_access_token(self, request: Request):
+        """Exchange code for tokens with automatic state validation."""
+        token = await self.oauth.google.authorize_access_token(request)
+        return {
+            "access_token": token.get("access_token"),
+            "userinfo": token.get("userinfo"),  # Automatically parsed by Authlib
+        }
+```
+
+### Session Middleware Configuration
+**Required for OAuth state management and CSRF protection**
+
+```python
+from starlette.middleware.sessions import SessionMiddleware
+
+# FastAPI app configuration
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret_key,
+    max_age=settings.session_max_age,  # 30 minutes for OAuth flows
+    same_site="lax",  # Allows OAuth redirects
+    https_only=settings.is_production,  # Secure cookies in production
+)
+```
+
+### Simplified OAuth Router Pattern
+**Clean endpoints leveraging Authlib's built-in functionality**
+
+```python
+@router.get("/google")
+async def initiate_google_oauth(
+    request: Request,
+    google_oauth: AuthlibGoogleOAuthDep,
+):
+    """Initiate OAuth flow - direct redirect, no manual state management."""
+    return await google_oauth.authorize_redirect(request)
+
+@router.get("/google/callback")
+async def google_oauth_callback(
+    request: Request,
+    google_oauth: AuthlibGoogleOAuthDep,
+):
+    """Handle OAuth callback - automatic state validation and token exchange."""
+    token_data = await google_oauth.authorize_access_token(request)
+    user_info = google_oauth.parse_user_info(token_data["userinfo"])
+
+    # Business logic remains unchanged
+    auth_service = get_auth_service(session, jwt_manager)
+    user, jwt_tokens = await auth_service.authenticate_with_google(user_info)
+    return AuthenticationResponse(user=user, tokens=jwt_tokens)
+```
+
+### OAuth Benefits Achieved
+- **Enhanced Security**: Battle-tested OAuth implementation with built-in CSRF protection
+- **Simplified Codebase**: Removed ~100 lines of manual OAuth code and state management
+- **Better Maintainability**: Authlib handles OAuth complexity and receives regular security updates
+- **Future-Ready**: Easy to add additional OAuth providers (GitHub, Microsoft, etc.)
+- **Standards Compliant**: Full OpenID Connect support and proper token handling
+
+### Configuration Pattern for OAuth
+```python
+class Settings(BaseSettings):
+    # OAuth Configuration
+    google_client_id: str
+    google_client_secret: str
+    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
+    google_discovery_url: str = "https://accounts.google.com/.well-known/openid_configuration"
+
+    # Session Management (required for OAuth)
+    session_secret_key: str = ""  # Fallback to main secret_key
+    session_max_age: int = 1800   # 30 minutes
+
+    def model_post_init(self, __context) -> None:
+        """Set session secret fallback."""
+        if not self.session_secret_key:
+            object.__setattr__(self, "session_secret_key", self.secret_key)
+```

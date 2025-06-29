@@ -116,13 +116,13 @@
       }
     },
     "/api/v1/auth/google": {
-      "post": {
+      "get": {
         "tags": [
           "Authentication"
         ],
         "summary": "Initiate Google OAuth flow",
-        "description": "Start Google OAuth authentication process and return authorization URL",
-        "operationId": "initiate_google_oauth_api_v1_auth_google_post",
+        "description": "Start Google OAuth authentication process and redirect to Google",
+        "operationId": "initiate_google_oauth_api_v1_auth_google_get",
         "parameters": [
           {
             "name": "redirect_url",
@@ -148,9 +148,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OAuthInitiateResponse"
-                }
+                "schema": {}
               }
             }
           },
@@ -176,28 +174,6 @@
         "description": "Process Google OAuth callback and return user with JWT tokens",
         "operationId": "google_oauth_callback_api_v1_auth_google_callback_get",
         "parameters": [
-          {
-            "name": "code",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "Authorization code from Google",
-              "title": "Code"
-            },
-            "description": "Authorization code from Google"
-          },
-          {
-            "name": "state",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "OAuth state parameter",
-              "title": "State"
-            },
-            "description": "OAuth state parameter"
-          },
           {
             "name": "error",
             "in": "query",
@@ -2645,30 +2621,6 @@
         "type": "object",
         "title": "LogoutResponse",
         "description": "Logout response."
-      },
-      "OAuthInitiateResponse": {
-        "properties": {
-          "authorization_url": {
-            "type": "string",
-            "maxLength": 2083,
-            "minLength": 1,
-            "format": "uri",
-            "title": "Authorization Url",
-            "description": "Google OAuth authorization URL"
-          },
-          "state": {
-            "type": "string",
-            "title": "State",
-            "description": "OAuth state parameter for CSRF protection"
-          }
-        },
-        "type": "object",
-        "required": [
-          "authorization_url",
-          "state"
-        ],
-        "title": "OAuthInitiateResponse",
-        "description": "Response with OAuth authorization URL."
       },
       "Page_ExerciseResponse_": {
         "properties": {

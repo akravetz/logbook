@@ -1,13 +1,13 @@
-"""Tests for Google OAuth 2.0 integration."""
+"""Tests for Authlib-based Google OAuth 2.0 integration."""
 
 from unittest.mock import AsyncMock, Mock
 
-import httpx
 import pytest
+from starlette.requests import Request
 
-from workout_api.auth.google import (
+from workout_api.auth.authlib_google import (
+    AuthlibGoogleManager,
     GoogleOAuthError,
-    GoogleOAuthManager,
     GoogleUserInfo,
 )
 from workout_api.core.config import Settings
@@ -30,32 +30,42 @@ def test_settings():
 
 
 @pytest.fixture
-def google_oauth_manager(test_settings):
-    """Create GoogleOAuthManager instance for testing."""
-    return GoogleOAuthManager(test_settings)
+def authlib_google_manager(test_settings):
+    """Create AuthlibGoogleManager instance for testing."""
+    return AuthlibGoogleManager(test_settings)
 
 
 @pytest.fixture
-def mock_http_client():
-    """Create a mock HTTP client."""
-    return AsyncMock(spec=httpx.AsyncClient)
+def mock_request():
+    """Create a mock Starlette Request object."""
+    mock_request = Mock(spec=Request)
+    mock_request.session = {}
+    return mock_request
 
 
 @pytest.fixture
-def google_oauth_manager_with_client(test_settings, mock_http_client):
-    """Create GoogleOAuthManager with injected HTTP client."""
-    return GoogleOAuthManager(test_settings, mock_http_client)
-
-
-@pytest.fixture
-def mock_google_tokeninfo_response():
-    """Mock Google token info response."""
+def mock_google_userinfo_response():
+    """Mock Google userinfo response."""
     return {
-        "audience": "test_client_id",
-        "user_id": "google_user_123",
+        "id": "google_user_123",
         "email": "test@example.com",
-        "scope": "openid email profile",
+        "name": "Test User",
+        "picture": "https://example.com/avatar.jpg",
+        "email_verified": True,
+        "given_name": "Test",
+        "family_name": "User",
+    }
+
+
+@pytest.fixture
+def mock_oauth_token_response(mock_google_userinfo_response):
+    """Mock OAuth token response with userinfo."""
+    return {
+        "access_token": "access_token_123",
+        "refresh_token": "refresh_token_456",
+        "token_type": "Bearer",
         "expires_in": 3600,
+        "userinfo": mock_google_userinfo_response,
     }
 
 
@@ -107,7 +117,7 @@ class TestGoogleUserInfo:
     def test_is_valid_missing_required_fields(self):
         """Test is_valid() with missing required fields."""
         test_cases = [
-            {"email": "test@example.com", "email_verified": True},  # Missing sub
+            {"email": "test@example.com", "email_verified": True},  # Missing sub/id
             {"sub": "123", "email_verified": True},  # Missing email
         ]
 
@@ -135,357 +145,223 @@ class TestGoogleUserInfo:
         assert data["family_name"] == "User"
 
 
-class TestGoogleOAuthManager:
-    """Test GoogleOAuthManager functionality."""
+class TestAuthlibGoogleManager:
+    """Test AuthlibGoogleManager functionality."""
 
-    def test_manager_initialization(self, google_oauth_manager, test_settings):
-        """Test GoogleOAuthManager initialization."""
-        assert google_oauth_manager.client_id == test_settings.google_client_id
-        assert google_oauth_manager.client_secret == test_settings.google_client_secret
-        assert google_oauth_manager.redirect_uri == test_settings.google_redirect_uri
-        assert google_oauth_manager.discovery_url == test_settings.google_discovery_url
-        assert google_oauth_manager.scopes == ["openid", "email", "profile"]
-
-    def test_generate_authorization_url_with_state(self, google_oauth_manager):
-        """Test generating authorization URL with provided state."""
-        test_state = "test_state_123"
-
-        auth_url, state = google_oauth_manager.generate_authorization_url(test_state)
-
-        assert state == test_state
-        assert "https://accounts.google.com/o/oauth2/v2/auth" in auth_url
-        assert f"state={test_state}" in auth_url
-        assert "client_id=test_client_id" in auth_url
-        assert "response_type=code" in auth_url
-        assert "scope=openid+email+profile" in auth_url
-        assert "access_type=offline" in auth_url
-        assert "prompt=consent" in auth_url
-
-    def test_generate_authorization_url_without_state(self, google_oauth_manager):
-        """Test generating authorization URL without state (auto-generated)."""
-        auth_url, state = google_oauth_manager.generate_authorization_url()
-
-        assert state is not None
-        assert len(state) > 0
-        assert "https://accounts.google.com/o/oauth2/v2/auth" in auth_url
-        assert f"state={state}" in auth_url
+    def test_manager_initialization(self, authlib_google_manager, test_settings):
+        """Test AuthlibGoogleManager initialization."""
+        assert authlib_google_manager.client_id == test_settings.google_client_id
+        assert (
+            authlib_google_manager.client_secret == test_settings.google_client_secret
+        )
+        assert authlib_google_manager.redirect_uri == test_settings.google_redirect_uri
+        assert (
+            authlib_google_manager.discovery_url == test_settings.google_discovery_url
+        )
+        assert authlib_google_manager.scopes == ["openid", "email", "profile"]
+        assert authlib_google_manager.oauth is not None
 
     @pytest.mark.anyio
-    @pytest.mark.anyio
-    async def test_exchange_code_for_tokens_success(
-        self,
-        google_oauth_manager_with_client,
-        mock_http_client,
-        mock_google_token_response,
+    async def test_authorize_redirect_with_default_uri(
+        self, authlib_google_manager, mock_request
     ):
-        """Test successful authorization code exchange."""
-        # Setup mock response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_google_token_response
-        mock_http_client.post.return_value = mock_response
-
-        tokens = await google_oauth_manager_with_client.exchange_code_for_tokens(
-            "test_code", "test_state"
+        """Test generating authorization redirect with default URI."""
+        # Mock the OAuth client's authorize_redirect method
+        mock_redirect_response = Mock()
+        mock_redirect_response.status_code = 302
+        authlib_google_manager.oauth.google.authorize_redirect = AsyncMock(
+            return_value=mock_redirect_response
         )
 
-        assert tokens["access_token"] == mock_google_token_response["access_token"]
-        assert tokens["refresh_token"] == mock_google_token_response["refresh_token"]
-        assert tokens["token_type"] == mock_google_token_response["token_type"]
+        result = await authlib_google_manager.authorize_redirect(mock_request)
 
-        # Verify the HTTP call
-        mock_http_client.post.assert_called_once()
-        call_args = mock_http_client.post.call_args
-        assert call_args[0][0] == "https://oauth2.googleapis.com/token"
-        assert call_args[1]["data"]["code"] == "test_code"
-        assert call_args[1]["data"]["client_id"] == "test_client_id"
+        assert result == mock_redirect_response
+        authlib_google_manager.oauth.google.authorize_redirect.assert_called_once_with(
+            mock_request, authlib_google_manager.redirect_uri
+        )
 
     @pytest.mark.anyio
-    async def test_exchange_code_for_tokens_http_error(
-        self, google_oauth_manager_with_client, mock_http_client
+    async def test_authorize_redirect_with_custom_uri(
+        self, authlib_google_manager, mock_request
     ):
-        """Test authorization code exchange with HTTP error."""
-        # Setup mock error response
-        mock_response = Mock()
-        mock_response.status_code = 400
-        mock_response.text = "Invalid authorization code"
-        mock_http_client.post.return_value = mock_response
+        """Test generating authorization redirect with custom URI."""
+        custom_uri = "http://localhost:3000/callback"
+        mock_redirect_response = Mock()
+        authlib_google_manager.oauth.google.authorize_redirect = AsyncMock(
+            return_value=mock_redirect_response
+        )
 
-        with pytest.raises(
-            GoogleOAuthError, match="Failed to exchange authorization code"
-        ):
-            await google_oauth_manager_with_client.exchange_code_for_tokens(
-                "invalid_code", "test_state"
-            )
+        result = await authlib_google_manager.authorize_redirect(
+            mock_request, custom_uri
+        )
+
+        assert result == mock_redirect_response
+        authlib_google_manager.oauth.google.authorize_redirect.assert_called_once_with(
+            mock_request, custom_uri
+        )
 
     @pytest.mark.anyio
-    async def test_exchange_code_for_tokens_network_error(
-        self, google_oauth_manager_with_client, mock_http_client
-    ):
-        """Test authorization code exchange with network error."""
-        mock_http_client.post.side_effect = httpx.RequestError("Network error")
+    async def test_authorize_redirect_error(self, authlib_google_manager, mock_request):
+        """Test authorization redirect with error."""
+        authlib_google_manager.oauth.google.authorize_redirect = AsyncMock(
+            side_effect=Exception("OAuth error")
+        )
 
-        with pytest.raises(
-            GoogleOAuthError, match="Network error during authentication"
-        ):
-            await google_oauth_manager_with_client.exchange_code_for_tokens(
-                "test_code", "test_state"
-            )
+        with pytest.raises(GoogleOAuthError, match="Failed to initiate OAuth flow"):
+            await authlib_google_manager.authorize_redirect(mock_request)
 
     @pytest.mark.anyio
-    async def test_exchange_code_for_tokens_missing_access_token(
-        self, google_oauth_manager_with_client, mock_http_client
+    async def test_authorize_access_token_success(
+        self, authlib_google_manager, mock_request, mock_oauth_token_response
     ):
-        """Test authorization code exchange with missing access token in response."""
-        # Setup mock response without access_token
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "refresh_token": "refresh_123",
+        """Test successful OAuth token exchange."""
+        authlib_google_manager.oauth.google.authorize_access_token = AsyncMock(
+            return_value=mock_oauth_token_response
+        )
+
+        result = await authlib_google_manager.authorize_access_token(mock_request)
+
+        assert result["access_token"] == "access_token_123"
+        assert result["refresh_token"] == "refresh_token_456"
+        assert result["token_type"] == "Bearer"
+        assert result["expires_in"] == 3600
+        assert result["userinfo"] == mock_oauth_token_response["userinfo"]
+
+        authlib_google_manager.oauth.google.authorize_access_token.assert_called_once_with(
+            mock_request
+        )
+
+    @pytest.mark.anyio
+    async def test_authorize_access_token_no_token(
+        self, authlib_google_manager, mock_request
+    ):
+        """Test OAuth token exchange when no token returned."""
+        authlib_google_manager.oauth.google.authorize_access_token = AsyncMock(
+            return_value=None
+        )
+
+        with pytest.raises(GoogleOAuthError, match="Failed to receive access token"):
+            await authlib_google_manager.authorize_access_token(mock_request)
+
+    @pytest.mark.anyio
+    async def test_authorize_access_token_no_userinfo(
+        self, authlib_google_manager, mock_request
+    ):
+        """Test OAuth token exchange when no userinfo in response."""
+        token_response = {
+            "access_token": "access_token_123",
             "token_type": "Bearer",
+            # Missing userinfo
         }
-        mock_http_client.post.return_value = mock_response
-
-        with pytest.raises(
-            GoogleOAuthError, match="Invalid token response from Google"
-        ):
-            await google_oauth_manager_with_client.exchange_code_for_tokens(
-                "test_code", "test_state"
-            )
-
-    @pytest.mark.anyio
-    async def test_get_user_info_success(
-        self,
-        google_oauth_manager_with_client,
-        mock_http_client,
-        mock_google_userinfo_response,
-    ):
-        """Test successful user info retrieval."""
-        # Setup mock response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_google_userinfo_response
-        mock_http_client.get.return_value = mock_response
-
-        user_info = await google_oauth_manager_with_client.get_user_info(
-            "test_access_token"
+        authlib_google_manager.oauth.google.authorize_access_token = AsyncMock(
+            return_value=token_response
         )
-
-        assert isinstance(user_info, GoogleUserInfo)
-        assert user_info.google_id == "google_user_123"
-        assert user_info.email == "test@example.com"
-        assert user_info.is_valid() is True
-
-        # Verify the HTTP call
-        mock_http_client.get.assert_called_once_with(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": "Bearer test_access_token"},
-            timeout=30.0,
-        )
-
-    @pytest.mark.anyio
-    async def test_get_user_info_http_error(
-        self, google_oauth_manager_with_client, mock_http_client
-    ):
-        """Test user info retrieval with HTTP error."""
-        # Setup mock error response
-        mock_response = Mock()
-        mock_response.status_code = 401
-        mock_response.text = "Invalid access token"
-        mock_http_client.get.return_value = mock_response
 
         with pytest.raises(
             GoogleOAuthError, match="Failed to retrieve user information"
         ):
-            await google_oauth_manager_with_client.get_user_info("invalid_token")
+            await authlib_google_manager.authorize_access_token(mock_request)
 
     @pytest.mark.anyio
-    async def test_get_user_info_invalid_data(
-        self, google_oauth_manager_with_client, mock_http_client
+    async def test_authorize_access_token_error(
+        self, authlib_google_manager, mock_request
     ):
-        """Test user info retrieval with invalid user data."""
-        # Setup mock response with invalid data
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "email": "test@example.com"
-        }  # Missing required fields
-        mock_http_client.get.return_value = mock_response
+        """Test OAuth token exchange with error."""
+        authlib_google_manager.oauth.google.authorize_access_token = AsyncMock(
+            side_effect=Exception("Token error")
+        )
+
+        with pytest.raises(GoogleOAuthError, match="OAuth authentication failed"):
+            await authlib_google_manager.authorize_access_token(mock_request)
+
+    def test_parse_user_info_success(
+        self, authlib_google_manager, mock_google_userinfo_response
+    ):
+        """Test successful user info parsing."""
+        result = authlib_google_manager.parse_user_info(mock_google_userinfo_response)
+
+        assert isinstance(result, GoogleUserInfo)
+        assert result.google_id == "google_user_123"
+        assert result.email == "test@example.com"
+        assert result.name == "Test User"
+
+    def test_parse_user_info_invalid(self, authlib_google_manager):
+        """Test parsing invalid user info."""
+        invalid_userinfo = {"email": "test@example.com"}  # Missing google_id
 
         with pytest.raises(
             GoogleOAuthError, match="Invalid user information from Google"
         ):
-            await google_oauth_manager_with_client.get_user_info("test_access_token")
+            authlib_google_manager.parse_user_info(invalid_userinfo)
 
-    @pytest.mark.anyio
-    async def test_verify_token_success(
-        self,
-        google_oauth_manager_with_client,
-        mock_http_client,
-        mock_google_tokeninfo_response,
-    ):
-        """Test successful token verification."""
-        # Setup mock response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_google_tokeninfo_response
-        mock_http_client.get.return_value = mock_response
-
-        token_info = await google_oauth_manager_with_client.verify_token(
-            "test_access_token"
-        )
-
-        assert token_info["audience"] == "test_client_id"
-        assert token_info["user_id"] == "google_user_123"
-        assert token_info["email"] == "test@example.com"
-
-    @pytest.mark.anyio
-    async def test_verify_token_invalid(
-        self, google_oauth_manager_with_client, mock_http_client
-    ):
-        """Test token verification with invalid token."""
-        # Setup mock error response
-        mock_response = Mock()
-        mock_response.status_code = 400
-        mock_http_client.get.return_value = mock_response
-
-        with pytest.raises(GoogleOAuthError, match="Invalid access token"):
-            await google_oauth_manager_with_client.verify_token("invalid_token")
-
-    @pytest.mark.anyio
-    async def test_verify_token_wrong_audience(
-        self, google_oauth_manager_with_client, mock_http_client
-    ):
-        """Test token verification with wrong audience."""
-        # Setup mock response with wrong audience
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "audience": "wrong_client_id",
-            "user_id": "google_user_123",
-            "email": "test@example.com",
-        }
-        mock_http_client.get.return_value = mock_response
-
-        with pytest.raises(
-            GoogleOAuthError, match="Token not issued for this application"
-        ):
-            await google_oauth_manager_with_client.verify_token("test_access_token")
-
-    def test_validate_state_success(self, google_oauth_manager):
-        """Test successful state validation."""
-        assert google_oauth_manager.validate_state("test_state", "test_state") is True
-
-    def test_validate_state_mismatch(self, google_oauth_manager):
-        """Test state validation with mismatch."""
-        assert google_oauth_manager.validate_state("state1", "state2") is False
-
-    def test_validate_state_missing(self, google_oauth_manager):
-        """Test state validation with missing state."""
-        assert google_oauth_manager.validate_state("", "test_state") is False
-        assert google_oauth_manager.validate_state("test_state", "") is False
-        assert google_oauth_manager.validate_state(None, "test_state") is False
-        assert google_oauth_manager.validate_state("test_state", None) is False
+    def test_parse_user_info_error(self, authlib_google_manager):
+        """Test parsing user info with unexpected error."""
+        # Pass invalid data type to trigger exception
+        with pytest.raises(GoogleOAuthError, match="Failed to parse user information"):
+            authlib_google_manager.parse_user_info(None)
 
 
 class TestIntegrationScenarios:
-    """Test integration scenarios for Google OAuth."""
+    """Test integration scenarios with Authlib Google OAuth."""
 
     @pytest.mark.anyio
     async def test_full_oauth_flow(
-        self,
-        google_oauth_manager_with_client,
-        mock_http_client,
-        mock_google_token_response,
-        mock_google_userinfo_response,
+        self, authlib_google_manager, mock_request, mock_oauth_token_response
     ):
-        """Test complete OAuth flow from authorization to user info."""
-        # Step 1: Generate authorization URL
-        auth_url, state = google_oauth_manager_with_client.generate_authorization_url()
-        assert auth_url and state
-
-        # Step 2: Exchange code for tokens
-        mock_token_response = Mock()
-        mock_token_response.status_code = 200
-        mock_token_response.json.return_value = mock_google_token_response
-        mock_http_client.post.return_value = mock_token_response
-
-        tokens = await google_oauth_manager_with_client.exchange_code_for_tokens(
-            "auth_code", state
+        """Test complete OAuth flow from redirect to user info parsing."""
+        # Mock the OAuth client methods
+        mock_redirect_response = Mock()
+        mock_redirect_response.status_code = 302
+        authlib_google_manager.oauth.google.authorize_redirect = AsyncMock(
+            return_value=mock_redirect_response
         )
-        assert tokens["access_token"] == "mock_google_access_token"
-
-        # Step 3: Get user info
-        mock_userinfo_response = Mock()
-        mock_userinfo_response.status_code = 200
-        mock_userinfo_response.json.return_value = mock_google_userinfo_response
-        mock_http_client.get.return_value = mock_userinfo_response
-
-        user_info = await google_oauth_manager_with_client.get_user_info(
-            tokens["access_token"]
+        authlib_google_manager.oauth.google.authorize_access_token = AsyncMock(
+            return_value=mock_oauth_token_response
         )
+
+        # Step 1: Generate authorization redirect
+        redirect_result = await authlib_google_manager.authorize_redirect(mock_request)
+        assert redirect_result == mock_redirect_response
+
+        # Step 2: Exchange code for tokens and get user info
+        token_result = await authlib_google_manager.authorize_access_token(mock_request)
+        assert token_result["access_token"] == "access_token_123"
+        assert "userinfo" in token_result
+
+        # Step 3: Parse user info
+        user_info = authlib_google_manager.parse_user_info(token_result["userinfo"])
+        assert user_info.google_id == "google_user_123"
         assert user_info.email == "test@example.com"
-        assert user_info.is_valid() is True
-
-    @pytest.mark.anyio
-    async def test_oauth_flow_with_network_issues(
-        self, google_oauth_manager_with_client, mock_http_client
-    ):
-        """Test OAuth flow handling network issues gracefully."""
-        # Simulate network error during token exchange
-        mock_http_client.post.side_effect = httpx.ConnectError("Connection refused")
-
-        with pytest.raises(GoogleOAuthError, match="Network error"):
-            await google_oauth_manager_with_client.exchange_code_for_tokens(
-                "auth_code", "state"
-            )
-
-        # Simulate timeout during user info retrieval
-        mock_http_client.get.side_effect = httpx.TimeoutException("Request timeout")
-
-        with pytest.raises(GoogleOAuthError, match="Network error"):
-            await google_oauth_manager_with_client.get_user_info("access_token")
+        assert user_info.is_valid()
 
 
 class TestErrorHandling:
-    """Test error handling in Google OAuth."""
+    """Test error handling scenarios."""
 
     @pytest.mark.anyio
-    async def test_handle_unexpected_error_in_exchange(
-        self, google_oauth_manager_with_client, mock_http_client
+    async def test_handle_authlib_oauth_error(
+        self, authlib_google_manager, mock_request
     ):
-        """Test handling unexpected errors during token exchange."""
-        mock_http_client.post.side_effect = Exception("Unexpected error")
+        """Test handling of Authlib OAuth errors."""
+        from authlib.common.errors import AuthlibBaseError
 
-        with pytest.raises(GoogleOAuthError, match="Authentication failed"):
-            await google_oauth_manager_with_client.exchange_code_for_tokens(
-                "code", "state"
-            )
+        authlib_google_manager.oauth.google.authorize_redirect = AsyncMock(
+            side_effect=AuthlibBaseError("Authlib OAuth error")
+        )
+
+        with pytest.raises(GoogleOAuthError, match="Failed to initiate OAuth flow"):
+            await authlib_google_manager.authorize_redirect(mock_request)
 
     @pytest.mark.anyio
-    async def test_handle_unexpected_error_in_user_info(
-        self, google_oauth_manager_with_client, mock_http_client
+    async def test_handle_network_error_during_token_exchange(
+        self, authlib_google_manager, mock_request
     ):
-        """Test handling unexpected errors during user info retrieval."""
-        mock_http_client.get.side_effect = Exception("Unexpected error")
+        """Test handling network errors during token exchange."""
+        import httpx
 
-        with pytest.raises(
-            GoogleOAuthError, match="Failed to retrieve user information"
-        ):
-            await google_oauth_manager_with_client.get_user_info("token")
+        authlib_google_manager.oauth.google.authorize_access_token = AsyncMock(
+            side_effect=httpx.RequestError("Network error")
+        )
 
-    @pytest.mark.anyio
-    async def test_handle_json_decode_error(
-        self, google_oauth_manager_with_client, mock_http_client
-    ):
-        """Test handling JSON decode errors."""
-        # Setup mock response with invalid JSON
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.side_effect = ValueError("Invalid JSON")
-        mock_http_client.post.return_value = mock_response
-
-        with pytest.raises(GoogleOAuthError):
-            await google_oauth_manager_with_client.exchange_code_for_tokens(
-                "code", "state"
-            )
+        with pytest.raises(GoogleOAuthError, match="OAuth authentication failed"):
+            await authlib_google_manager.authorize_access_token(mock_request)

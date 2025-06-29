@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from hypercorn.config import Config
+from starlette.middleware.sessions import SessionMiddleware
 
 from ..auth.router import router as auth_router
 from ..exercises.router import router as exercises_router
@@ -147,6 +148,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=settings.allowed_methods,
     allow_headers=settings.allowed_headers,
+)
+
+# Add Session middleware for OAuth state management
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret_key,
+    max_age=settings.session_max_age,
+    same_site="lax",  # Allows OAuth redirects
+    https_only=settings.is_production,  # Only secure cookies in production
 )
 
 

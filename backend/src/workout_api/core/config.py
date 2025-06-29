@@ -68,6 +68,16 @@ class Settings(BaseSettings):
         default=7, description="Refresh token expiration in days"
     )
 
+    # Session Management
+    session_secret_key: str = Field(
+        description="Secret key for session middleware (OAuth state management)",
+        default="",
+    )
+    session_max_age: int = Field(
+        default=3 * 60 * 60,  # 3 hours
+        description="Session max age in seconds",
+    )
+
     # Google OAuth
     google_client_id: str = Field(description="Google OAuth client ID")
     google_client_secret: str = Field(description="Google OAuth client secret")
@@ -143,10 +153,18 @@ class Settings(BaseSettings):
         return v.upper()
 
     def model_post_init(self, __context) -> None:
-        """Post-initialization to set default JWT secret if not provided."""
+        """Post-initialization to set default secrets if not provided."""
         if not self.jwt_secret_key:
             # Use main secret_key as fallback for JWT if jwt_secret_key not set
             object.__setattr__(self, "jwt_secret_key", self.secret_key)
+
+        if not self.session_secret_key:
+            # Use main secret_key as fallback for sessions if session_secret_key not set
+            object.__setattr__(self, "session_secret_key", self.secret_key)
+
+        # Validate that session_secret_key is long enough after setting fallback
+        if len(self.session_secret_key) < 32:
+            raise ValueError("session_secret_key must be at least 32 characters long")
 
     @property
     def database_url_async(self) -> str:
