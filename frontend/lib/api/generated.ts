@@ -34,6 +34,8 @@ import type {
   HTTPValidationError,
   ListWorkoutsApiV1WorkoutsGetParams,
   LogoutResponse,
+  NextAuthGoogleUserRequest,
+  NextAuthVerificationResponse,
   PageExerciseResponse,
   PageWorkoutResponse,
   SearchExercisesApiV1ExercisesGetParams,
@@ -49,7 +51,6 @@ import type {
   UserProfileUpdate,
   UserResponse,
   UserStatsResponse,
-  VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody,
   WorkoutResponse,
 } from "./model";
 import { customInstance } from "./mutator";
@@ -762,42 +763,42 @@ export const useValidateTokenApiV1AuthValidateGet = <
  * @summary Verify Google user for NextAuth
  */
 export const verifyGoogleUserApiV1AuthVerifyGoogleUserPost = (
-  verifyGoogleUserApiV1AuthVerifyGoogleUserPostBody: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody,
+  nextAuthGoogleUserRequest: NextAuthGoogleUserRequest,
   options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<unknown>(
+  return customInstance<NextAuthVerificationResponse>(
     {
       url: `/api/v1/auth/verify-google-user`,
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      data: verifyGoogleUserApiV1AuthVerifyGoogleUserPostBody,
+      data: nextAuthGoogleUserRequest,
     },
     options,
   );
 };
 
 export const getVerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationOptions = <
-  TError = HTTPValidationError,
+  TError = void,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
     TError,
-    { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody },
+    { data: NextAuthGoogleUserRequest },
     TContext
   >;
   request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
   TError,
-  { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody },
+  { data: NextAuthGoogleUserRequest },
   TContext
 > => {
   const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
-    { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody }
+    { data: NextAuthGoogleUserRequest }
   > = (props) => {
     const { data } = props ?? {};
 
@@ -812,28 +813,27 @@ export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationResult =
     Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>
   >;
 export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationBody =
-  VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody;
-export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationError =
-  HTTPValidationError;
+  NextAuthGoogleUserRequest;
+export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationError = void;
 
 /**
  * @summary Verify Google user for NextAuth
  */
 export const useVerifyGoogleUserApiV1AuthVerifyGoogleUserPost = <
-  TError = HTTPValidationError,
+  TError = void,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
     TError,
-    { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody },
+    { data: NextAuthGoogleUserRequest },
     TContext
   >;
   request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
   TError,
-  { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody },
+  { data: NextAuthGoogleUserRequest },
   TContext
 > => {
   const mutationOptions =

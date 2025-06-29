@@ -1,13 +1,12 @@
 "use client"
 
-import type React from "react"
+import React, { useState, useEffect } from "react"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/lib/contexts/auth-context"
 import { WorkoutProvider } from "@/lib/contexts/workout-context"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { useState, useEffect } from "react"
 
 const inter = Inter({ subsets: ["latin"] })
 

@@ -12,6 +12,8 @@ from ..shared.exceptions import AuthenticationError
 from .dependencies import CurrentUser, JWTManagerDep, TokenOnly
 from .schemas import (
     LogoutResponse,
+    NextAuthGoogleUserRequest,
+    NextAuthVerificationResponse,
     SessionInfoResponse,
     TokenRefreshRequest,
     TokenRefreshResponse,
@@ -141,43 +143,45 @@ async def validate_token(
 
 @router.post(
     "/verify-google-user",
+    response_model=NextAuthVerificationResponse,
     summary="Verify Google user for NextAuth",
     description="Create or update user from Google OAuth data via NextAuth.js",
+    responses={
+        401: {"description": "Authentication failed"},
+        422: {"description": "Validation Error"},
+    },
 )
 async def verify_google_user(
-    google_user: dict,
+    request: NextAuthGoogleUserRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
     jwt_manager: JWTManagerDep,
-):
+) -> NextAuthVerificationResponse:
     """Verify and create/update user from Google OAuth data via NextAuth.js."""
     try:
+        from .schemas import NextAuthTokenResponse, NextAuthUserResponse
         from .service import get_auth_service
 
-        # Create user data structure compatible with our existing service
-        google_user_info = {
-            "email": google_user.get("email"),
-            "name": google_user.get("name"),
-            "picture": google_user.get("image"),
-            "email_verified": google_user.get("email_verified", True),
-        }
+        # Convert NextAuth request to internal format
+        google_user_info = request.to_google_user_info()
 
         # Use existing authentication service
         auth_service = get_auth_service(session, jwt_manager)
         user, jwt_tokens = await auth_service.authenticate_with_google(google_user_info)
 
-        return {
-            "user": {
-                "id": user.id,
-                "email": user.email_address,
-                "name": user.name,
-                "image": user.profile_image_url,
-            },
-            "tokens": {
-                "access_token": jwt_tokens.access_token,
-                "refresh_token": jwt_tokens.refresh_token,
-                "expires_in": jwt_tokens.expires_in,
-            },
-        }
+        # Return properly typed response
+        return NextAuthVerificationResponse(
+            user=NextAuthUserResponse(
+                id=user.id,
+                email=user.email_address,
+                name=user.name,
+                image=user.profile_image_url,
+            ),
+            tokens=NextAuthTokenResponse(
+                access_token=jwt_tokens.access_token,
+                refresh_token=jwt_tokens.refresh_token,
+                expires_in=jwt_tokens.expires_in,
+            ),
+        )
 
     except AuthenticationError as e:
         logger.warning(f"Google user verification failed: {e}")

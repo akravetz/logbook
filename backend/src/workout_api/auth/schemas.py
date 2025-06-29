@@ -149,3 +149,48 @@ class GoogleUserInfo(BaseModel):
                 "id", user_data["email"]
             ),  # Use email as fallback ID
         )
+
+
+class NextAuthGoogleUserRequest(BaseModel):
+    """NextAuth.js Google user verification request."""
+
+    email: EmailStr = Field(description="User's email address from Google")
+    name: str | None = Field(default=None, description="User's display name")
+    image: str | None = Field(default=None, description="URL to user's profile image")
+    email_verified: bool = Field(
+        default=True, description="Whether email is verified by Google"
+    )
+
+    def to_google_user_info(self) -> GoogleUserInfo:
+        """Convert to internal GoogleUserInfo format."""
+        return GoogleUserInfo(
+            email=self.email,
+            name=self.name,
+            picture=self.image,  # Map image -> picture
+            email_verified=self.email_verified,
+            google_id=None,  # Will be handled by service layer
+        )
+
+
+class NextAuthUserResponse(BaseModel):
+    """User data in NextAuth.js expected format."""
+
+    id: int = Field(description="User ID")
+    email: str = Field(description="User email address")
+    name: str = Field(description="User display name")
+    image: str | None = Field(description="URL to user's profile image")
+
+
+class NextAuthTokenResponse(BaseModel):
+    """JWT tokens in NextAuth.js expected format."""
+
+    access_token: str = Field(description="JWT access token")
+    refresh_token: str = Field(description="JWT refresh token")
+    expires_in: int = Field(description="Access token expiration in seconds")
+
+
+class NextAuthVerificationResponse(BaseModel):
+    """Complete NextAuth.js verification response."""
+
+    user: NextAuthUserResponse = Field(description="User information")
+    tokens: NextAuthTokenResponse = Field(description="JWT token pair")

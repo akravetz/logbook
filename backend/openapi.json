@@ -253,9 +253,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Google User"
+                "$ref": "#/components/schemas/NextAuthGoogleUserRequest"
               }
             }
           },
@@ -266,19 +264,17 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/NextAuthVerificationResponse"
                 }
               }
             }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "422": {
+            "description": "Validation Error"
           }
         }
       }
@@ -2464,6 +2460,138 @@
         "type": "object",
         "title": "LogoutResponse",
         "description": "Logout response."
+      },
+      "NextAuthGoogleUserRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "User's email address from Google"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "User's display name"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image",
+            "description": "URL to user's profile image"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified",
+            "description": "Whether email is verified by Google",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "NextAuthGoogleUserRequest",
+        "description": "NextAuth.js Google user verification request."
+      },
+      "NextAuthTokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "JWT access token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token",
+            "description": "JWT refresh token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Access token expiration in seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "title": "NextAuthTokenResponse",
+        "description": "JWT tokens in NextAuth.js expected format."
+      },
+      "NextAuthUserResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "User ID"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "User email address"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "User display name"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image",
+            "description": "URL to user's profile image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "name",
+          "image"
+        ],
+        "title": "NextAuthUserResponse",
+        "description": "User data in NextAuth.js expected format."
+      },
+      "NextAuthVerificationResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/NextAuthUserResponse",
+            "description": "User information"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/NextAuthTokenResponse",
+            "description": "JWT token pair"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "tokens"
+        ],
+        "title": "NextAuthVerificationResponse",
+        "description": "Complete NextAuth.js verification response."
       },
       "Page_ExerciseResponse_": {
         "properties": {
