@@ -1,0 +1,3658 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Workout API",
+    "description": "A workout tracking API built with FastAPI",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Root endpoint.",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Simple Health Check",
+        "description": "Simple health check - is the application running?",
+        "operationId": "simple_health_check_health__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/db": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Database Health Check",
+        "description": "Database health check - can we connect to the database?",
+        "operationId": "database_health_check_health_db_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/full": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Full Health Check",
+        "description": "Comprehensive health check - app and database status.",
+        "operationId": "full_health_check_health_full_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FullHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/system": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "System Info",
+        "description": "Get system configuration and runtime information.",
+        "operationId": "system_info_health_system_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/google": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Initiate Google OAuth flow",
+        "description": "Start Google OAuth authentication process and return authorization URL",
+        "operationId": "initiate_google_oauth_api_v1_auth_google_post",
+        "parameters": [
+          {
+            "name": "redirect_url",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Post-auth redirect URL",
+              "title": "Redirect Url"
+            },
+            "description": "Post-auth redirect URL"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthInitiateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/google/callback": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Handle Google OAuth callback",
+        "description": "Process Google OAuth callback and return user with JWT tokens",
+        "operationId": "google_oauth_callback_api_v1_auth_google_callback_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Authorization code from Google",
+              "title": "Code"
+            },
+            "description": "Authorization code from Google"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "OAuth state parameter",
+              "title": "State"
+            },
+            "description": "OAuth state parameter"
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "OAuth error",
+              "title": "Error"
+            },
+            "description": "OAuth error"
+          },
+          {
+            "name": "error_description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "OAuth error description",
+              "title": "Error Description"
+            },
+            "description": "OAuth error description"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "OAuth error or invalid state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Refresh access token",
+        "description": "Use refresh token to get new access token",
+        "operationId": "refresh_token_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenRefreshResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Logout user",
+        "description": "Logout current user (client-side token invalidation)",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Get current session info",
+        "description": "Get current user session information",
+        "operationId": "get_session_info_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInfoResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/validate": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Validate token",
+        "description": "Validate JWT token and return token information",
+        "operationId": "validate_token_api_v1_auth_validate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenValidationResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/health": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Authentication system health",
+        "description": "Check if authentication system is working",
+        "operationId": "auth_health_check_api_v1_auth_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get current user profile",
+        "description": "Retrieve the authenticated user's profile information.",
+        "operationId": "get_current_user_profile_api_v1_users_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Deactivate user account",
+        "description": "Deactivate the authenticated user's account (soft delete).",
+        "operationId": "deactivate_current_user_api_v1_users_me_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Update current user profile",
+        "description": "Update the authenticated user's profile information.",
+        "operationId": "update_current_user_profile_api_v1_users_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/me/stats": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get user workout statistics",
+        "description": "Retrieve workout statistics for the authenticated user.",
+        "operationId": "get_user_statistics_api_v1_users_me_stats_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start date for statistics calculation (ISO format)",
+              "title": "Start Date"
+            },
+            "description": "Start date for statistics calculation (ISO format)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End date for statistics calculation (ISO format)",
+              "title": "End Date"
+            },
+            "description": "End date for statistics calculation (ISO format)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserStatsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exercises/": {
+      "get": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Search exercises",
+        "description": "Search and filter exercises with pagination. Public endpoint - shows only system exercises unless authenticated.",
+        "operationId": "search_exercises_api_v1_exercises__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exercise name (partial match)",
+              "title": "Name"
+            },
+            "description": "Filter by exercise name (partial match)"
+          },
+          {
+            "name": "body_part",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by body part",
+              "title": "Body Part"
+            },
+            "description": "Filter by body part"
+          },
+          {
+            "name": "modality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exercise modality",
+              "title": "Modality"
+            },
+            "description": "Filter by exercise modality"
+          },
+          {
+            "name": "is_user_created",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by user-created vs system exercises",
+              "title": "Is User Created"
+            },
+            "description": "Filter by user-created vs system exercises"
+          },
+          {
+            "name": "created_by_user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter exercises created by specific user",
+              "title": "Created By User Id"
+            },
+            "description": "Filter exercises created by specific user"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-based)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-based)"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Page size (max 100)",
+              "default": 20,
+              "title": "Size"
+            },
+            "description": "Page size (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ExerciseResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Create exercise",
+        "description": "Create a new user exercise.",
+        "operationId": "create_exercise_api_v1_exercises__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exercises/body-parts": {
+      "get": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Get available body parts",
+        "description": "Get list of all available body parts from exercises user can access.",
+        "operationId": "get_body_parts_api_v1_exercises_body_parts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response Get Body Parts Api V1 Exercises Body Parts Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/exercises/modalities": {
+      "get": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Get available modalities",
+        "description": "Get list of all available exercise modalities.",
+        "operationId": "get_modalities_api_v1_exercises_modalities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response Get Modalities Api V1 Exercises Modalities Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exercises/system": {
+      "get": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Get system exercises",
+        "description": "Get system exercises with pagination.",
+        "operationId": "get_system_exercises_api_v1_exercises_system_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-based)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-based)"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Page size (max 100)",
+              "default": 20,
+              "title": "Size"
+            },
+            "description": "Page size (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ExerciseResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exercises/my-exercises": {
+      "get": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Get user's own exercises",
+        "description": "Get exercises created by the current user.",
+        "operationId": "get_my_exercises_api_v1_exercises_my_exercises_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-based)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-based)"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Page size (max 100)",
+              "default": 20,
+              "title": "Size"
+            },
+            "description": "Page size (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ExerciseResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exercises/by-body-part/{body_part}": {
+      "get": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Get exercises by body part",
+        "description": "Get exercises filtered by body part with pagination.",
+        "operationId": "get_exercises_by_body_part_api_v1_exercises_by_body_part__body_part__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "body_part",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Body Part"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-based)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-based)"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Page size (max 100)",
+              "default": 20,
+              "title": "Size"
+            },
+            "description": "Page size (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ExerciseResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exercises/by-modality/{modality}": {
+      "get": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Get exercises by modality",
+        "description": "Get exercises filtered by modality with pagination.",
+        "operationId": "get_exercises_by_modality_api_v1_exercises_by_modality__modality__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "modality",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Modality"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-based)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-based)"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Page size (max 100)",
+              "default": 20,
+              "title": "Size"
+            },
+            "description": "Page size (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ExerciseResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exercises/{exercise_id}": {
+      "get": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Get exercise by ID",
+        "description": "Get a specific exercise by ID. Public endpoint - shows only system exercises unless authenticated.",
+        "operationId": "get_exercise_api_v1_exercises__exercise_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Update exercise",
+        "description": "Update an existing user exercise. Users can only update their own exercises.",
+        "operationId": "update_exercise_api_v1_exercises__exercise_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Update exercise (PUT)",
+        "description": "Update an existing user exercise. Users can only update their own exercises.",
+        "operationId": "update_exercise_put_api_v1_exercises__exercise_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "exercises"
+        ],
+        "summary": "Delete exercise",
+        "description": "Delete a user exercise. Users can only delete their own exercises.",
+        "operationId": "delete_exercise_api_v1_exercises__exercise_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/": {
+      "get": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "List Workouts",
+        "description": "List user workouts with optional filters and pagination.",
+        "operationId": "list_workouts_api_v1_workouts__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "name": "finished",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finished"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_WorkoutResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Create Workout",
+        "description": "Create a new workout session.",
+        "operationId": "create_workout_api_v1_workouts__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/{workout_id}": {
+      "get": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Get Workout",
+        "description": "Get a single workout with full details.",
+        "operationId": "get_workout_api_v1_workouts__workout_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Delete Workout",
+        "description": "Delete a workout.",
+        "operationId": "delete_workout_api_v1_workouts__workout_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/{workout_id}/finish": {
+      "patch": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Finish Workout",
+        "description": "Finish a workout session.",
+        "operationId": "finish_workout_api_v1_workouts__workout_id__finish_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/{workout_id}/exercise-executions/{exercise_id}": {
+      "get": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Get Exercise Execution",
+        "description": "Get exercise execution with sets.",
+        "operationId": "get_exercise_execution_api_v1_workouts__workout_id__exercise_executions__exercise_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseExecutionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Upsert Exercise Execution",
+        "description": "Create or update exercise execution with full replacement of sets.",
+        "operationId": "upsert_exercise_execution_api_v1_workouts__workout_id__exercise_executions__exercise_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseExecutionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseExecutionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Delete Exercise Execution",
+        "description": "Remove exercise from workout.",
+        "operationId": "delete_exercise_execution_api_v1_workouts__workout_id__exercise_executions__exercise_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Update Exercise Execution",
+        "description": "Update exercise execution metadata (notes, order) without touching sets.",
+        "operationId": "update_exercise_execution_api_v1_workouts__workout_id__exercise_executions__exercise_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseExecutionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseExecutionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/{workout_id}/exercise-executions/reorder": {
+      "patch": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Reorder Exercises",
+        "description": "Reorder exercises in a workout.",
+        "operationId": "reorder_exercises_api_v1_workouts__workout_id__exercise_executions_reorder_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseReorderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseReorderResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/{workout_id}/exercise-executions/{exercise_id}/sets": {
+      "post": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Create Set",
+        "description": "Add a single set to an exercise execution.",
+        "operationId": "create_set_api_v1_workouts__workout_id__exercise_executions__exercise_id__sets_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workouts/{workout_id}/exercise-executions/{exercise_id}/sets/{set_id}": {
+      "patch": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Update Set",
+        "description": "Update a single set.",
+        "operationId": "update_set_api_v1_workouts__workout_id__exercise_executions__exercise_id__sets__set_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          },
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Delete Set",
+        "description": "Delete a single set.",
+        "operationId": "delete_set_api_v1_workouts__workout_id__exercise_executions__exercise_id__sets__set_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "exercise_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exercise Id"
+            }
+          },
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuthErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Error type"
+          },
+          "error_description": {
+            "type": "string",
+            "title": "Error Description",
+            "description": "Detailed error description"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code",
+            "description": "Internal error code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "error_description"
+        ],
+        "title": "AuthErrorResponse",
+        "description": "Authentication error response."
+      },
+      "AuthenticationResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserProfileResponse",
+            "description": "User profile information"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenResponse",
+            "description": "JWT token pair"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "tokens"
+        ],
+        "title": "AuthenticationResponse",
+        "description": "Complete authentication response with user and tokens."
+      },
+      "DatabaseHealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "unhealthy"
+            ],
+            "title": "Status"
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "connected",
+              "disconnected"
+            ],
+            "title": "Database"
+          },
+          "response_time_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Time Ms",
+            "description": "Database response time in milliseconds"
+          },
+          "pool_info": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Info",
+            "description": "Connection pool information"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Error message if unhealthy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "database"
+        ],
+        "title": "DatabaseHealthResponse",
+        "description": "Database health check response."
+      },
+      "ExerciseCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Exercise name"
+          },
+          "body_part": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Body Part",
+            "description": "Primary body part targeted"
+          },
+          "modality": {
+            "$ref": "#/components/schemas/ExerciseModality",
+            "description": "Equipment/modality used"
+          },
+          "picture_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture Url",
+            "description": "URL to exercise demonstration image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "body_part",
+          "modality"
+        ],
+        "title": "ExerciseCreate",
+        "description": "Schema for creating a new exercise."
+      },
+      "ExerciseExecutionRequest": {
+        "properties": {
+          "exercise_order": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Exercise Order",
+            "description": "Order of this exercise in the workout (1-based)"
+          },
+          "note_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Text",
+            "description": "Optional notes about this exercise execution"
+          },
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/SetCreate"
+            },
+            "type": "array",
+            "title": "Sets",
+            "description": "Sets for this exercise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exercise_order"
+        ],
+        "title": "ExerciseExecutionRequest",
+        "description": "Schema for creating/updating exercise execution (full replace)."
+      },
+      "ExerciseExecutionResponse": {
+        "properties": {
+          "exercise_id": {
+            "type": "integer",
+            "title": "Exercise Id"
+          },
+          "exercise_name": {
+            "type": "string",
+            "title": "Exercise Name"
+          },
+          "exercise_order": {
+            "type": "integer",
+            "title": "Exercise Order"
+          },
+          "note_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Text"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/SetResponse"
+            },
+            "type": "array",
+            "title": "Sets",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "exercise_id",
+          "exercise_name",
+          "exercise_order",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExerciseExecutionResponse",
+        "description": "Schema for exercise execution responses."
+      },
+      "ExerciseExecutionUpdate": {
+        "properties": {
+          "note_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Text",
+            "description": "Optional notes about this exercise execution"
+          },
+          "exercise_order": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exercise Order",
+            "description": "Order of this exercise in the workout (1-based)"
+          }
+        },
+        "type": "object",
+        "title": "ExerciseExecutionUpdate",
+        "description": "Schema for updating exercise execution metadata only."
+      },
+      "ExerciseModality": {
+        "type": "string",
+        "enum": [
+          "DUMBBELL",
+          "BARBELL",
+          "CABLE",
+          "MACHINE",
+          "SMITH",
+          "BODYWEIGHT"
+        ],
+        "title": "ExerciseModality",
+        "description": "Enum for exercise modalities."
+      },
+      "ExerciseReorderRequest": {
+        "properties": {
+          "exercise_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Exercise Ids",
+            "description": "List of exercise IDs in desired order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exercise_ids"
+        ],
+        "title": "ExerciseReorderRequest",
+        "description": "Schema for reordering exercises in a workout."
+      },
+      "ExerciseReorderResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "exercise_executions": {
+            "items": {
+              "$ref": "#/components/schemas/ExerciseExecutionResponse"
+            },
+            "type": "array",
+            "title": "Exercise Executions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "exercise_executions"
+        ],
+        "title": "ExerciseReorderResponse",
+        "description": "Schema for exercise reorder responses."
+      },
+      "ExerciseResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "body_part": {
+            "type": "string",
+            "title": "Body Part"
+          },
+          "modality": {
+            "$ref": "#/components/schemas/ExerciseModality"
+          },
+          "picture_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture Url"
+          },
+          "is_user_created": {
+            "type": "boolean",
+            "title": "Is User Created"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "updated_by_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "body_part",
+          "modality",
+          "is_user_created",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExerciseResponse",
+        "description": "Schema for exercise responses."
+      },
+      "ExerciseStats": {
+        "properties": {
+          "exercise_id": {
+            "type": "integer",
+            "title": "Exercise Id",
+            "description": "Exercise unique identifier"
+          },
+          "exercise_name": {
+            "type": "string",
+            "title": "Exercise Name",
+            "description": "Exercise name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Number of times performed"
+          },
+          "total_sets": {
+            "type": "integer",
+            "title": "Total Sets",
+            "description": "Total number of sets"
+          },
+          "total_volume": {
+            "type": "number",
+            "title": "Total Volume",
+            "description": "Total volume (weight * reps)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exercise_id",
+          "exercise_name",
+          "count",
+          "total_sets",
+          "total_volume"
+        ],
+        "title": "ExerciseStats",
+        "description": "Statistics for a single exercise."
+      },
+      "ExerciseUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Exercise name"
+          },
+          "body_part": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Part",
+            "description": "Primary body part targeted"
+          },
+          "modality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExerciseModality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Equipment/modality used"
+          },
+          "picture_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture Url",
+            "description": "URL to exercise demonstration image"
+          }
+        },
+        "type": "object",
+        "title": "ExerciseUpdate",
+        "description": "Schema for updating an existing exercise."
+      },
+      "FullHealthResponse": {
+        "properties": {
+          "app": {
+            "$ref": "#/components/schemas/SimpleHealthResponse"
+          },
+          "database": {
+            "$ref": "#/components/schemas/DatabaseHealthResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "app",
+          "database"
+        ],
+        "title": "FullHealthResponse",
+        "description": "Comprehensive health check response."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LogoutResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Logout message",
+            "default": "Successfully logged out"
+          },
+          "logged_out": {
+            "type": "boolean",
+            "title": "Logged Out",
+            "description": "Logout status",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "LogoutResponse",
+        "description": "Logout response."
+      },
+      "OAuthInitiateResponse": {
+        "properties": {
+          "authorization_url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Authorization Url",
+            "description": "Google OAuth authorization URL"
+          },
+          "state": {
+            "type": "string",
+            "title": "State",
+            "description": "OAuth state parameter for CSRF protection"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authorization_url",
+          "state"
+        ],
+        "title": "OAuthInitiateResponse",
+        "description": "Response with OAuth authorization URL."
+      },
+      "Page_ExerciseResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExerciseResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total number of items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "description": "Current page number"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size",
+            "description": "Page size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages",
+            "description": "Total number of pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[ExerciseResponse]"
+      },
+      "Page_WorkoutResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkoutResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total number of items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "description": "Current page number"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size",
+            "description": "Page size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages",
+            "description": "Total number of pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[WorkoutResponse]"
+      },
+      "PersonalRecord": {
+        "properties": {
+          "exercise_id": {
+            "type": "integer",
+            "title": "Exercise Id",
+            "description": "Exercise unique identifier"
+          },
+          "exercise_name": {
+            "type": "string",
+            "title": "Exercise Name",
+            "description": "Exercise name"
+          },
+          "max_weight": {
+            "type": "number",
+            "title": "Max Weight",
+            "description": "Maximum weight lifted"
+          },
+          "achieved_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Achieved Date",
+            "description": "Date the PR was achieved"
+          },
+          "max_volume_single_set": {
+            "type": "number",
+            "title": "Max Volume Single Set",
+            "description": "Maximum volume in a single set"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exercise_id",
+          "exercise_name",
+          "max_weight",
+          "achieved_date",
+          "max_volume_single_set"
+        ],
+        "title": "PersonalRecord",
+        "description": "Personal record for an exercise."
+      },
+      "SessionInfoResponse": {
+        "properties": {
+          "authenticated": {
+            "type": "boolean",
+            "title": "Authenticated",
+            "description": "Whether user is authenticated"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserProfileResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "User profile if authenticated"
+          },
+          "session_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Expires At",
+            "description": "When the session expires"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "description": "User permissions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authenticated"
+        ],
+        "title": "SessionInfoResponse",
+        "description": "Current session information."
+      },
+      "SetCreate": {
+        "properties": {
+          "note_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Text",
+            "description": "Optional notes about this set"
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Weight",
+            "description": "Weight used for this set (in pounds)"
+          },
+          "clean_reps": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Clean Reps",
+            "description": "Number of clean repetitions completed"
+          },
+          "forced_reps": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Forced Reps",
+            "description": "Number of forced repetitions completed",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight",
+          "clean_reps"
+        ],
+        "title": "SetCreate",
+        "description": "Schema for creating a new set."
+      },
+      "SetResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "exercise_id": {
+            "type": "integer",
+            "title": "Exercise Id"
+          },
+          "note_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Text"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          },
+          "clean_reps": {
+            "type": "integer",
+            "title": "Clean Reps"
+          },
+          "forced_reps": {
+            "type": "integer",
+            "title": "Forced Reps"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "exercise_id",
+          "weight",
+          "clean_reps",
+          "forced_reps",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SetResponse",
+        "description": "Schema for set responses."
+      },
+      "SetUpdate": {
+        "properties": {
+          "note_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Text",
+            "description": "Optional notes about this set"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight",
+            "description": "Weight used for this set (in pounds)"
+          },
+          "clean_reps": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clean Reps",
+            "description": "Number of clean repetitions completed"
+          },
+          "forced_reps": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forced Reps",
+            "description": "Number of forced repetitions completed"
+          }
+        },
+        "type": "object",
+        "title": "SetUpdate",
+        "description": "Schema for updating an existing set."
+      },
+      "SimpleHealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "unhealthy"
+            ],
+            "title": "Status"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "environment",
+          "version"
+        ],
+        "title": "SimpleHealthResponse",
+        "description": "Simple application health response."
+      },
+      "StreakInfo": {
+        "properties": {
+          "current_streak": {
+            "type": "integer",
+            "title": "Current Streak",
+            "description": "Current consecutive workout days"
+          },
+          "longest_streak": {
+            "type": "integer",
+            "title": "Longest Streak",
+            "description": "Longest consecutive workout streak"
+          },
+          "last_workout_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Workout Date",
+            "description": "Date of last workout"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_streak",
+          "longest_streak"
+        ],
+        "title": "StreakInfo",
+        "description": "User workout streak information."
+      },
+      "SystemInfoResponse": {
+        "properties": {
+          "app_name": {
+            "type": "string",
+            "title": "App Name"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment"
+          },
+          "debug": {
+            "type": "boolean",
+            "title": "Debug"
+          },
+          "log_level": {
+            "type": "string",
+            "title": "Log Level"
+          },
+          "api_prefix": {
+            "type": "string",
+            "title": "Api Prefix"
+          },
+          "database_pool_config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Database Pool Config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "app_name",
+          "environment",
+          "debug",
+          "log_level",
+          "api_prefix",
+          "database_pool_config"
+        ],
+        "title": "SystemInfoResponse",
+        "description": "System configuration information."
+      },
+      "TokenRefreshRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token",
+            "description": "Valid refresh token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "TokenRefreshRequest",
+        "description": "Token refresh request."
+      },
+      "TokenRefreshResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "New JWT access token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "description": "Token type",
+            "default": "Bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Access token expiration in seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "TokenRefreshResponse",
+        "description": "Token refresh response."
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "JWT access token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token",
+            "description": "JWT refresh token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "description": "Token type",
+            "default": "Bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Access token expiration in seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "title": "TokenResponse",
+        "description": "JWT token response."
+      },
+      "TokenValidationResponse": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid",
+            "description": "Whether the token is valid"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id",
+            "description": "User ID if token is valid"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email",
+            "description": "User email if token is valid"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "Token expiration timestamp"
+          },
+          "token_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Type",
+            "description": "Type of token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid"
+        ],
+        "title": "TokenValidationResponse",
+        "description": "Token validation response."
+      },
+      "UserProfileResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "User ID"
+          },
+          "email_address": {
+            "type": "string",
+            "title": "Email Address",
+            "description": "User email address"
+          },
+          "google_id": {
+            "type": "string",
+            "title": "Google Id",
+            "description": "Google OAuth user ID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "User display name"
+          },
+          "profile_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Image Url",
+            "description": "URL to user's profile image"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "Whether the user account is active"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "title": "Is Admin",
+            "description": "Whether the user has admin privileges"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email_address",
+          "google_id",
+          "name",
+          "profile_image_url",
+          "is_active",
+          "is_admin"
+        ],
+        "title": "UserProfileResponse",
+        "description": "User profile response."
+      },
+      "UserProfileUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Updated display name"
+          },
+          "profile_image_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Image Url",
+            "description": "Updated profile image URL"
+          }
+        },
+        "type": "object",
+        "title": "UserProfileUpdate",
+        "description": "Schema for updating user profile.",
+        "example": {
+          "name": "John Doe",
+          "profile_image_url": "https://example.com/profile.jpg"
+        }
+      },
+      "UserResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "User's unique identifier"
+          },
+          "email_address": {
+            "type": "string",
+            "format": "email",
+            "title": "Email Address",
+            "description": "User's email address"
+          },
+          "google_id": {
+            "type": "string",
+            "title": "Google Id",
+            "description": "User's Google OAuth ID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "User's display name"
+          },
+          "profile_image_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Image Url",
+            "description": "URL to user's profile image"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "Whether the user account is active"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "title": "Is Admin",
+            "description": "Whether the user has admin privileges"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "When the user account was created"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "When the user account was last updated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email_address",
+          "google_id",
+          "name",
+          "is_active",
+          "is_admin",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UserResponse",
+        "description": "User profile response schema."
+      },
+      "UserStatsResponse": {
+        "properties": {
+          "total_workouts": {
+            "type": "integer",
+            "title": "Total Workouts",
+            "description": "Total number of workouts completed"
+          },
+          "total_exercises_performed": {
+            "type": "integer",
+            "title": "Total Exercises Performed",
+            "description": "Total number of exercises performed"
+          },
+          "total_sets": {
+            "type": "integer",
+            "title": "Total Sets",
+            "description": "Total number of sets completed"
+          },
+          "total_weight_lifted": {
+            "type": "number",
+            "title": "Total Weight Lifted",
+            "description": "Total weight lifted across all workouts"
+          },
+          "workout_frequency": {
+            "$ref": "#/components/schemas/WorkoutFrequency",
+            "description": "Workout frequency statistics"
+          },
+          "most_performed_exercises": {
+            "items": {
+              "$ref": "#/components/schemas/ExerciseStats"
+            },
+            "type": "array",
+            "title": "Most Performed Exercises",
+            "description": "Top exercises by frequency"
+          },
+          "body_part_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Body Part Distribution",
+            "description": "Distribution of exercises by body part"
+          },
+          "personal_records": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalRecord"
+            },
+            "type": "array",
+            "title": "Personal Records",
+            "description": "User's personal records"
+          },
+          "streak_info": {
+            "$ref": "#/components/schemas/StreakInfo",
+            "description": "Workout streak information"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_workouts",
+          "total_exercises_performed",
+          "total_sets",
+          "total_weight_lifted",
+          "workout_frequency",
+          "most_performed_exercises",
+          "body_part_distribution",
+          "personal_records",
+          "streak_info"
+        ],
+        "title": "UserStatsResponse",
+        "description": "User workout statistics response.",
+        "example": {
+          "body_part_distribution": {
+            "back": 55,
+            "chest": 82,
+            "legs": 68
+          },
+          "most_performed_exercises": [
+            {
+              "count": 42,
+              "exercise_id": 1,
+              "exercise_name": "Push-ups",
+              "total_sets": 126,
+              "total_volume": 0.0
+            }
+          ],
+          "personal_records": [
+            {
+              "achieved_date": "2024-03-15T00:00:00Z",
+              "exercise_id": 15,
+              "exercise_name": "Squats",
+              "max_volume_single_set": 2700.0,
+              "max_weight": 225.0
+            }
+          ],
+          "streak_info": {
+            "current_streak": 5,
+            "last_workout_date": "2024-04-28T00:00:00Z",
+            "longest_streak": 21
+          },
+          "total_exercises_performed": 215,
+          "total_sets": 687,
+          "total_weight_lifted": 45670.5,
+          "total_workouts": 45,
+          "workout_frequency": {
+            "monthly_counts": {
+              "2024-01": 12,
+              "2024-02": 10,
+              "2024-03": 13
+            },
+            "weekly_average": 3.2
+          }
+        }
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WorkoutFrequency": {
+        "properties": {
+          "weekly_average": {
+            "type": "number",
+            "title": "Weekly Average",
+            "description": "Average workouts per week"
+          },
+          "monthly_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Monthly Counts",
+            "description": "Workout counts by month (YYYY-MM)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weekly_average",
+          "monthly_counts"
+        ],
+        "title": "WorkoutFrequency",
+        "description": "Workout frequency statistics."
+      },
+      "WorkoutResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "created_by_user_id": {
+            "type": "integer",
+            "title": "Created By User Id"
+          },
+          "updated_by_user_id": {
+            "type": "integer",
+            "title": "Updated By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "exercise_executions": {
+            "items": {
+              "$ref": "#/components/schemas/ExerciseExecutionResponse"
+            },
+            "type": "array",
+            "title": "Exercise Executions",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_by_user_id",
+          "updated_by_user_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "WorkoutResponse",
+        "description": "Schema for workout responses."
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
