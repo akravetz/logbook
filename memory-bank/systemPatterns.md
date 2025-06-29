@@ -11,18 +11,18 @@ graph TD
         Web[Web App - Next.js]
         Mobile[Mobile App - Future]
     end
-    
+
     subgraph "Backend"
         API[FastAPI Service]
         Auth[Auth Service]
         DB[(PostgreSQL)]
     end
-    
+
     subgraph "External"
         Google[Google OAuth]
         Storage[File Storage]
     end
-    
+
     Web --> API
     Mobile --> API
     API --> Auth
@@ -44,7 +44,7 @@ src/
 │   │   ├── schemas.py       # Pydantic schemas
 │   │   ├── service.py       # Business logic
 │   │   ├── router.py        # API endpoints
-│   │   └── repository.py    # Database queries
+│   │   └── dependencies.py  # FastAPI dependencies
 │   ├── exercises/           # Exercise domain
 │   │   └── (same structure)
 │   ├── workouts/            # Workout domain
@@ -70,11 +70,11 @@ Encapsulate all database operations:
 class ExerciseRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
-    
+
     async def get_by_id(self, id: int) -> Exercise | None:
         result = await self.session.get(Exercise, id)
         return result
-    
+
     async def search(self, query: str) -> list[Exercise]:
         stmt = select(Exercise).where(
             Exercise.name.ilike(f"%{query}%")
@@ -89,34 +89,94 @@ Business logic separate from data access:
 class ExerciseService:
     def __init__(self, repo: ExerciseRepository):
         self.repo = repo
-    
+
     async def create_exercise(
-        self, 
+        self,
         user_id: int,
         data: ExerciseCreate
     ) -> Exercise:
         # Business validation
         if await self._exercise_exists(data.name, user_id):
             raise DuplicateError("Exercise already exists")
-        
+
         # Create via repository
         return await self.repo.create(data)
 ```
 
-### Dependency Injection
-FastAPI's DI for clean dependencies:
-```python
-async def get_exercise_service(
-    session: AsyncSession = Depends(get_session),
-) -> ExerciseService:
-    repo = ExerciseRepository(session)
-    return ExerciseService(repo)
+### Dependency Injection (Enhanced)
+Constructor injection with FastAPI's DI system:
 
-@router.get("/exercises")
-async def list_exercises(
-    service: ExerciseService = Depends(get_exercise_service),
+#### Service Dependencies
+```python
+# dependencies.py
+from functools import lru_cache
+from typing import Annotated
+
+@lru_cache
+def get_jwt_manager(
+    settings: Annotated[Settings, Depends(get_settings)]
+) -> JWTManager:
+    """Singleton JWT manager."""
+    return JWTManager(settings)
+
+@lru_cache
+def get_google_oauth(
+    settings: Annotated[Settings, Depends(get_settings)]
+) -> GoogleOAuthManager:
+    """Singleton OAuth manager."""
+    return GoogleOAuthManager(settings)
+
+# Type aliases for clean signatures
+JWTManagerDep = Annotated[JWTManager, Depends(get_jwt_manager)]
+GoogleOAuthDep = Annotated[GoogleOAuthManager, Depends(get_google_oauth)]
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+```
+
+#### Service Construction
+```python
+# service.py
+class AuthService:
+    def __init__(
+        self,
+        session: AsyncSession,
+        jwt_manager: JWTManager,
+        google_oauth: GoogleOAuthManager
+    ):
+        self.session = session
+        self.jwt_manager = jwt_manager
+        self.google_oauth = google_oauth
+
+# router.py
+@router.post("/login")
+async def login(
+    session: SessionDep,
+    jwt_manager: JWTManagerDep,
+    google_oauth: GoogleOAuthDep,
 ):
-    return await service.list_all()
+    service = AuthService(session, jwt_manager, google_oauth)
+    # Use service...
+```
+
+#### Interface Injection for Testing
+```python
+from typing import Protocol
+
+class TimeProvider(Protocol):
+    def now(self) -> datetime:
+        ...
+
+class DefaultTimeProvider:
+    def now(self) -> datetime:
+        return datetime.now(UTC)
+
+class JWTManager:
+    def __init__(
+        self,
+        settings: Settings,
+        time_provider: TimeProvider | None = None
+    ):
+        self.settings = settings
+        self.time_provider = time_provider or DefaultTimeProvider()
 ```
 
 ### Transaction Pattern
@@ -131,7 +191,7 @@ async def create_workout_with_exercises(
         workout = await self.repo.create_workout(user_id)
         for exercise in exercises:
             await self.repo.add_exercise_execution(
-                workout.id, 
+                workout.id,
                 exercise
             )
         return workout
@@ -139,20 +199,28 @@ async def create_workout_with_exercises(
 ```
 
 ### Error Handling Pattern
-Consistent error responses:
+Consistent error responses with exception chaining:
 ```python
-@router.exception_handler(NotFoundError)
-async def not_found_handler(request: Request, exc: NotFoundError):
-    return JSONResponse(
-        status_code=404,
-        content={"error": str(exc), "type": "not_found"}
-    )
+# Custom exceptions
+class AuthenticationError(Exception):
+    """Base authentication error"""
 
-@router.exception_handler(ValidationError)
-async def validation_handler(request: Request, exc: ValidationError):
+class TokenExpiredError(AuthenticationError):
+    """Token has expired"""
+
+# Exception chaining
+try:
+    payload = jwt.decode(token, self.secret_key)
+except JWTError as e:
+    logger.error(f"JWT decode error: {e}")
+    raise AuthenticationError("Invalid token") from e
+
+# FastAPI exception handlers
+@router.exception_handler(AuthenticationError)
+async def auth_error_handler(request: Request, exc: AuthenticationError):
     return JSONResponse(
-        status_code=422,
-        content={"error": exc.errors(), "type": "validation"}
+        status_code=401,
+        content={"error": str(exc), "type": "authentication_error"}
     )
 ```
 
@@ -170,18 +238,103 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             raise
 ```
 
-### Base Model Pattern
-Common fields for all models:
+### ⚠️ CRITICAL: Safe Deletion Pattern
+**Foreign key constraint violations occur when using raw SQL DELETE operations**
+
+#### The Problem
+Raw SQL DELETE bypasses SQLAlchemy's cascade behavior, causing foreign key violations:
+```python
+# ❌ WRONG: Causes foreign key constraint violations
+delete_stmt = delete(ExerciseExecution).where(
+    ExerciseExecution.workout_id == workout_id,
+    ExerciseExecution.exercise_id == exercise_id
+)
+result = await session.execute(delete_stmt)  # ForeignKeyViolationError!
+```
+
+#### The Solution
+Use ORM delete operations with proper cache management:
+```python
+# ✅ CORRECT: Respects cascade="all, delete-orphan"
+async def delete_exercise_execution(self, workout_id: int, exercise_id: int) -> bool:
+    # Get the object first (required for ORM delete)
+    stmt = select(ExerciseExecution).where(
+        and_(
+            ExerciseExecution.workout_id == workout_id,
+            ExerciseExecution.exercise_id == exercise_id,
+        )
+    )
+    result = await self.session.execute(stmt)
+    execution = result.scalar_one_or_none()
+
+    if not execution:
+        return False
+
+    # Use ORM delete - this triggers cascade="all, delete-orphan"
+    await self.session.delete(execution)
+    await self.session.flush()      # Ensure deletion visible within transaction
+    self.session.expire_all()       # Clear cached relationships (synchronous!)
+    return True
+```
+
+#### Why This Pattern Works
+1. **Cascade Behavior**: `session.delete()` respects SQLAlchemy cascade settings
+2. **Relationship Deletion**: Child records deleted automatically via cascade
+3. **Transaction Visibility**: `flush()` makes changes visible in same transaction
+4. **Cache Invalidation**: `expire_all()` prevents stale relationship data
+
+#### Cache Management Critical Rules
+- **`session.flush()`**: ASYNC - pushes changes to database within transaction
+- **`session.expire_all()`**: SYNC - clears SQLAlchemy's identity map cache
+- **Order matters**: Always flush before expire_all
+- **Relationship Loading**: Cached `selectinload` queries return stale data without expire_all
+
+### Enhanced Base Model Pattern
+Common fields and utilities for all models:
 ```python
 class BaseModel(DeclarativeBase):
     id: Mapped[int] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(
-        server_default=func.now()
+        server_default=func.now(),
+        index=True
     )
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(),
-        onupdate=func.now()
+        onupdate=func.now(),
+        index=True
     )
+
+    def to_dict(self) -> dict:
+        """Convert model to dictionary."""
+        return {c.key: getattr(self, c.key) for c in self.__table__.columns}
+
+    def update_from_dict(self, data: dict) -> None:
+        """Update model from dictionary."""
+        for key, value in data.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+```
+
+### Database Manager Pattern
+Centralized database lifecycle management:
+```python
+class DatabaseManager:
+    def __init__(self, database_url: str, **engine_kwargs):
+        self.engine = create_async_engine(database_url, **engine_kwargs)
+        self.session_factory = async_sessionmaker(self.engine)
+
+    async def check_connection(self) -> bool:
+        """Verify database connectivity."""
+        try:
+            async with self.engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            return True
+        except Exception:
+            return False
+
+    async def close(self) -> None:
+        """Close all connections."""
+        await self.engine.dispose()
 ```
 
 ### Relationship Loading
@@ -201,15 +354,44 @@ executions = await workout.awaitable_attrs.exercise_executions
 
 ## Testing Patterns
 
-### Transaction Isolation
+### Transaction Isolation with Fixtures
 Tests run in rolled-back transactions:
 ```python
+@pytest_asyncio.fixture
+async def session(engine):
+    """Create a session with transaction rollback."""
+    async with engine.connect() as conn:
+        async with conn.begin() as trans:
+            async with AsyncSession(bind=conn) as session:
+                yield session
+            await trans.rollback()
+
+@pytest_asyncio.fixture
+async def client(session: AsyncSession):
+    """Test client with database dependency override."""
+    app.dependency_overrides[get_session] = lambda: session
+    with TestClient(app) as client:
+        yield client
+    app.dependency_overrides.clear()
+```
+
+### Fixture Composition
+Build complex test scenarios:
+```python
 @pytest.fixture
-async def session(db_engine):
-    async with db_engine.begin() as conn:
-        async with async_session_maker(bind=conn) as session:
-            yield session
-            await session.rollback()
+def mock_time_provider():
+    """Fixed time for deterministic tests."""
+    return MockTimeProvider(datetime(2024, 1, 1, tzinfo=UTC))
+
+@pytest.fixture
+def jwt_manager(test_settings, mock_time_provider):
+    """JWT manager with test configuration."""
+    return JWTManager(test_settings, mock_time_provider)
+
+@pytest.fixture
+def auth_service(session, jwt_manager, google_oauth):
+    """Complete auth service for testing."""
+    return AuthService(session, jwt_manager, google_oauth)
 ```
 
 ### Test Data Factories
@@ -244,7 +426,7 @@ class PaginatedResponse(Generic[T]):
     total: int
     page: int
     size: int
-    
+
 class ErrorResponse:
     error: str
     type: str
@@ -257,7 +439,7 @@ Consistent filtering/pagination:
 class PaginationParams:
     page: int = Query(1, ge=1)
     size: int = Query(20, ge=1, le=100)
-    
+
 class ExerciseFilters:
     category: str | None = None
     is_user_created: bool | None = None
@@ -283,39 +465,56 @@ JWT with Google OAuth:
 Protect resources by user:
 ```python
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
+    session: SessionDep,
+    jwt_manager: JWTManagerDep,
 ) -> User:
-    # Decode and verify JWT
-    # Return user or raise 401
+    try:
+        token_data = jwt_manager.verify_token(credentials.credentials, "access")
+        user = await get_user_by_id(session, token_data.user_id)
+        if not user:
+            raise AuthenticationError("User not found")
+        return user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
 
-async def require_workout_owner(
-    workout_id: int,
-    user: User = Depends(get_current_user),
-    service: WorkoutService = Depends(get_workout_service),
-) -> Workout:
-    workout = await service.get_workout(workout_id)
-    if workout.user_id != user.id:
-        raise ForbiddenError()
-    return workout
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
 ```
 
 ## Development Patterns
 
 ### Configuration Management
-Environment-based settings:
+Environment-based settings with validation:
 ```python
 class Settings(BaseSettings):
+    # Application
+    app_name: str = "Workout API"
+    environment: str = Field(default="development", pattern="^(development|test|production)$")
+
+    # Database
     database_url: str
-    jwt_secret: str
+    database_pool_size: int = Field(default=10, ge=1)
+
+    # JWT
+    jwt_secret_key: str = Field(..., min_length=32)
+    jwt_access_token_expire_minutes: int = Field(default=30, ge=1)
+
+    # Google OAuth
     google_client_id: str
     google_client_secret: str
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
     )
 
-settings = Settings()
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
 ```
 
 ### Task Automation
@@ -328,12 +527,12 @@ tasks:
     desc: Run development server
     cmds:
       - uvicorn workout_api.main:app --reload
-  
+
   test:
     desc: Run tests
     cmds:
       - pytest {{.CLI_ARGS}}
-  
+
   migrate:
     desc: Run migrations
     cmds:
@@ -350,6 +549,7 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
+    echo=settings.is_development,  # SQL logging in dev
 )
 ```
 
@@ -364,7 +564,7 @@ async def paginate(
     # Get total count
     count_stmt = select(func.count()).select_from(query.subquery())
     total = await session.scalar(count_stmt)
-    
+
     # Get page of results
     results = await session.execute(
         query.offset((page - 1) * size).limit(size)
@@ -376,4 +576,128 @@ async def paginate(
 - Redis for session storage
 - Cache user preferences
 - Cache exercise database
-- Invalidate on updates 
+- Invalidate on updates
+
+## Exercise Module Patterns (Newly Established)
+
+### Route Ordering Pattern (Critical)
+FastAPI matches routes in order, so specific routes must come before generic ones:
+```python
+# CORRECT: Specific routes first
+@router.get("/modalities")
+@router.get("/body-parts")
+@router.get("/system")
+@router.get("/{exercise_id}")  # Generic route last
+
+# WRONG: Generic route would catch all specific routes
+@router.get("/{exercise_id}")  # This would match "/modalities"
+@router.get("/modalities")     # Never reached
+```
+
+### Mixed Authentication Pattern
+Some endpoints need optional authentication (public read, protected write):
+```python
+from fastapi import Depends
+from typing import Optional
+
+def get_current_user_optional(
+    token: Optional[str] = Depends(optional_bearer_scheme)
+) -> Optional[User]:
+    """Get current user if token provided, None otherwise."""
+    if not token:
+        return None
+    return verify_and_get_user(token)
+
+CurrentUserOptional = Annotated[Optional[User], Depends(get_current_user_optional)]
+
+@router.get("/exercises")
+async def search_exercises(
+    current_user: CurrentUserOptional = None,
+    # ... other params
+):
+    # Public endpoint - works with or without auth
+    # Can customize results based on user if authenticated
+```
+
+### Pagination Limit Pattern
+Handle large datasets with configurable pagination and limits:
+```python
+class PaginationParams:
+    def __init__(self, page: int = 1, size: int = 10):
+        if size > 100:  # Enforce maximum
+            raise ValidationError("Page size cannot exceed 100")
+        self.page = page
+        self.size = size
+
+async def get_all_items_paginated(repo, max_per_page: int = 100):
+    """Handle cases where total items exceed single page limit."""
+    all_items = []
+    page = 1
+
+    while True:
+        page_items = await repo.get_paginated(page, max_per_page)
+        all_items.extend(page_items)
+        if len(page_items) < max_per_page:
+            break
+        page += 1
+
+    return all_items
+```
+
+### Permission System Pattern
+User vs system resource access control:
+```python
+def can_user_modify(resource: Resource, user_id: int) -> bool:
+    """Check if user can modify resource."""
+    return resource.created_by_user_id == user_id
+
+async def update_resource(id: int, user: CurrentUser, data: UpdateData):
+    resource = await repo.get_by_id(id)
+    if not resource:
+        raise NotFoundError("Resource not found")
+
+    if not can_user_modify(resource, user.id):
+        raise ValidationError("Can only modify your own resources")
+
+    return await repo.update(resource, data)
+```
+
+### Comprehensive Error Handling Pattern
+Proper exception handling with meaningful HTTP status codes:
+```python
+@router.delete("/{exercise_id}")
+async def delete_exercise(
+    exercise_id: int,
+    current_user: CurrentUserDep,
+    service: ExerciseServiceDep,
+):
+    try:
+        await service.delete(exercise_id, current_user.id)
+        return {"message": "Exercise deleted successfully"}
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Unexpected error deleting exercise {exercise_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+```
+
+### Test Authentication Pattern
+Use dependency injection for authenticated test clients:
+```python
+@pytest.fixture
+async def authenticated_client(client, sample_user):
+    """Client with authenticated user dependency override."""
+    async def get_current_user_override():
+        return sample_user
+
+    client.app.dependency_overrides[get_current_user] = get_current_user_override
+    yield client
+    client.app.dependency_overrides.clear()
+
+# Usage in tests
+async def test_create_exercise(authenticated_client):
+    response = await authenticated_client.post("/exercises", json={...})
+    assert response.status_code == 201
+```

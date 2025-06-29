@@ -12,6 +12,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+logs/
 parts/
 sdist/
 var/
@@ -70,4 +71,4 @@ Thumbs.db
 
 # Project specific
 migrations/
-.pre-commit-config.yaml.bak 
+.pre-commit-config.yaml.bak

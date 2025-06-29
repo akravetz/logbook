@@ -20,7 +20,7 @@ tasks:
   run:
     desc: Run the development server
     cmds:
-      - uv run uvicorn {{.PROJECT_NAME}}.core.main:app --reload --host 0.0.0.0 --port ${PORT:-8000}
+      - uv run python -m {{.PROJECT_NAME}}.server
 
   test:
     desc: Run tests
@@ -41,30 +41,44 @@ tasks:
   lint-fix:
     desc: Fix linting issues and format code
     cmds:
-      - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}} --fix
       - uv run ruff format {{.SRC_DIR}} {{.TEST_DIR}}
+      - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}} --fix
 
-  migrate-new:
-    desc: Generate new migration
+  # Database Migration Tasks (Atlas)
+  db:diff:
+    desc: Generate new migration diff for local environment
     cmds:
-      - uv run atlas migrate diff --env sqlalchemy
+      - uv run atlas migrate diff --env local
 
-  migrate-up:
-    desc: Apply migrations
+  db:diff:prod:
+    desc: Generate new migration diff for production environment
     cmds:
-      - uv run atlas migrate apply --env sqlalchemy --url ${DATABASE_URL}
+      - uv run atlas migrate diff --env prod
 
-  migrate-down:
-    desc: Rollback last migration
+  db:migrate:
+    desc: Apply pending migrations to local database
     cmds:
-      - uv run atlas migrate down --env sqlalchemy --url ${DATABASE_URL}
+      - uv run atlas migrate apply --env local
 
-  db-reset:
-    desc: Reset database (WARNING destructive)
+  db:migrate:prod:
+    desc: Apply pending migrations to production database
     cmds:
-      - echo "Dropping and recreating database..."
-      - task: migrate-down -- --amount 9999
-      - task: migrate-up
+      - uv run atlas migrate apply --env prod
+
+  db:status:
+    desc: Check migration status for local database
+    cmds:
+      - uv run atlas migrate status --env local
+
+  db:status:prod:
+    desc: Check migration status for production database
+    cmds:
+      - uv run atlas migrate status --env prod
+
+  db:validate:
+    desc: Validate migration files
+    cmds:
+      - uv run atlas migrate validate --env local
 
   shell:
     desc: Start IPython shell with app context
@@ -84,4 +98,4 @@ tasks:
   pre-commit:
     desc: Run pre-commit hooks
     cmds:
-      - pre-commit run --all-files 
+      - pre-commit run --all-files

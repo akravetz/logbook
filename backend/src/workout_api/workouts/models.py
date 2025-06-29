@@ -2,7 +2,14 @@
 
 from datetime import datetime
 
-from sqlalchemy import Float, ForeignKey, Integer, Text, UniqueConstraint
+from sqlalchemy import (
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..shared.base_model import BaseModel
@@ -115,7 +122,7 @@ class Set(BaseModel):
 
     # Foreign key constraint for exercise execution
     __table_args__ = (
-        ForeignKey(
+        ForeignKeyConstraint(
             ["workout_id", "exercise_id"],
             ["exercise_executions.workout_id", "exercise_executions.exercise_id"],
         ),

@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description: Request this file when doing any work in the backend or any work on python modules
+globs:
 alwaysApply: false
 ---
 # Workout App Project Rules
@@ -44,10 +44,10 @@ Building a workout tracking web app with backend-first approach using Python, Fa
 # Use SQLAlchemy 2.0 syntax
 class Exercise(BaseModel):
     __tablename__ = "exercises"
-    
+
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    
+
 # Transaction pattern
 async with session.begin():
     # Operations auto-commit on success
@@ -126,6 +126,7 @@ async def list_exercises(
 - Don't use mutable default arguments
 - Don't commit secrets (pre-commit prevents this)
 - Don't create workout templates yet (deferred)
+- Don't edit `pyproject.toml` directly to add dependencies, always use uv commands `uv add` etc
 
 ### Security First
 - All endpoints require authentication (except auth endpoints)

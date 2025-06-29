@@ -1,3 +1,8 @@
+---
+description:
+globs: *.py
+alwaysApply: false
+---
 # Python Backend Design Principles
 
 This document outlines modern Python backend development principles and patterns that prioritize maintainability, testability, and developer experience.
@@ -18,8 +23,8 @@ This document outlines modern Python backend development principles and patterns
 
 ### Development Tools
 - **pytest** for testing (functional style with fixtures)
+  - **CRITICAL**: Use `pytest-anyio` instead of `pytest-asyncio` for modern async applications
   - Never use unittest-style classes
-  - Use `pytest-asyncio` for async tests
 - **ruff** for linting and formatting
 - **Atlas** for database migrations
   - Never use Alembic
@@ -29,6 +34,7 @@ This document outlines modern Python backend development principles and patterns
 
 ### Testing Infrastructure
 - **testcontainers** for real database testing
+- **pytest-anyio** for async testing (superior to pytest-asyncio)
 - Transaction isolation for test independence
 - Shared session between API and database operations in tests
 
@@ -242,6 +248,39 @@ known-third-party = ["fastapi", "pydantic", "sqlalchemy"]
 "__init__.py" = ["F401"]  # unused imports in __init__ files
 ```
 
+### Enforcing Code Quality
+
+#### Linting Rules
+Key ruff rules to enforce:
+- **B904**: Always use `from e` when re-raising exceptions
+- **ARG**: Detect unused function arguments
+- **E402**: Ensure imports are at the top of files
+- **SIM**: Simplify complex code patterns
+
+#### Fixing Common Issues
+
+```python
+# Bad: Missing exception context
+try:
+    operation()
+except Exception as e:
+    raise CustomError("Failed")  # B904 error
+
+# Good: Preserve exception context
+try:
+    operation()
+except Exception as e:
+    raise CustomError("Failed") from e
+
+# Bad: Unused argument
+def process(data, unused_flag):  # ARG error
+    return data
+
+# Good: Mark as intentionally unused
+def process(data, _unused_flag):  # or remove if not needed
+    return data
+```
+
 ### Setup Instructions
 
 ```bash
@@ -272,26 +311,26 @@ class Settings(BaseSettings):
     app_name: str = "API"
     environment: str = "development"
     debug: bool = False
-    
+
     # Database
     database_url: str
-    
+
     # Security
     secret_key: str
-    
+
     # Add other settings as needed
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False
     )
-    
+
     @property
     def database_url_async(self) -> str:
         """Convert sync PostgreSQL URL to async"""
         return str(self.database_url).replace(
-            "postgresql://", 
+            "postgresql://",
             "postgresql+asyncpg://"
         )
 
@@ -353,6 +392,111 @@ env "sqlalchemy" {
 }
 ```
 
+## ⚠️ CRITICAL: Async Session Management Patterns
+
+### The MissingGreenlet Problem
+When using async SQLAlchemy with Pydantic, accessing lazy-loaded attributes outside the session context causes `MissingGreenlet` errors. This is a critical pattern to get right.
+
+### ✅ Service Layer Pattern (REQUIRED)
+**Service methods must return Pydantic models, not SQLAlchemy objects:**
+
+```python
+# ✅ CORRECT: Service returns Pydantic models
+class UserService:
+    async def get_user_profile(self, user_id: int) -> UserResponse:
+        user = await self.repository.get_by_id(user_id)
+        if not user:
+            raise NotFoundError(f"User with ID {user_id} not found")
+
+        # Convert to Pydantic WITHIN session context
+        return UserResponse.model_validate(user)
+
+    async def update_user_profile(self, user_id: int, data: UserProfileUpdate) -> UserResponse:
+        updated_user = await self.repository.update(user_id, data.model_dump(exclude_none=True))
+
+        # CRITICAL: Convert BEFORE commit while session is active
+        user_response = UserResponse.model_validate(updated_user)
+        await self.session.commit()
+        return user_response
+
+# ❌ WRONG: Service returns SQLAlchemy objects
+class UserService:
+    async def get_user_profile(self, user_id: int) -> User:  # SQLAlchemy object
+        return await self.repository.get_by_id(user_id)
+```
+
+### ✅ Router Pattern (REQUIRED)
+**Routers must use Pydantic models directly, never call `.model_validate()`:**
+
+```python
+# ✅ CORRECT: Router uses Pydantic models directly
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_profile(
+    current_user: CurrentUser,
+    user_service: UserServiceDep,
+) -> UserResponse:
+    # Store user ID early to avoid lazy loading in exception handlers
+    user_id = current_user.id
+    try:
+        user = await user_service.get_user_profile(user_id)
+        return user  # Direct return, no .model_validate()
+    except Exception as e:
+        logger.error(f"Error getting user profile {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+# ❌ WRONG: Router calls .model_validate() after service
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_profile(user_service: UserServiceDep) -> UserResponse:
+    user = await user_service.get_user_profile(user_id)  # Returns SQLAlchemy object
+    return UserResponse.model_validate(user)  # MissingGreenlet error!
+```
+
+### ✅ Exception Handling Pattern
+**Extract SQLAlchemy attributes early to avoid session access in exception handlers:**
+
+```python
+# ✅ CORRECT: Extract attributes early
+async def update_profile(current_user: CurrentUser, user_service: UserServiceDep):
+    user_id = current_user.id  # Extract early
+    try:
+        return await user_service.update_user_profile(user_id, data)
+    except Exception as e:
+        logger.error(f"Error updating user profile {user_id}: {e}")  # Use extracted value
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+# ❌ WRONG: Accessing attributes in exception handler
+async def update_profile(current_user: CurrentUser, user_service: UserServiceDep):
+    try:
+        return await user_service.update_user_profile(current_user.id, data)
+    except Exception as e:
+        logger.error(f"Error updating user profile {current_user.id}: {e}")  # MissingGreenlet!
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+```
+
+### ✅ Repository Pattern
+**Repositories return SQLAlchemy objects - conversion happens in service layer:**
+
+```python
+# ✅ CORRECT: Repository returns SQLAlchemy objects
+class UserRepository:
+    async def get_by_id(self, user_id: int) -> Optional[User]:
+        result = await self.session.get(User, user_id)
+        return result  # SQLAlchemy object
+
+    async def update(self, user_id: int, data: dict) -> Optional[User]:
+        stmt = update(User).where(User.id == user_id).values(**data).returning(User)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()  # SQLAlchemy object
+```
+
+### Key Rules for Async Session Management
+
+1. **Service Layer**: Always return Pydantic models, convert within session context
+2. **Router Layer**: Use Pydantic models directly, never call `.model_validate()`
+3. **Repository Layer**: Return SQLAlchemy objects, let service handle conversion
+4. **Exception Handling**: Extract SQLAlchemy attributes early in the function
+5. **Testing**: Extract SQLAlchemy attributes at test start to avoid lazy loading
+
 ## API Design Principles
 
 ### RESTful Patterns
@@ -371,43 +515,204 @@ This separation allows API evolution without database changes.
 
 ## Testing Philosophy
 
-### Transaction Isolation Pattern
-Every test runs in a transaction that's rolled back after completion:
+### Modern Async Testing with pytest-anyio
+**CRITICAL**: Use `pytest-anyio` instead of `pytest-asyncio` for modern async applications:
+
+```python
+# pyproject.toml
+[tool.pytest.ini_options]
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+markers = [
+    "anyio: marks tests as requiring anyio backend",
+]
+```
+
+### Transaction Isolation with PostgreSQL Testcontainers
+Every test runs in a real PostgreSQL database with perfect isolation:
 
 ```python
 # conftest.py
-@pytest_asyncio.fixture
-async def connection(engine):
-    async with engine.connect() as conn:
-        async with conn.begin() as trans:
-            yield conn
-            await trans.rollback()
+import pytest
+from testcontainers.postgres import PostgresContainer
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+import anyio
 
-@pytest_asyncio.fixture
-async def session(connection):
-    async with AsyncSession(
-        bind=connection,
-        join_transaction_mode="create_savepoint"
-    ) as session:
-        yield session
+# Session-scoped real PostgreSQL database
+@pytest.fixture(scope="session")
+async def postgres_container():
+    with PostgresContainer("postgres:16") as postgres:
+        yield postgres
 
-@pytest_asyncio.fixture
-def override_get_db(session):
-    app.dependency_overrides[get_db] = lambda: session
-    yield
-    app.dependency_overrides.clear()
+@pytest.fixture(scope="session")
+async def engine(postgres_container):
+    database_url = postgres_container.get_connection_url().replace(
+        "postgresql://", "postgresql+asyncpg://"
+    )
+    engine = create_async_engine(database_url, echo=False)
+
+    # Create all tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield engine
+    await engine.dispose()
+
+# Transaction isolation - each test gets a savepoint
+@pytest.fixture
+async def session(engine):
+    """Provide a database session with transaction rollback for test isolation."""
+    async with engine.connect() as connection:
+        async with connection.begin() as transaction:
+            async with AsyncSession(
+                bind=connection,
+                join_transaction_mode="create_savepoint"
+            ) as session:
+                yield session
+            # Transaction automatically rolls back
+
+# Anyio backend configuration
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+# Test class example
+pytestmark = pytest.mark.anyio  # All tests in file use anyio
+
+class TestUserService:
+    async def test_create_user_success(self, user_service: UserService):
+        # Test implementation with perfect isolation
+        user = await user_service.create_user(UserCreate(email="test@example.com"))
+        assert user.id is not None
+```
+
+### Critical Testing Patterns for Async SQLAlchemy
+
+#### ✅ Extract SQLAlchemy Attributes Early
+**ALWAYS extract SQLAlchemy object attributes at the start of tests:**
+
+```python
+# ✅ CORRECT: Extract attributes early
+async def test_user_update(self, authenticated_client: AsyncClient, test_user: User):
+    # Extract attributes at test start to avoid lazy loading issues
+    user_id = test_user.id
+    user_email = test_user.email_address
+    user_name = test_user.name
+
+    # Perform API operations
+    response = await authenticated_client.patch("/api/v1/users/me", json={"name": "New Name"})
+
+    # Use extracted values in assertions
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == user_id
+    assert data["email_address"] == user_email
+    assert data["name"] == "New Name"
+
+# ❌ WRONG: Accessing attributes later causes MissingGreenlet errors
+async def test_user_update(self, authenticated_client: AsyncClient, test_user: User):
+    response = await authenticated_client.patch("/api/v1/users/me", json={"name": "New Name"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == test_user.id  # MissingGreenlet error!
 ```
 
 This ensures:
-- Complete test isolation
+- Complete test isolation using real PostgreSQL database
 - API and database operations share the same transaction
-- Fast test execution (no schema recreation)
+- Fast test execution with session-scoped container
+- No MissingGreenlet errors from lazy loading
 
 ### Test Organization
 - Group tests by business domain
 - Use fixtures for common setup
 - Test both happy paths and error cases
 - Integration tests should test complete flows
+
+### Advanced Testing Patterns
+### Advanced Testing Patterns
+
+#### Fixture Composition
+Build complex test scenarios from simple fixtures:
+
+```python
+@pytest.fixture
+def test_settings():
+    return Settings(
+        jwt_secret_key="test_key",
+        database_url="postgresql://test",
+        # ... other settings
+    )
+
+@pytest.fixture
+def jwt_manager(test_settings):
+    return JWTManager(test_settings)
+
+@pytest.fixture
+def auth_service(session, jwt_manager):
+    return AuthService(session, jwt_manager)
+
+@pytest.fixture
+async def authenticated_user(auth_service, test_user):
+    # Compose fixtures to create authenticated state
+    tokens = await auth_service.login(test_user)
+    return test_user, tokens
+```
+
+#### ⚠️ CRITICAL: Pytest Fixture Usage and ARG002 Warnings
+
+**NEVER remove fixture parameters from test functions to fix ARG002 warnings**
+
+Pytest fixtures are ALWAYS used, even when they don't appear to be referenced in the test code. They perform critical setup operations:
+
+```python
+# ✅ CORRECT: Fixture creates necessary test data
+async def test_user_statistics(
+    self, authenticated_client: AsyncClient, test_user: User  # noqa: ARG002
+):
+    """test_user fixture creates a user for authenticated_client to authenticate with."""
+    response = await authenticated_client.get("/api/v1/users/me/stats")
+    assert response.status_code == 200
+
+# ❌ WRONG: Removing fixture breaks test
+async def test_user_statistics(self, authenticated_client: AsyncClient):
+    """Without test_user, authenticated_client has no user! Test will fail."""
+    response = await authenticated_client.get("/api/v1/users/me/stats")  # 401 error
+```
+
+**Common fixture purposes:**
+- `test_user`: Creates user in database for authentication
+- `sample_workout`: Creates workout data for testing
+- `authenticated_client`: Provides authenticated HTTP client
+- `session`: Database session with transaction isolation
+- `mock_service`: Provides test doubles for dependencies
+
+**ARG002 suppression rules:**
+- Always use `# noqa: ARG002` on the parameter line, not function line
+- Apply to fixtures that perform setup but aren't directly referenced
+- NEVER remove the fixture parameter itself
+
+**Example patterns:**
+```python
+# Fixture used for setup
+async def test_endpoint(self, client: AsyncClient, test_user: User):  # noqa: ARG002
+
+# Fixture directly referenced - no noqa needed
+async def test_user_data(self, test_user: User):
+    assert test_user.email == "test@example.com"
+
+# Multiple fixtures with mixed usage
+async def test_complex(
+    self,
+    authenticated_client: AsyncClient,
+    test_user: User,  # noqa: ARG002
+    sample_workout: Workout  # noqa: ARG002
+):
+    # authenticated_client internally uses test_user
+    # sample_workout creates data in database
+    response = await authenticated_client.get("/api/v1/workouts")
+```
 
 ## Async Best Practices
 
@@ -515,14 +820,130 @@ paths = [
 3. **Database Migrations** - Run migrations separately from app startup
 4. **Graceful Shutdown** - Handle SIGTERM properly
 
+## Dependency Injection Patterns
+
+### Service Dependencies
+Use constructor injection for all services:
+
+```python
+# service.py
+class UserService:
+    def __init__(self, db: AsyncSession, jwt_manager: JWTManager):
+        self.db = db
+        self.jwt_manager = jwt_manager
+```
+
+### FastAPI Dependencies
+Create dependency providers with caching:
+
+```python
+# dependencies.py
+from functools import lru_cache
+from typing import Annotated
+
+@lru_cache
+def get_jwt_manager(settings: Annotated[Settings, Depends(get_settings)]) -> JWTManager:
+    """Get JWT manager instance."""
+    return JWTManager(settings)
+
+# Type alias for easy use
+JWTManagerDep = Annotated[JWTManager, Depends(get_jwt_manager)]
+
+# Use in routes
+@router.post("/login")
+async def login(jwt_manager: JWTManagerDep):
+    # jwt_manager is injected
+```
+
+### Testing with Dependency Injection
+No patching needed - inject test dependencies:
+
+```python
+@pytest.fixture
+def mock_time_provider():
+    return MockTimeProvider(fixed_time)
+
+@pytest.fixture
+def jwt_manager(test_settings, mock_time_provider):
+    return JWTManager(test_settings, mock_time_provider)
+
+def test_token_creation(jwt_manager):
+    # Test with injected dependencies
+    token = jwt_manager.create_token(...)
+```
+
+### Interface Injection for Testability
+Define protocols for external dependencies:
+
+```python
+from typing import Protocol
+
+class TimeProvider(Protocol):
+    def now(self) -> datetime:
+        ...
+
+class DefaultTimeProvider:
+    def now(self) -> datetime:
+        return datetime.now(UTC)
+
+class JWTManager:
+    def __init__(self, settings: Settings, time_provider: TimeProvider = None):
+        self.time_provider = time_provider or DefaultTimeProvider()
+```
+
+## Exception Handling Best Practices
+
+### Always Chain Exceptions
+Use `from e` to preserve the original exception context:
+
+```python
+try:
+    result = await external_api_call()
+except httpx.RequestError as e:
+    logger.error(f"Network error: {e}")
+    raise ServiceError("Failed to fetch data") from e
+```
+
+### Domain-Specific Exceptions
+Create custom exceptions for each domain:
+
+```python
+# exceptions.py
+class AuthenticationError(Exception):
+    """Authentication related errors"""
+
+class GoogleOAuthError(AuthenticationError):
+    """Google OAuth specific errors"""
+
+# Usage
+except JWTError as e:
+    raise AuthenticationError("Invalid token") from e
+```
+
+### FastAPI Exception Handling
+Convert domain exceptions to HTTP exceptions:
+
+```python
+try:
+    user = await auth_service.authenticate(...)
+except AuthenticationError as e:
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=str(e)
+    ) from e
+```
+
 ## Anti-Patterns to Avoid
 
 1. **Circular Imports** - Keep dependencies unidirectional
 2. **Business Logic in Routes** - Use service layer
 3. **Mutable Default Arguments** - Use `Field(default_factory=list)`
 4. **Synchronous Operations in Async Context** - Use async versions
-5. **Global State** - Use dependency injection
+5. **Global State** - Use dependency injection instead
 6. **Secrets in Code** - Use environment variables (enforced by pre-commit)
+7. **Patching in Tests** - Use dependency injection for testability
+8. **Bare Except Clauses** - Always catch specific exceptions
+9. **Missing Exception Context** - Always use `from e` when re-raising
 
 ## Example Implementation
 
@@ -536,7 +957,7 @@ from shared.base_model import Base
 
 class User(Base):
     __tablename__ = "users"
-    
+
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True)
     name: Mapped[str] = mapped_column(String(100))
@@ -552,7 +973,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     name: str
-    
+
     model_config = {"from_attributes": True}
 
 # users/service.py
@@ -563,7 +984,7 @@ from .schemas import UserCreate, UserResponse
 class UserService:
     def __init__(self, db: AsyncSession):
         self.db = db
-    
+
     async def create_user(self, data: UserCreate) -> User:
         user = User(**data.model_dump())
         self.db.add(user)
@@ -606,4 +1027,4 @@ This design philosophy prioritizes:
 - **Code Quality** through automated formatting and linting
 - **Testability** through dependency injection and isolation
 - **Performance** through async operations
-``` 
+```
