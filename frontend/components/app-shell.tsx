@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useAuth } from "@/lib/contexts/auth-context"
+import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Home, Dumbbell, History, Settings } from "lucide-react"
@@ -14,7 +14,7 @@ interface AppShellProps {
 }
 
 export function AppShell({ children }: AppShellProps) {
-  const { user, logout } = useAuth()
+  const { data: session } = useSession()
   const pathname = usePathname()
   const router = useRouter()
 
@@ -31,16 +31,16 @@ export function AppShell({ children }: AppShellProps) {
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user?.profile_image_url || ""} alt={user?.name} />
+              <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name || ""} />
               <AvatarFallback className="text-xs">
-                {user?.name
+                {session?.user?.name
                   ?.split(" ")
-                  .map((n) => n[0])
+                  .map((n: string) => n[0])
                   .join("")
                   .toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium">{user?.name}</span>
+            <span className="text-sm font-medium">{session?.user?.name}</span>
           </div>
           <Button variant="ghost" size="icon" onClick={() => router.push("/settings")}>
             <Settings className="h-4 w-4" />

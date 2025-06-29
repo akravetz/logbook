@@ -16,8 +16,6 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 import type {
-  AuthErrorResponse,
-  AuthenticationResponse,
   DatabaseHealthResponse,
   ExerciseCreate,
   ExerciseExecutionRequest,
@@ -33,12 +31,9 @@ import type {
   GetMyExercisesApiV1ExercisesMyExercisesGetParams,
   GetSystemExercisesApiV1ExercisesSystemGetParams,
   GetUserStatisticsApiV1UsersMeStatsGetParams,
-  GoogleOauthCallbackApiV1AuthGoogleCallbackGetParams,
   HTTPValidationError,
-  InitiateGoogleOauthApiV1AuthGooglePostParams,
   ListWorkoutsApiV1WorkoutsGetParams,
   LogoutResponse,
-  OAuthInitiateResponse,
   PageExerciseResponse,
   PageWorkoutResponse,
   SearchExercisesApiV1ExercisesGetParams,
@@ -54,16 +49,22 @@ import type {
   UserProfileUpdate,
   UserResponse,
   UserStatsResponse,
+  VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody,
   WorkoutResponse,
 } from "./model";
 import { customInstance } from "./mutator";
+
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
 
 /**
  * Root endpoint.
  * @summary Root
  */
-export const rootGet = (signal?: AbortSignal) => {
-  return customInstance<unknown>({ url: `/`, method: "GET", signal });
+export const rootGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<unknown>({ url: `/`, method: "GET", signal }, options);
 };
 
 export const getRootGetQueryKey = () => {
@@ -77,14 +78,15 @@ export const getRootGetQueryOptions = <
   query?: Partial<
     UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getRootGetQueryKey();
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof rootGet>>> = ({
     signal,
-  }) => rootGet(signal);
+  }) => rootGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof rootGet>>,
@@ -108,6 +110,7 @@ export const useRootGet = <
   query?: Partial<
     UseQueryOptions<Awaited<ReturnType<typeof rootGet>>, TError, TData>
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getRootGetQueryOptions(options);
 
@@ -124,12 +127,14 @@ export const useRootGet = <
  * Simple health check - is the application running?
  * @summary Simple Health Check
  */
-export const simpleHealthCheckApiV1HealthGet = (signal?: AbortSignal) => {
-  return customInstance<SimpleHealthResponse>({
-    url: `/api/v1/health/`,
-    method: "GET",
-    signal,
-  });
+export const simpleHealthCheckApiV1HealthGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<SimpleHealthResponse>(
+    { url: `/api/v1/health/`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getSimpleHealthCheckApiV1HealthGetQueryKey = () => {
@@ -147,15 +152,16 @@ export const getSimpleHealthCheckApiV1HealthGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ?? getSimpleHealthCheckApiV1HealthGetQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof simpleHealthCheckApiV1HealthGet>>
-  > = ({ signal }) => simpleHealthCheckApiV1HealthGet(signal);
+  > = ({ signal }) => simpleHealthCheckApiV1HealthGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof simpleHealthCheckApiV1HealthGet>>,
@@ -183,6 +189,7 @@ export const useSimpleHealthCheckApiV1HealthGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getSimpleHealthCheckApiV1HealthGetQueryOptions(options);
 
@@ -199,12 +206,14 @@ export const useSimpleHealthCheckApiV1HealthGet = <
  * Database health check - can we connect to the database?
  * @summary Database Health Check
  */
-export const databaseHealthCheckApiV1HealthDbGet = (signal?: AbortSignal) => {
-  return customInstance<DatabaseHealthResponse>({
-    url: `/api/v1/health/db`,
-    method: "GET",
-    signal,
-  });
+export const databaseHealthCheckApiV1HealthDbGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<DatabaseHealthResponse>(
+    { url: `/api/v1/health/db`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getDatabaseHealthCheckApiV1HealthDbGetQueryKey = () => {
@@ -222,15 +231,17 @@ export const getDatabaseHealthCheckApiV1HealthDbGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ?? getDatabaseHealthCheckApiV1HealthDbGetQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof databaseHealthCheckApiV1HealthDbGet>>
-  > = ({ signal }) => databaseHealthCheckApiV1HealthDbGet(signal);
+  > = ({ signal }) =>
+    databaseHealthCheckApiV1HealthDbGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof databaseHealthCheckApiV1HealthDbGet>>,
@@ -258,6 +269,7 @@ export const useDatabaseHealthCheckApiV1HealthDbGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
     getDatabaseHealthCheckApiV1HealthDbGetQueryOptions(options);
@@ -275,12 +287,14 @@ export const useDatabaseHealthCheckApiV1HealthDbGet = <
  * Comprehensive health check - app and database status.
  * @summary Full Health Check
  */
-export const fullHealthCheckApiV1HealthFullGet = (signal?: AbortSignal) => {
-  return customInstance<FullHealthResponse>({
-    url: `/api/v1/health/full`,
-    method: "GET",
-    signal,
-  });
+export const fullHealthCheckApiV1HealthFullGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<FullHealthResponse>(
+    { url: `/api/v1/health/full`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getFullHealthCheckApiV1HealthFullGetQueryKey = () => {
@@ -298,15 +312,16 @@ export const getFullHealthCheckApiV1HealthFullGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ?? getFullHealthCheckApiV1HealthFullGetQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof fullHealthCheckApiV1HealthFullGet>>
-  > = ({ signal }) => fullHealthCheckApiV1HealthFullGet(signal);
+  > = ({ signal }) => fullHealthCheckApiV1HealthFullGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof fullHealthCheckApiV1HealthFullGet>>,
@@ -334,6 +349,7 @@ export const useFullHealthCheckApiV1HealthFullGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
     getFullHealthCheckApiV1HealthFullGetQueryOptions(options);
@@ -351,12 +367,14 @@ export const useFullHealthCheckApiV1HealthFullGet = <
  * Get system configuration and runtime information.
  * @summary System Info
  */
-export const systemInfoApiV1HealthSystemGet = (signal?: AbortSignal) => {
-  return customInstance<SystemInfoResponse>({
-    url: `/api/v1/health/system`,
-    method: "GET",
-    signal,
-  });
+export const systemInfoApiV1HealthSystemGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<SystemInfoResponse>(
+    { url: `/api/v1/health/system`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getSystemInfoApiV1HealthSystemGetQueryKey = () => {
@@ -374,15 +392,16 @@ export const getSystemInfoApiV1HealthSystemGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ?? getSystemInfoApiV1HealthSystemGetQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof systemInfoApiV1HealthSystemGet>>
-  > = ({ signal }) => systemInfoApiV1HealthSystemGet(signal);
+  > = ({ signal }) => systemInfoApiV1HealthSystemGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof systemInfoApiV1HealthSystemGet>>,
@@ -410,188 +429,9 @@ export const useSystemInfoApiV1HealthSystemGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getSystemInfoApiV1HealthSystemGetQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  query.queryKey = queryOptions.queryKey;
-
-  return query;
-};
-
-/**
- * Start Google OAuth authentication process and return authorization URL
- * @summary Initiate Google OAuth flow
- */
-export const initiateGoogleOauthApiV1AuthGooglePost = (
-  params?: InitiateGoogleOauthApiV1AuthGooglePostParams,
-) => {
-  return customInstance<OAuthInitiateResponse>({
-    url: `/api/v1/auth/google`,
-    method: "POST",
-    params,
-  });
-};
-
-export const getInitiateGoogleOauthApiV1AuthGooglePostMutationOptions = <
-  TError = HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof initiateGoogleOauthApiV1AuthGooglePost>>,
-    TError,
-    { params?: InitiateGoogleOauthApiV1AuthGooglePostParams },
-    TContext
-  >;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof initiateGoogleOauthApiV1AuthGooglePost>>,
-  TError,
-  { params?: InitiateGoogleOauthApiV1AuthGooglePostParams },
-  TContext
-> => {
-  const { mutation: mutationOptions } = options ?? {};
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof initiateGoogleOauthApiV1AuthGooglePost>>,
-    { params?: InitiateGoogleOauthApiV1AuthGooglePostParams }
-  > = (props) => {
-    const { params } = props ?? {};
-
-    return initiateGoogleOauthApiV1AuthGooglePost(params);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type InitiateGoogleOauthApiV1AuthGooglePostMutationResult = NonNullable<
-  Awaited<ReturnType<typeof initiateGoogleOauthApiV1AuthGooglePost>>
->;
-
-export type InitiateGoogleOauthApiV1AuthGooglePostMutationError =
-  HTTPValidationError;
-
-/**
- * @summary Initiate Google OAuth flow
- */
-export const useInitiateGoogleOauthApiV1AuthGooglePost = <
-  TError = HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof initiateGoogleOauthApiV1AuthGooglePost>>,
-    TError,
-    { params?: InitiateGoogleOauthApiV1AuthGooglePostParams },
-    TContext
-  >;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof initiateGoogleOauthApiV1AuthGooglePost>>,
-  TError,
-  { params?: InitiateGoogleOauthApiV1AuthGooglePostParams },
-  TContext
-> => {
-  const mutationOptions =
-    getInitiateGoogleOauthApiV1AuthGooglePostMutationOptions(options);
-
-  return useMutation(mutationOptions);
-};
-
-/**
- * Process Google OAuth callback and return user with JWT tokens
- * @summary Handle Google OAuth callback
- */
-export const googleOauthCallbackApiV1AuthGoogleCallbackGet = (
-  params: GoogleOauthCallbackApiV1AuthGoogleCallbackGetParams,
-  signal?: AbortSignal,
-) => {
-  return customInstance<AuthenticationResponse>({
-    url: `/api/v1/auth/google/callback`,
-    method: "GET",
-    params,
-    signal,
-  });
-};
-
-export const getGoogleOauthCallbackApiV1AuthGoogleCallbackGetQueryKey = (
-  params: GoogleOauthCallbackApiV1AuthGoogleCallbackGetParams,
-) => {
-  return [`/api/v1/auth/google/callback`, ...(params ? [params] : [])] as const;
-};
-
-export const getGoogleOauthCallbackApiV1AuthGoogleCallbackGetQueryOptions = <
-  TData = Awaited<
-    ReturnType<typeof googleOauthCallbackApiV1AuthGoogleCallbackGet>
-  >,
-  TError = AuthErrorResponse | HTTPValidationError,
->(
-  params: GoogleOauthCallbackApiV1AuthGoogleCallbackGetParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<
-          ReturnType<typeof googleOauthCallbackApiV1AuthGoogleCallbackGet>
-        >,
-        TError,
-        TData
-      >
-    >;
-  },
-) => {
-  const { query: queryOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ??
-    getGoogleOauthCallbackApiV1AuthGoogleCallbackGetQueryKey(params);
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof googleOauthCallbackApiV1AuthGoogleCallbackGet>>
-  > = ({ signal }) =>
-    googleOauthCallbackApiV1AuthGoogleCallbackGet(params, signal);
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof googleOauthCallbackApiV1AuthGoogleCallbackGet>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GoogleOauthCallbackApiV1AuthGoogleCallbackGetQueryResult =
-  NonNullable<
-    Awaited<ReturnType<typeof googleOauthCallbackApiV1AuthGoogleCallbackGet>>
-  >;
-export type GoogleOauthCallbackApiV1AuthGoogleCallbackGetQueryError =
-  | AuthErrorResponse
-  | HTTPValidationError;
-
-/**
- * @summary Handle Google OAuth callback
- */
-export const useGoogleOauthCallbackApiV1AuthGoogleCallbackGet = <
-  TData = Awaited<
-    ReturnType<typeof googleOauthCallbackApiV1AuthGoogleCallbackGet>
-  >,
-  TError = AuthErrorResponse | HTTPValidationError,
->(
-  params: GoogleOauthCallbackApiV1AuthGoogleCallbackGetParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<
-          ReturnType<typeof googleOauthCallbackApiV1AuthGoogleCallbackGet>
-        >,
-        TError,
-        TData
-      >
-    >;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
-  const queryOptions =
-    getGoogleOauthCallbackApiV1AuthGoogleCallbackGetQueryOptions(
-      params,
-      options,
-    );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -608,17 +448,21 @@ export const useGoogleOauthCallbackApiV1AuthGoogleCallbackGet = <
  */
 export const refreshTokenApiV1AuthRefreshPost = (
   tokenRefreshRequest: TokenRefreshRequest,
+  options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<TokenRefreshResponse>({
-    url: `/api/v1/auth/refresh`,
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: tokenRefreshRequest,
-  });
+  return customInstance<TokenRefreshResponse>(
+    {
+      url: `/api/v1/auth/refresh`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: tokenRefreshRequest,
+    },
+    options,
+  );
 };
 
 export const getRefreshTokenApiV1AuthRefreshPostMutationOptions = <
-  TError = AuthErrorResponse | HTTPValidationError,
+  TError = void | HTTPValidationError,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -627,13 +471,14 @@ export const getRefreshTokenApiV1AuthRefreshPostMutationOptions = <
     { data: TokenRefreshRequest },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>,
   TError,
   { data: TokenRefreshRequest },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>,
@@ -641,7 +486,7 @@ export const getRefreshTokenApiV1AuthRefreshPostMutationOptions = <
   > = (props) => {
     const { data } = props ?? {};
 
-    return refreshTokenApiV1AuthRefreshPost(data);
+    return refreshTokenApiV1AuthRefreshPost(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -652,14 +497,13 @@ export type RefreshTokenApiV1AuthRefreshPostMutationResult = NonNullable<
 >;
 export type RefreshTokenApiV1AuthRefreshPostMutationBody = TokenRefreshRequest;
 export type RefreshTokenApiV1AuthRefreshPostMutationError =
-  | AuthErrorResponse
-  | HTTPValidationError;
+  void | HTTPValidationError;
 
 /**
  * @summary Refresh access token
  */
 export const useRefreshTokenApiV1AuthRefreshPost = <
-  TError = AuthErrorResponse | HTTPValidationError,
+  TError = void | HTTPValidationError,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -668,6 +512,7 @@ export const useRefreshTokenApiV1AuthRefreshPost = <
     { data: TokenRefreshRequest },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>,
   TError,
@@ -684,11 +529,13 @@ export const useRefreshTokenApiV1AuthRefreshPost = <
  * Logout current user (client-side token invalidation)
  * @summary Logout user
  */
-export const logoutApiV1AuthLogoutPost = () => {
-  return customInstance<LogoutResponse>({
-    url: `/api/v1/auth/logout`,
-    method: "POST",
-  });
+export const logoutApiV1AuthLogoutPost = (
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<LogoutResponse>(
+    { url: `/api/v1/auth/logout`, method: "POST" },
+    options,
+  );
 };
 
 export const getLogoutApiV1AuthLogoutPostMutationOptions = <
@@ -701,19 +548,20 @@ export const getLogoutApiV1AuthLogoutPostMutationOptions = <
     void,
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>,
   TError,
   void,
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>,
     void
   > = () => {
-    return logoutApiV1AuthLogoutPost();
+    return logoutApiV1AuthLogoutPost(requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -738,6 +586,7 @@ export const useLogoutApiV1AuthLogoutPost = <
     void,
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>,
   TError,
@@ -750,15 +599,17 @@ export const useLogoutApiV1AuthLogoutPost = <
 };
 
 /**
- * Get current user session information
+ * Get information about the current authenticated session
  * @summary Get current session info
  */
-export const getSessionInfoApiV1AuthMeGet = (signal?: AbortSignal) => {
-  return customInstance<SessionInfoResponse>({
-    url: `/api/v1/auth/me`,
-    method: "GET",
-    signal,
-  });
+export const getSessionInfoApiV1AuthMeGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<SessionInfoResponse>(
+    { url: `/api/v1/auth/me`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getGetSessionInfoApiV1AuthMeGetQueryKey = () => {
@@ -776,15 +627,16 @@ export const getGetSessionInfoApiV1AuthMeGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ?? getGetSessionInfoApiV1AuthMeGetQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getSessionInfoApiV1AuthMeGet>>
-  > = ({ signal }) => getSessionInfoApiV1AuthMeGet(signal);
+  > = ({ signal }) => getSessionInfoApiV1AuthMeGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getSessionInfoApiV1AuthMeGet>>,
@@ -812,6 +664,7 @@ export const useGetSessionInfoApiV1AuthMeGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getGetSessionInfoApiV1AuthMeGetQueryOptions(options);
 
@@ -828,12 +681,14 @@ export const useGetSessionInfoApiV1AuthMeGet = <
  * Validate JWT token and return token information
  * @summary Validate token
  */
-export const validateTokenApiV1AuthValidateGet = (signal?: AbortSignal) => {
-  return customInstance<TokenValidationResponse>({
-    url: `/api/v1/auth/validate`,
-    method: "GET",
-    signal,
-  });
+export const validateTokenApiV1AuthValidateGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<TokenValidationResponse>(
+    { url: `/api/v1/auth/validate`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getValidateTokenApiV1AuthValidateGetQueryKey = () => {
@@ -851,15 +706,16 @@ export const getValidateTokenApiV1AuthValidateGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ?? getValidateTokenApiV1AuthValidateGetQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof validateTokenApiV1AuthValidateGet>>
-  > = ({ signal }) => validateTokenApiV1AuthValidateGet(signal);
+  > = ({ signal }) => validateTokenApiV1AuthValidateGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof validateTokenApiV1AuthValidateGet>>,
@@ -887,6 +743,7 @@ export const useValidateTokenApiV1AuthValidateGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
     getValidateTokenApiV1AuthValidateGetQueryOptions(options);
@@ -901,15 +758,102 @@ export const useValidateTokenApiV1AuthValidateGet = <
 };
 
 /**
+ * Create or update user from Google OAuth data via NextAuth.js
+ * @summary Verify Google user for NextAuth
+ */
+export const verifyGoogleUserApiV1AuthVerifyGoogleUserPost = (
+  verifyGoogleUserApiV1AuthVerifyGoogleUserPostBody: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody,
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<unknown>(
+    {
+      url: `/api/v1/auth/verify-google-user`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: verifyGoogleUserApiV1AuthVerifyGoogleUserPostBody,
+    },
+    options,
+  );
+};
+
+export const getVerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationOptions = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
+    TError,
+    { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
+  TError,
+  { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody },
+  TContext
+> => {
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
+    { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifyGoogleUserApiV1AuthVerifyGoogleUserPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationResult =
+  NonNullable<
+    Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>
+  >;
+export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationBody =
+  VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody;
+export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationError =
+  HTTPValidationError;
+
+/**
+ * @summary Verify Google user for NextAuth
+ */
+export const useVerifyGoogleUserApiV1AuthVerifyGoogleUserPost = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
+    TError,
+    { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
+  TError,
+  { data: VerifyGoogleUserApiV1AuthVerifyGoogleUserPostBody },
+  TContext
+> => {
+  const mutationOptions =
+    getVerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationOptions(options);
+
+  return useMutation(mutationOptions);
+};
+
+/**
  * Retrieve the authenticated user's profile information.
  * @summary Get current user profile
  */
-export const getCurrentUserProfileApiV1UsersMeGet = (signal?: AbortSignal) => {
-  return customInstance<UserResponse>({
-    url: `/api/v1/users/me`,
-    method: "GET",
-    signal,
-  });
+export const getCurrentUserProfileApiV1UsersMeGet = (
+  options?: SecondParameter<typeof customInstance>,
+  signal?: AbortSignal,
+) => {
+  return customInstance<UserResponse>(
+    { url: `/api/v1/users/me`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getGetCurrentUserProfileApiV1UsersMeGetQueryKey = () => {
@@ -927,15 +871,17 @@ export const getGetCurrentUserProfileApiV1UsersMeGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ?? getGetCurrentUserProfileApiV1UsersMeGetQueryKey();
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getCurrentUserProfileApiV1UsersMeGet>>
-  > = ({ signal }) => getCurrentUserProfileApiV1UsersMeGet(signal);
+  > = ({ signal }) =>
+    getCurrentUserProfileApiV1UsersMeGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getCurrentUserProfileApiV1UsersMeGet>>,
@@ -963,6 +909,7 @@ export const useGetCurrentUserProfileApiV1UsersMeGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
     getGetCurrentUserProfileApiV1UsersMeGetQueryOptions(options);
@@ -980,8 +927,13 @@ export const useGetCurrentUserProfileApiV1UsersMeGet = <
  * Deactivate the authenticated user's account (soft delete).
  * @summary Deactivate user account
  */
-export const deactivateCurrentUserApiV1UsersMeDelete = () => {
-  return customInstance<unknown>({ url: `/api/v1/users/me`, method: "DELETE" });
+export const deactivateCurrentUserApiV1UsersMeDelete = (
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<unknown>(
+    { url: `/api/v1/users/me`, method: "DELETE" },
+    options,
+  );
 };
 
 export const getDeactivateCurrentUserApiV1UsersMeDeleteMutationOptions = <
@@ -994,19 +946,20 @@ export const getDeactivateCurrentUserApiV1UsersMeDeleteMutationOptions = <
     void,
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deactivateCurrentUserApiV1UsersMeDelete>>,
   TError,
   void,
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deactivateCurrentUserApiV1UsersMeDelete>>,
     void
   > = () => {
-    return deactivateCurrentUserApiV1UsersMeDelete();
+    return deactivateCurrentUserApiV1UsersMeDelete(requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1031,6 +984,7 @@ export const useDeactivateCurrentUserApiV1UsersMeDelete = <
     void,
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deactivateCurrentUserApiV1UsersMeDelete>>,
   TError,
@@ -1049,13 +1003,17 @@ export const useDeactivateCurrentUserApiV1UsersMeDelete = <
  */
 export const updateCurrentUserProfileApiV1UsersMePatch = (
   userProfileUpdate: UserProfileUpdate,
+  options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<UserResponse>({
-    url: `/api/v1/users/me`,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    data: userProfileUpdate,
-  });
+  return customInstance<UserResponse>(
+    {
+      url: `/api/v1/users/me`,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      data: userProfileUpdate,
+    },
+    options,
+  );
 };
 
 export const getUpdateCurrentUserProfileApiV1UsersMePatchMutationOptions = <
@@ -1068,13 +1026,14 @@ export const getUpdateCurrentUserProfileApiV1UsersMePatchMutationOptions = <
     { data: UserProfileUpdate },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof updateCurrentUserProfileApiV1UsersMePatch>>,
   TError,
   { data: UserProfileUpdate },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof updateCurrentUserProfileApiV1UsersMePatch>>,
@@ -1082,7 +1041,7 @@ export const getUpdateCurrentUserProfileApiV1UsersMePatchMutationOptions = <
   > = (props) => {
     const { data } = props ?? {};
 
-    return updateCurrentUserProfileApiV1UsersMePatch(data);
+    return updateCurrentUserProfileApiV1UsersMePatch(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1110,6 +1069,7 @@ export const useUpdateCurrentUserProfileApiV1UsersMePatch = <
     { data: UserProfileUpdate },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof updateCurrentUserProfileApiV1UsersMePatch>>,
   TError,
@@ -1128,14 +1088,13 @@ export const useUpdateCurrentUserProfileApiV1UsersMePatch = <
  */
 export const getUserStatisticsApiV1UsersMeStatsGet = (
   params?: GetUserStatisticsApiV1UsersMeStatsGetParams,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<UserStatsResponse>({
-    url: `/api/v1/users/me/stats`,
-    method: "GET",
-    params,
-    signal,
-  });
+  return customInstance<UserStatsResponse>(
+    { url: `/api/v1/users/me/stats`, method: "GET", params, signal },
+    options,
+  );
 };
 
 export const getGetUserStatisticsApiV1UsersMeStatsGetQueryKey = (
@@ -1157,9 +1116,10 @@ export const getGetUserStatisticsApiV1UsersMeStatsGetQueryOptions = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ??
@@ -1167,7 +1127,8 @@ export const getGetUserStatisticsApiV1UsersMeStatsGetQueryOptions = <
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getUserStatisticsApiV1UsersMeStatsGet>>
-  > = ({ signal }) => getUserStatisticsApiV1UsersMeStatsGet(params, signal);
+  > = ({ signal }) =>
+    getUserStatisticsApiV1UsersMeStatsGet(params, requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getUserStatisticsApiV1UsersMeStatsGet>>,
@@ -1198,6 +1159,7 @@ export const useGetUserStatisticsApiV1UsersMeStatsGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getGetUserStatisticsApiV1UsersMeStatsGetQueryOptions(
@@ -1220,14 +1182,13 @@ export const useGetUserStatisticsApiV1UsersMeStatsGet = <
  */
 export const searchExercisesApiV1ExercisesGet = (
   params?: SearchExercisesApiV1ExercisesGetParams,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<PageExerciseResponse>({
-    url: `/api/v1/exercises/`,
-    method: "GET",
-    params,
-    signal,
-  });
+  return customInstance<PageExerciseResponse>(
+    { url: `/api/v1/exercises/`, method: "GET", params, signal },
+    options,
+  );
 };
 
 export const getSearchExercisesApiV1ExercisesGetQueryKey = (
@@ -1249,9 +1210,10 @@ export const getSearchExercisesApiV1ExercisesGetQueryOptions = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ??
@@ -1259,7 +1221,8 @@ export const getSearchExercisesApiV1ExercisesGetQueryOptions = <
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof searchExercisesApiV1ExercisesGet>>
-  > = ({ signal }) => searchExercisesApiV1ExercisesGet(params, signal);
+  > = ({ signal }) =>
+    searchExercisesApiV1ExercisesGet(params, requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof searchExercisesApiV1ExercisesGet>>,
@@ -1289,6 +1252,7 @@ export const useSearchExercisesApiV1ExercisesGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getSearchExercisesApiV1ExercisesGetQueryOptions(
@@ -1311,13 +1275,17 @@ export const useSearchExercisesApiV1ExercisesGet = <
  */
 export const createExerciseApiV1ExercisesPost = (
   exerciseCreate: ExerciseCreate,
+  options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<ExerciseResponse>({
-    url: `/api/v1/exercises/`,
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: exerciseCreate,
-  });
+  return customInstance<ExerciseResponse>(
+    {
+      url: `/api/v1/exercises/`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: exerciseCreate,
+    },
+    options,
+  );
 };
 
 export const getCreateExerciseApiV1ExercisesPostMutationOptions = <
@@ -1330,13 +1298,14 @@ export const getCreateExerciseApiV1ExercisesPostMutationOptions = <
     { data: ExerciseCreate },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof createExerciseApiV1ExercisesPost>>,
   TError,
   { data: ExerciseCreate },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof createExerciseApiV1ExercisesPost>>,
@@ -1344,7 +1313,7 @@ export const getCreateExerciseApiV1ExercisesPostMutationOptions = <
   > = (props) => {
     const { data } = props ?? {};
 
-    return createExerciseApiV1ExercisesPost(data);
+    return createExerciseApiV1ExercisesPost(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1369,6 +1338,7 @@ export const useCreateExerciseApiV1ExercisesPost = <
     { data: ExerciseCreate },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof createExerciseApiV1ExercisesPost>>,
   TError,
@@ -1386,13 +1356,13 @@ export const useCreateExerciseApiV1ExercisesPost = <
  * @summary Get available body parts
  */
 export const getBodyPartsApiV1ExercisesBodyPartsGet = (
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<string[]>({
-    url: `/api/v1/exercises/body-parts`,
-    method: "GET",
-    signal,
-  });
+  return customInstance<string[]>(
+    { url: `/api/v1/exercises/body-parts`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getGetBodyPartsApiV1ExercisesBodyPartsGetQueryKey = () => {
@@ -1410,8 +1380,9 @@ export const getGetBodyPartsApiV1ExercisesBodyPartsGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ??
@@ -1419,7 +1390,8 @@ export const getGetBodyPartsApiV1ExercisesBodyPartsGetQueryOptions = <
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getBodyPartsApiV1ExercisesBodyPartsGet>>
-  > = ({ signal }) => getBodyPartsApiV1ExercisesBodyPartsGet(signal);
+  > = ({ signal }) =>
+    getBodyPartsApiV1ExercisesBodyPartsGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getBodyPartsApiV1ExercisesBodyPartsGet>>,
@@ -1447,6 +1419,7 @@ export const useGetBodyPartsApiV1ExercisesBodyPartsGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
     getGetBodyPartsApiV1ExercisesBodyPartsGetQueryOptions(options);
@@ -1465,13 +1438,13 @@ export const useGetBodyPartsApiV1ExercisesBodyPartsGet = <
  * @summary Get available modalities
  */
 export const getModalitiesApiV1ExercisesModalitiesGet = (
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<string[]>({
-    url: `/api/v1/exercises/modalities`,
-    method: "GET",
-    signal,
-  });
+  return customInstance<string[]>(
+    { url: `/api/v1/exercises/modalities`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getGetModalitiesApiV1ExercisesModalitiesGetQueryKey = () => {
@@ -1489,8 +1462,9 @@ export const getGetModalitiesApiV1ExercisesModalitiesGetQueryOptions = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ??
@@ -1498,7 +1472,8 @@ export const getGetModalitiesApiV1ExercisesModalitiesGetQueryOptions = <
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getModalitiesApiV1ExercisesModalitiesGet>>
-  > = ({ signal }) => getModalitiesApiV1ExercisesModalitiesGet(signal);
+  > = ({ signal }) =>
+    getModalitiesApiV1ExercisesModalitiesGet(requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getModalitiesApiV1ExercisesModalitiesGet>>,
@@ -1526,6 +1501,7 @@ export const useGetModalitiesApiV1ExercisesModalitiesGet = <
       TData
     >
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
     getGetModalitiesApiV1ExercisesModalitiesGetQueryOptions(options);
@@ -1545,14 +1521,13 @@ export const useGetModalitiesApiV1ExercisesModalitiesGet = <
  */
 export const getSystemExercisesApiV1ExercisesSystemGet = (
   params?: GetSystemExercisesApiV1ExercisesSystemGetParams,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<PageExerciseResponse>({
-    url: `/api/v1/exercises/system`,
-    method: "GET",
-    params,
-    signal,
-  });
+  return customInstance<PageExerciseResponse>(
+    { url: `/api/v1/exercises/system`, method: "GET", params, signal },
+    options,
+  );
 };
 
 export const getGetSystemExercisesApiV1ExercisesSystemGetQueryKey = (
@@ -1574,9 +1549,10 @@ export const getGetSystemExercisesApiV1ExercisesSystemGetQueryOptions = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ??
@@ -1584,7 +1560,8 @@ export const getGetSystemExercisesApiV1ExercisesSystemGetQueryOptions = <
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getSystemExercisesApiV1ExercisesSystemGet>>
-  > = ({ signal }) => getSystemExercisesApiV1ExercisesSystemGet(params, signal);
+  > = ({ signal }) =>
+    getSystemExercisesApiV1ExercisesSystemGet(params, requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getSystemExercisesApiV1ExercisesSystemGet>>,
@@ -1615,6 +1592,7 @@ export const useGetSystemExercisesApiV1ExercisesSystemGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getGetSystemExercisesApiV1ExercisesSystemGetQueryOptions(
@@ -1637,14 +1615,13 @@ export const useGetSystemExercisesApiV1ExercisesSystemGet = <
  */
 export const getMyExercisesApiV1ExercisesMyExercisesGet = (
   params?: GetMyExercisesApiV1ExercisesMyExercisesGetParams,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<PageExerciseResponse>({
-    url: `/api/v1/exercises/my-exercises`,
-    method: "GET",
-    params,
-    signal,
-  });
+  return customInstance<PageExerciseResponse>(
+    { url: `/api/v1/exercises/my-exercises`, method: "GET", params, signal },
+    options,
+  );
 };
 
 export const getGetMyExercisesApiV1ExercisesMyExercisesGetQueryKey = (
@@ -1671,9 +1648,10 @@ export const getGetMyExercisesApiV1ExercisesMyExercisesGetQueryOptions = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ??
@@ -1682,7 +1660,7 @@ export const getGetMyExercisesApiV1ExercisesMyExercisesGetQueryOptions = <
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getMyExercisesApiV1ExercisesMyExercisesGet>>
   > = ({ signal }) =>
-    getMyExercisesApiV1ExercisesMyExercisesGet(params, signal);
+    getMyExercisesApiV1ExercisesMyExercisesGet(params, requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getMyExercisesApiV1ExercisesMyExercisesGet>>,
@@ -1715,6 +1693,7 @@ export const useGetMyExercisesApiV1ExercisesMyExercisesGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
@@ -1736,14 +1715,18 @@ export const useGetMyExercisesApiV1ExercisesMyExercisesGet = <
 export const getExercisesByBodyPartApiV1ExercisesByBodyPartBodyPartGet = (
   bodyPart: string,
   params?: GetExercisesByBodyPartApiV1ExercisesByBodyPartBodyPartGetParams,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<PageExerciseResponse>({
-    url: `/api/v1/exercises/by-body-part/${bodyPart}`,
-    method: "GET",
-    params,
-    signal,
-  });
+  return customInstance<PageExerciseResponse>(
+    {
+      url: `/api/v1/exercises/by-body-part/${bodyPart}`,
+      method: "GET",
+      params,
+      signal,
+    },
+    options,
+  );
 };
 
 export const getGetExercisesByBodyPartApiV1ExercisesByBodyPartBodyPartGetQueryKey =
@@ -1780,9 +1763,10 @@ export const getGetExercisesByBodyPartApiV1ExercisesByBodyPartBodyPartGetQueryOp
           TData
         >
       >;
+      request?: SecondParameter<typeof customInstance>;
     },
   ) => {
-    const { query: queryOptions } = options ?? {};
+    const { query: queryOptions, request: requestOptions } = options ?? {};
 
     const queryKey =
       queryOptions?.queryKey ??
@@ -1801,6 +1785,7 @@ export const getGetExercisesByBodyPartApiV1ExercisesByBodyPartBodyPartGetQueryOp
       getExercisesByBodyPartApiV1ExercisesByBodyPartBodyPartGet(
         bodyPart,
         params,
+        requestOptions,
         signal,
       );
 
@@ -1854,6 +1839,7 @@ export const useGetExercisesByBodyPartApiV1ExercisesByBodyPartBodyPartGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
@@ -1879,14 +1865,18 @@ export const useGetExercisesByBodyPartApiV1ExercisesByBodyPartBodyPartGet = <
 export const getExercisesByModalityApiV1ExercisesByModalityModalityGet = (
   modality: string,
   params?: GetExercisesByModalityApiV1ExercisesByModalityModalityGetParams,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<PageExerciseResponse>({
-    url: `/api/v1/exercises/by-modality/${modality}`,
-    method: "GET",
-    params,
-    signal,
-  });
+  return customInstance<PageExerciseResponse>(
+    {
+      url: `/api/v1/exercises/by-modality/${modality}`,
+      method: "GET",
+      params,
+      signal,
+    },
+    options,
+  );
 };
 
 export const getGetExercisesByModalityApiV1ExercisesByModalityModalityGetQueryKey =
@@ -1923,9 +1913,10 @@ export const getGetExercisesByModalityApiV1ExercisesByModalityModalityGetQueryOp
           TData
         >
       >;
+      request?: SecondParameter<typeof customInstance>;
     },
   ) => {
-    const { query: queryOptions } = options ?? {};
+    const { query: queryOptions, request: requestOptions } = options ?? {};
 
     const queryKey =
       queryOptions?.queryKey ??
@@ -1944,6 +1935,7 @@ export const getGetExercisesByModalityApiV1ExercisesByModalityModalityGetQueryOp
       getExercisesByModalityApiV1ExercisesByModalityModalityGet(
         modality,
         params,
+        requestOptions,
         signal,
       );
 
@@ -1997,6 +1989,7 @@ export const useGetExercisesByModalityApiV1ExercisesByModalityModalityGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions =
@@ -2021,13 +2014,13 @@ export const useGetExercisesByModalityApiV1ExercisesByModalityModalityGet = <
  */
 export const getExerciseApiV1ExercisesExerciseIdGet = (
   exerciseId: number,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<ExerciseResponse>({
-    url: `/api/v1/exercises/${exerciseId}`,
-    method: "GET",
-    signal,
-  });
+  return customInstance<ExerciseResponse>(
+    { url: `/api/v1/exercises/${exerciseId}`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getGetExerciseApiV1ExercisesExerciseIdGetQueryKey = (
@@ -2049,9 +2042,10 @@ export const getGetExerciseApiV1ExercisesExerciseIdGetQueryOptions = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ??
@@ -2060,7 +2054,7 @@ export const getGetExerciseApiV1ExercisesExerciseIdGetQueryOptions = <
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getExerciseApiV1ExercisesExerciseIdGet>>
   > = ({ signal }) =>
-    getExerciseApiV1ExercisesExerciseIdGet(exerciseId, signal);
+    getExerciseApiV1ExercisesExerciseIdGet(exerciseId, requestOptions, signal);
 
   return {
     queryKey,
@@ -2096,6 +2090,7 @@ export const useGetExerciseApiV1ExercisesExerciseIdGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getGetExerciseApiV1ExercisesExerciseIdGetQueryOptions(
@@ -2119,13 +2114,17 @@ export const useGetExerciseApiV1ExercisesExerciseIdGet = <
 export const updateExerciseApiV1ExercisesExerciseIdPatch = (
   exerciseId: number,
   exerciseUpdate: ExerciseUpdate,
+  options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<ExerciseResponse>({
-    url: `/api/v1/exercises/${exerciseId}`,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    data: exerciseUpdate,
-  });
+  return customInstance<ExerciseResponse>(
+    {
+      url: `/api/v1/exercises/${exerciseId}`,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      data: exerciseUpdate,
+    },
+    options,
+  );
 };
 
 export const getUpdateExerciseApiV1ExercisesExerciseIdPatchMutationOptions = <
@@ -2138,13 +2137,14 @@ export const getUpdateExerciseApiV1ExercisesExerciseIdPatchMutationOptions = <
     { exerciseId: number; data: ExerciseUpdate },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof updateExerciseApiV1ExercisesExerciseIdPatch>>,
   TError,
   { exerciseId: number; data: ExerciseUpdate },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof updateExerciseApiV1ExercisesExerciseIdPatch>>,
@@ -2152,7 +2152,11 @@ export const getUpdateExerciseApiV1ExercisesExerciseIdPatchMutationOptions = <
   > = (props) => {
     const { exerciseId, data } = props ?? {};
 
-    return updateExerciseApiV1ExercisesExerciseIdPatch(exerciseId, data);
+    return updateExerciseApiV1ExercisesExerciseIdPatch(
+      exerciseId,
+      data,
+      requestOptions,
+    );
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2180,6 +2184,7 @@ export const useUpdateExerciseApiV1ExercisesExerciseIdPatch = <
     { exerciseId: number; data: ExerciseUpdate },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof updateExerciseApiV1ExercisesExerciseIdPatch>>,
   TError,
@@ -2199,13 +2204,17 @@ export const useUpdateExerciseApiV1ExercisesExerciseIdPatch = <
 export const updateExercisePutApiV1ExercisesExerciseIdPut = (
   exerciseId: number,
   exerciseUpdate: ExerciseUpdate,
+  options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<ExerciseResponse>({
-    url: `/api/v1/exercises/${exerciseId}`,
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    data: exerciseUpdate,
-  });
+  return customInstance<ExerciseResponse>(
+    {
+      url: `/api/v1/exercises/${exerciseId}`,
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      data: exerciseUpdate,
+    },
+    options,
+  );
 };
 
 export const getUpdateExercisePutApiV1ExercisesExerciseIdPutMutationOptions = <
@@ -2218,13 +2227,14 @@ export const getUpdateExercisePutApiV1ExercisesExerciseIdPutMutationOptions = <
     { exerciseId: number; data: ExerciseUpdate },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof updateExercisePutApiV1ExercisesExerciseIdPut>>,
   TError,
   { exerciseId: number; data: ExerciseUpdate },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof updateExercisePutApiV1ExercisesExerciseIdPut>>,
@@ -2232,7 +2242,11 @@ export const getUpdateExercisePutApiV1ExercisesExerciseIdPutMutationOptions = <
   > = (props) => {
     const { exerciseId, data } = props ?? {};
 
-    return updateExercisePutApiV1ExercisesExerciseIdPut(exerciseId, data);
+    return updateExercisePutApiV1ExercisesExerciseIdPut(
+      exerciseId,
+      data,
+      requestOptions,
+    );
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2260,6 +2274,7 @@ export const useUpdateExercisePutApiV1ExercisesExerciseIdPut = <
     { exerciseId: number; data: ExerciseUpdate },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof updateExercisePutApiV1ExercisesExerciseIdPut>>,
   TError,
@@ -2278,11 +2293,12 @@ export const useUpdateExercisePutApiV1ExercisesExerciseIdPut = <
  */
 export const deleteExerciseApiV1ExercisesExerciseIdDelete = (
   exerciseId: number,
+  options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<void>({
-    url: `/api/v1/exercises/${exerciseId}`,
-    method: "DELETE",
-  });
+  return customInstance<void>(
+    { url: `/api/v1/exercises/${exerciseId}`, method: "DELETE" },
+    options,
+  );
 };
 
 export const getDeleteExerciseApiV1ExercisesExerciseIdDeleteMutationOptions = <
@@ -2295,13 +2311,14 @@ export const getDeleteExerciseApiV1ExercisesExerciseIdDeleteMutationOptions = <
     { exerciseId: number },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deleteExerciseApiV1ExercisesExerciseIdDelete>>,
   TError,
   { exerciseId: number },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deleteExerciseApiV1ExercisesExerciseIdDelete>>,
@@ -2309,7 +2326,10 @@ export const getDeleteExerciseApiV1ExercisesExerciseIdDeleteMutationOptions = <
   > = (props) => {
     const { exerciseId } = props ?? {};
 
-    return deleteExerciseApiV1ExercisesExerciseIdDelete(exerciseId);
+    return deleteExerciseApiV1ExercisesExerciseIdDelete(
+      exerciseId,
+      requestOptions,
+    );
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2336,6 +2356,7 @@ export const useDeleteExerciseApiV1ExercisesExerciseIdDelete = <
     { exerciseId: number },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deleteExerciseApiV1ExercisesExerciseIdDelete>>,
   TError,
@@ -2354,14 +2375,13 @@ export const useDeleteExerciseApiV1ExercisesExerciseIdDelete = <
  */
 export const listWorkoutsApiV1WorkoutsGet = (
   params?: ListWorkoutsApiV1WorkoutsGetParams,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<PageWorkoutResponse>({
-    url: `/api/v1/workouts/`,
-    method: "GET",
-    params,
-    signal,
-  });
+  return customInstance<PageWorkoutResponse>(
+    { url: `/api/v1/workouts/`, method: "GET", params, signal },
+    options,
+  );
 };
 
 export const getListWorkoutsApiV1WorkoutsGetQueryKey = (
@@ -2383,16 +2403,18 @@ export const getListWorkoutsApiV1WorkoutsGetQueryOptions = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ?? getListWorkoutsApiV1WorkoutsGetQueryKey(params);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof listWorkoutsApiV1WorkoutsGet>>
-  > = ({ signal }) => listWorkoutsApiV1WorkoutsGet(params, signal);
+  > = ({ signal }) =>
+    listWorkoutsApiV1WorkoutsGet(params, requestOptions, signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listWorkoutsApiV1WorkoutsGet>>,
@@ -2422,6 +2444,7 @@ export const useListWorkoutsApiV1WorkoutsGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getListWorkoutsApiV1WorkoutsGetQueryOptions(
@@ -2442,11 +2465,13 @@ export const useListWorkoutsApiV1WorkoutsGet = <
  * Create a new workout session.
  * @summary Create Workout
  */
-export const createWorkoutApiV1WorkoutsPost = () => {
-  return customInstance<WorkoutResponse>({
-    url: `/api/v1/workouts/`,
-    method: "POST",
-  });
+export const createWorkoutApiV1WorkoutsPost = (
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<WorkoutResponse>(
+    { url: `/api/v1/workouts/`, method: "POST" },
+    options,
+  );
 };
 
 export const getCreateWorkoutApiV1WorkoutsPostMutationOptions = <
@@ -2459,19 +2484,20 @@ export const getCreateWorkoutApiV1WorkoutsPostMutationOptions = <
     void,
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof createWorkoutApiV1WorkoutsPost>>,
   TError,
   void,
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof createWorkoutApiV1WorkoutsPost>>,
     void
   > = () => {
-    return createWorkoutApiV1WorkoutsPost();
+    return createWorkoutApiV1WorkoutsPost(requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2496,6 +2522,7 @@ export const useCreateWorkoutApiV1WorkoutsPost = <
     void,
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof createWorkoutApiV1WorkoutsPost>>,
   TError,
@@ -2514,13 +2541,13 @@ export const useCreateWorkoutApiV1WorkoutsPost = <
  */
 export const getWorkoutApiV1WorkoutsWorkoutIdGet = (
   workoutId: number,
+  options?: SecondParameter<typeof customInstance>,
   signal?: AbortSignal,
 ) => {
-  return customInstance<WorkoutResponse>({
-    url: `/api/v1/workouts/${workoutId}`,
-    method: "GET",
-    signal,
-  });
+  return customInstance<WorkoutResponse>(
+    { url: `/api/v1/workouts/${workoutId}`, method: "GET", signal },
+    options,
+  );
 };
 
 export const getGetWorkoutApiV1WorkoutsWorkoutIdGetQueryKey = (
@@ -2542,9 +2569,10 @@ export const getGetWorkoutApiV1WorkoutsWorkoutIdGetQueryOptions = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
     queryOptions?.queryKey ??
@@ -2552,7 +2580,8 @@ export const getGetWorkoutApiV1WorkoutsWorkoutIdGetQueryOptions = <
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getWorkoutApiV1WorkoutsWorkoutIdGet>>
-  > = ({ signal }) => getWorkoutApiV1WorkoutsWorkoutIdGet(workoutId, signal);
+  > = ({ signal }) =>
+    getWorkoutApiV1WorkoutsWorkoutIdGet(workoutId, requestOptions, signal);
 
   return {
     queryKey,
@@ -2587,6 +2616,7 @@ export const useGetWorkoutApiV1WorkoutsWorkoutIdGet = <
         TData
       >
     >;
+    request?: SecondParameter<typeof customInstance>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getGetWorkoutApiV1WorkoutsWorkoutIdGetQueryOptions(
@@ -2609,11 +2639,12 @@ export const useGetWorkoutApiV1WorkoutsWorkoutIdGet = <
  */
 export const deleteWorkoutApiV1WorkoutsWorkoutIdDelete = (
   workoutId: number,
+  options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<void>({
-    url: `/api/v1/workouts/${workoutId}`,
-    method: "DELETE",
-  });
+  return customInstance<void>(
+    { url: `/api/v1/workouts/${workoutId}`, method: "DELETE" },
+    options,
+  );
 };
 
 export const getDeleteWorkoutApiV1WorkoutsWorkoutIdDeleteMutationOptions = <
@@ -2626,13 +2657,14 @@ export const getDeleteWorkoutApiV1WorkoutsWorkoutIdDeleteMutationOptions = <
     { workoutId: number },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deleteWorkoutApiV1WorkoutsWorkoutIdDelete>>,
   TError,
   { workoutId: number },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deleteWorkoutApiV1WorkoutsWorkoutIdDelete>>,
@@ -2640,7 +2672,7 @@ export const getDeleteWorkoutApiV1WorkoutsWorkoutIdDeleteMutationOptions = <
   > = (props) => {
     const { workoutId } = props ?? {};
 
-    return deleteWorkoutApiV1WorkoutsWorkoutIdDelete(workoutId);
+    return deleteWorkoutApiV1WorkoutsWorkoutIdDelete(workoutId, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2667,6 +2699,7 @@ export const useDeleteWorkoutApiV1WorkoutsWorkoutIdDelete = <
     { workoutId: number },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deleteWorkoutApiV1WorkoutsWorkoutIdDelete>>,
   TError,
@@ -2685,11 +2718,12 @@ export const useDeleteWorkoutApiV1WorkoutsWorkoutIdDelete = <
  */
 export const finishWorkoutApiV1WorkoutsWorkoutIdFinishPatch = (
   workoutId: number,
+  options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<WorkoutResponse>({
-    url: `/api/v1/workouts/${workoutId}/finish`,
-    method: "PATCH",
-  });
+  return customInstance<WorkoutResponse>(
+    { url: `/api/v1/workouts/${workoutId}/finish`, method: "PATCH" },
+    options,
+  );
 };
 
 export const getFinishWorkoutApiV1WorkoutsWorkoutIdFinishPatchMutationOptions =
@@ -2702,13 +2736,15 @@ export const getFinishWorkoutApiV1WorkoutsWorkoutIdFinishPatchMutationOptions =
       { workoutId: number },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationOptions<
     Awaited<ReturnType<typeof finishWorkoutApiV1WorkoutsWorkoutIdFinishPatch>>,
     TError,
     { workoutId: number },
     TContext
   > => {
-    const { mutation: mutationOptions } = options ?? {};
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
 
     const mutationFn: MutationFunction<
       Awaited<
@@ -2718,7 +2754,10 @@ export const getFinishWorkoutApiV1WorkoutsWorkoutIdFinishPatchMutationOptions =
     > = (props) => {
       const { workoutId } = props ?? {};
 
-      return finishWorkoutApiV1WorkoutsWorkoutIdFinishPatch(workoutId);
+      return finishWorkoutApiV1WorkoutsWorkoutIdFinishPatch(
+        workoutId,
+        requestOptions,
+      );
     };
 
     return { mutationFn, ...mutationOptions };
@@ -2745,6 +2784,7 @@ export const useFinishWorkoutApiV1WorkoutsWorkoutIdFinishPatch = <
     { workoutId: number },
     TContext
   >;
+  request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof finishWorkoutApiV1WorkoutsWorkoutIdFinishPatch>>,
   TError,
@@ -2762,12 +2802,20 @@ export const useFinishWorkoutApiV1WorkoutsWorkoutIdFinishPatch = <
  * @summary Get Exercise Execution
  */
 export const getExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdGet =
-  (workoutId: number, exerciseId: number, signal?: AbortSignal) => {
-    return customInstance<ExerciseExecutionResponse>({
-      url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}`,
-      method: "GET",
-      signal,
-    });
+  (
+    workoutId: number,
+    exerciseId: number,
+    options?: SecondParameter<typeof customInstance>,
+    signal?: AbortSignal,
+  ) => {
+    return customInstance<ExerciseExecutionResponse>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}`,
+        method: "GET",
+        signal,
+      },
+      options,
+    );
   };
 
 export const getGetExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdGetQueryKey =
@@ -2800,9 +2848,10 @@ export const getGetExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExer
           TData
         >
       >;
+      request?: SecondParameter<typeof customInstance>;
     },
   ) => {
-    const { query: queryOptions } = options ?? {};
+    const { query: queryOptions, request: requestOptions } = options ?? {};
 
     const queryKey =
       queryOptions?.queryKey ??
@@ -2821,6 +2870,7 @@ export const getGetExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExer
       getExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdGet(
         workoutId,
         exerciseId,
+        requestOptions,
         signal,
       );
 
@@ -2877,6 +2927,7 @@ export const useGetExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExer
           TData
         >
       >;
+      request?: SecondParameter<typeof customInstance>;
     },
   ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
     const queryOptions =
@@ -2904,13 +2955,17 @@ export const upsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExer
     workoutId: number,
     exerciseId: number,
     exerciseExecutionRequest: ExerciseExecutionRequest,
+    options?: SecondParameter<typeof customInstance>,
   ) => {
-    return customInstance<ExerciseExecutionResponse>({
-      url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}`,
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      data: exerciseExecutionRequest,
-    });
+    return customInstance<ExerciseExecutionResponse>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}`,
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        data: exerciseExecutionRequest,
+      },
+      options,
+    );
   };
 
 export const getUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPutMutationOptions =
@@ -2925,6 +2980,7 @@ export const getUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
       { workoutId: number; exerciseId: number; data: ExerciseExecutionRequest },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationOptions<
     Awaited<
       ReturnType<
@@ -2935,7 +2991,8 @@ export const getUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
     { workoutId: number; exerciseId: number; data: ExerciseExecutionRequest },
     TContext
   > => {
-    const { mutation: mutationOptions } = options ?? {};
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
 
     const mutationFn: MutationFunction<
       Awaited<
@@ -2951,6 +3008,7 @@ export const getUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
         workoutId,
         exerciseId,
         data,
+        requestOptions,
       );
     };
 
@@ -2985,6 +3043,7 @@ export const useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
       { workoutId: number; exerciseId: number; data: ExerciseExecutionRequest },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationResult<
     Awaited<
       ReturnType<
@@ -3008,11 +3067,18 @@ export const useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
  * @summary Delete Exercise Execution
  */
 export const deleteExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdDelete =
-  (workoutId: number, exerciseId: number) => {
-    return customInstance<void>({
-      url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}`,
-      method: "DELETE",
-    });
+  (
+    workoutId: number,
+    exerciseId: number,
+    options?: SecondParameter<typeof customInstance>,
+  ) => {
+    return customInstance<void>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}`,
+        method: "DELETE",
+      },
+      options,
+    );
   };
 
 export const getDeleteExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdDeleteMutationOptions =
@@ -3027,6 +3093,7 @@ export const getDeleteExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
       { workoutId: number; exerciseId: number },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationOptions<
     Awaited<
       ReturnType<
@@ -3037,7 +3104,8 @@ export const getDeleteExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
     { workoutId: number; exerciseId: number },
     TContext
   > => {
-    const { mutation: mutationOptions } = options ?? {};
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
 
     const mutationFn: MutationFunction<
       Awaited<
@@ -3052,6 +3120,7 @@ export const getDeleteExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
       return deleteExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdDelete(
         workoutId,
         exerciseId,
+        requestOptions,
       );
     };
 
@@ -3085,6 +3154,7 @@ export const useDeleteExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
       { workoutId: number; exerciseId: number },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationResult<
     Awaited<
       ReturnType<
@@ -3112,13 +3182,17 @@ export const updateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExer
     workoutId: number,
     exerciseId: number,
     exerciseExecutionUpdate: ExerciseExecutionUpdate,
+    options?: SecondParameter<typeof customInstance>,
   ) => {
-    return customInstance<ExerciseExecutionResponse>({
-      url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}`,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      data: exerciseExecutionUpdate,
-    });
+    return customInstance<ExerciseExecutionResponse>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}`,
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        data: exerciseExecutionUpdate,
+      },
+      options,
+    );
   };
 
 export const getUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPatchMutationOptions =
@@ -3133,6 +3207,7 @@ export const getUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
       { workoutId: number; exerciseId: number; data: ExerciseExecutionUpdate },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationOptions<
     Awaited<
       ReturnType<
@@ -3143,7 +3218,8 @@ export const getUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
     { workoutId: number; exerciseId: number; data: ExerciseExecutionUpdate },
     TContext
   > => {
-    const { mutation: mutationOptions } = options ?? {};
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
 
     const mutationFn: MutationFunction<
       Awaited<
@@ -3159,6 +3235,7 @@ export const getUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
         workoutId,
         exerciseId,
         data,
+        requestOptions,
       );
     };
 
@@ -3193,6 +3270,7 @@ export const useUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
       { workoutId: number; exerciseId: number; data: ExerciseExecutionUpdate },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationResult<
     Awaited<
       ReturnType<
@@ -3216,13 +3294,20 @@ export const useUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
  * @summary Reorder Exercises
  */
 export const reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch =
-  (workoutId: number, exerciseReorderRequest: ExerciseReorderRequest) => {
-    return customInstance<ExerciseReorderResponse>({
-      url: `/api/v1/workouts/${workoutId}/exercise-executions/reorder`,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      data: exerciseReorderRequest,
-    });
+  (
+    workoutId: number,
+    exerciseReorderRequest: ExerciseReorderRequest,
+    options?: SecondParameter<typeof customInstance>,
+  ) => {
+    return customInstance<ExerciseReorderResponse>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/reorder`,
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        data: exerciseReorderRequest,
+      },
+      options,
+    );
   };
 
 export const getReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationOptions =
@@ -3237,6 +3322,7 @@ export const getReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderP
       { workoutId: number; data: ExerciseReorderRequest },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationOptions<
     Awaited<
       ReturnType<
@@ -3247,7 +3333,8 @@ export const getReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderP
     { workoutId: number; data: ExerciseReorderRequest },
     TContext
   > => {
-    const { mutation: mutationOptions } = options ?? {};
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
 
     const mutationFn: MutationFunction<
       Awaited<
@@ -3262,6 +3349,7 @@ export const getReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderP
       return reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch(
         workoutId,
         data,
+        requestOptions,
       );
     };
 
@@ -3296,6 +3384,7 @@ export const useReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderP
       { workoutId: number; data: ExerciseReorderRequest },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationResult<
     Awaited<
       ReturnType<
@@ -3319,13 +3408,21 @@ export const useReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderP
  * @summary Create Set
  */
 export const createSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsPost =
-  (workoutId: number, exerciseId: number, setCreate: SetCreate) => {
-    return customInstance<SetResponse>({
-      url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}/sets`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: setCreate,
-    });
+  (
+    workoutId: number,
+    exerciseId: number,
+    setCreate: SetCreate,
+    options?: SecondParameter<typeof customInstance>,
+  ) => {
+    return customInstance<SetResponse>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}/sets`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: setCreate,
+      },
+      options,
+    );
   };
 
 export const getCreateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsPostMutationOptions =
@@ -3340,6 +3437,7 @@ export const getCreateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsP
       { workoutId: number; exerciseId: number; data: SetCreate },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationOptions<
     Awaited<
       ReturnType<
@@ -3350,7 +3448,8 @@ export const getCreateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsP
     { workoutId: number; exerciseId: number; data: SetCreate },
     TContext
   > => {
-    const { mutation: mutationOptions } = options ?? {};
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
 
     const mutationFn: MutationFunction<
       Awaited<
@@ -3366,6 +3465,7 @@ export const getCreateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsP
         workoutId,
         exerciseId,
         data,
+        requestOptions,
       );
     };
 
@@ -3400,6 +3500,7 @@ export const useCreateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsP
       { workoutId: number; exerciseId: number; data: SetCreate },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationResult<
     Awaited<
       ReturnType<
@@ -3428,13 +3529,17 @@ export const updateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsSetI
     exerciseId: number,
     setId: number,
     setUpdate: SetUpdate,
+    options?: SecondParameter<typeof customInstance>,
   ) => {
-    return customInstance<SetResponse>({
-      url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}/sets/${setId}`,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      data: setUpdate,
-    });
+    return customInstance<SetResponse>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}/sets/${setId}`,
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        data: setUpdate,
+      },
+      options,
+    );
   };
 
 export const getUpdateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsSetIdPatchMutationOptions =
@@ -3449,6 +3554,7 @@ export const getUpdateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
       { workoutId: number; exerciseId: number; setId: number; data: SetUpdate },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationOptions<
     Awaited<
       ReturnType<
@@ -3459,7 +3565,8 @@ export const getUpdateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
     { workoutId: number; exerciseId: number; setId: number; data: SetUpdate },
     TContext
   > => {
-    const { mutation: mutationOptions } = options ?? {};
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
 
     const mutationFn: MutationFunction<
       Awaited<
@@ -3476,6 +3583,7 @@ export const getUpdateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
         exerciseId,
         setId,
         data,
+        requestOptions,
       );
     };
 
@@ -3510,6 +3618,7 @@ export const useUpdateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
       { workoutId: number; exerciseId: number; setId: number; data: SetUpdate },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationResult<
     Awaited<
       ReturnType<
@@ -3533,11 +3642,19 @@ export const useUpdateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
  * @summary Delete Set
  */
 export const deleteSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsSetIdDelete =
-  (workoutId: number, exerciseId: number, setId: number) => {
-    return customInstance<void>({
-      url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}/sets/${setId}`,
-      method: "DELETE",
-    });
+  (
+    workoutId: number,
+    exerciseId: number,
+    setId: number,
+    options?: SecondParameter<typeof customInstance>,
+  ) => {
+    return customInstance<void>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/${exerciseId}/sets/${setId}`,
+        method: "DELETE",
+      },
+      options,
+    );
   };
 
 export const getDeleteSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsSetIdDeleteMutationOptions =
@@ -3552,6 +3669,7 @@ export const getDeleteSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
       { workoutId: number; exerciseId: number; setId: number },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationOptions<
     Awaited<
       ReturnType<
@@ -3562,7 +3680,8 @@ export const getDeleteSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
     { workoutId: number; exerciseId: number; setId: number },
     TContext
   > => {
-    const { mutation: mutationOptions } = options ?? {};
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
 
     const mutationFn: MutationFunction<
       Awaited<
@@ -3578,6 +3697,7 @@ export const getDeleteSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
         workoutId,
         exerciseId,
         setId,
+        requestOptions,
       );
     };
 
@@ -3611,6 +3731,7 @@ export const useDeleteSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsS
       { workoutId: number; exerciseId: number; setId: number },
       TContext
     >;
+    request?: SecondParameter<typeof customInstance>;
   }): UseMutationResult<
     Awaited<
       ReturnType<

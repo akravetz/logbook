@@ -5,8 +5,8 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from workout_api.auth.authlib_google import GoogleUserInfo
 from workout_api.auth.jwt import JWTManager, TokenPair
+from workout_api.auth.schemas import GoogleUserInfo
 from workout_api.auth.service import AuthService
 from workout_api.shared.exceptions import (
     AuthenticationError,
@@ -31,16 +31,13 @@ async def auth_service(
 @pytest.fixture
 def alternate_google_user_info() -> GoogleUserInfo:
     """Create alternate Google user info for testing account linking."""
-    data = {
-        "id": "google_user_456",
-        "email": "existing@example.com",
-        "name": "Existing User",
-        "picture": "https://example.com/existing_avatar.jpg",
-        "email_verified": True,
-        "given_name": "Existing",
-        "family_name": "User",
-    }
-    return GoogleUserInfo(data)
+    return GoogleUserInfo(
+        email="existing@example.com",
+        name="Existing User",
+        picture="https://example.com/existing_avatar.jpg",
+        email_verified=True,
+        google_id="google_user_456",
+    )
 
 
 @pytest.fixture
@@ -153,14 +150,13 @@ class TestAuthServiceAuthentication:
     ):
         """Test updating existing user info during authentication."""
         # Create Google user info with updated details
-        google_info_data = {
-            "id": "google_user_123",  # Same as test_user
-            "email": "test@example.com",
-            "name": "Updated Name",
-            "picture": "https://example.com/new_avatar.jpg",
-            "email_verified": True,
-        }
-        google_info = GoogleUserInfo(google_info_data)
+        google_info = GoogleUserInfo(
+            email="test@example.com",
+            name="Updated Name",
+            picture="https://example.com/new_avatar.jpg",
+            email_verified=True,
+            google_id="google_user_123",
+        )
 
         # Extract original user attributes
         user_id = test_user.id
@@ -186,7 +182,7 @@ class TestAuthServiceAuthentication:
         with (
             patch.object(
                 auth_service.user_repository,
-                "get_by_google_id",
+                "get_by_email",
                 side_effect=Exception("DB Error"),
             ),
             pytest.raises(AuthenticationError, match="Authentication failed: DB Error"),
@@ -345,7 +341,7 @@ class TestAuthServiceUserManagement:
                 "get_by_id",
                 side_effect=Exception("DB Error"),
             ),
-            pytest.raises(AuthenticationError, match="Failed to retrieve user profile"),
+            pytest.raises(AuthenticationError, match="Failed to get user profile"),
         ):
             await auth_service.get_user_profile(user_id)
 
@@ -462,14 +458,13 @@ class TestAuthServicePrivateMethods:
     async def test_create_user_from_google_success(self, auth_service: AuthService):
         """Test successful user creation from Google info."""
         # Create Google user info
-        google_info_data = {
-            "id": "new_google_user_999",
-            "email": "newuser@example.com",
-            "name": "New User",
-            "picture": "https://example.com/new_user_avatar.jpg",
-            "email_verified": True,
-        }
-        google_info = GoogleUserInfo(google_info_data)
+        google_info = GoogleUserInfo(
+            email="newuser@example.com",
+            name="New User",
+            picture="https://example.com/new_user_avatar.jpg",
+            email_verified=True,
+            google_id="new_google_user_999",
+        )
 
         # Act
         user = await auth_service._create_user_from_google(google_info)
@@ -494,12 +489,11 @@ class TestAuthServicePrivateMethods:
     async def test_create_user_from_google_no_name(self, auth_service: AuthService):
         """Test user creation from Google info without name (uses email prefix)."""
         # Create Google user info without name
-        google_info_data = {
-            "id": "no_name_user_888",
-            "email": "noname@example.com",
-            "email_verified": True,
-        }
-        google_info = GoogleUserInfo(google_info_data)
+        google_info = GoogleUserInfo(
+            email="noname@example.com",
+            email_verified=True,
+            google_id="no_name_user_888",
+        )
 
         # Act
         user = await auth_service._create_user_from_google(google_info)
@@ -513,13 +507,12 @@ class TestAuthServicePrivateMethods:
     ):
         """Test user creation with database error causes rollback."""
         # Create Google user info
-        google_info_data = {
-            "id": "error_user_777",
-            "email": "error@example.com",
-            "name": "Error User",
-            "email_verified": True,
-        }
-        google_info = GoogleUserInfo(google_info_data)
+        google_info = GoogleUserInfo(
+            email="error@example.com",
+            name="Error User",
+            email_verified=True,
+            google_id="error_user_777",
+        )
 
         # Mock repository to raise an exception
         with (
@@ -543,14 +536,13 @@ class TestAuthServicePrivateMethods:
         user_email = test_user.email_address
 
         # Create Google user info with updates
-        google_info_data = {
-            "id": "google_user_123",
-            "email": "test@example.com",
-            "name": "Updated Name",
-            "picture": "https://example.com/updated_avatar.jpg",
-            "email_verified": True,
-        }
-        google_info = GoogleUserInfo(google_info_data)
+        google_info = GoogleUserInfo(
+            email="test@example.com",
+            name="Updated Name",
+            picture="https://example.com/updated_avatar.jpg",
+            email_verified=True,
+            google_id="google_user_123",
+        )
 
         # Act
         updated_user = await auth_service._update_user_from_google(
@@ -575,14 +567,13 @@ class TestAuthServicePrivateMethods:
         user_name = test_user.name
 
         # Create Google user info with same data
-        google_info_data = {
-            "id": "google_user_123",
-            "email": "test@example.com",
-            "name": user_name,  # Same name
-            "picture": str(test_user.profile_image_url),  # Same picture
-            "email_verified": True,
-        }
-        google_info = GoogleUserInfo(google_info_data)
+        google_info = GoogleUserInfo(
+            email="test@example.com",
+            name=user_name,  # Same name
+            picture=str(test_user.profile_image_url),  # Same picture
+            email_verified=True,
+            google_id="google_user_123",
+        )
 
         # Act
         updated_user = await auth_service._update_user_from_google(
@@ -601,13 +592,12 @@ class TestAuthServicePrivateMethods:
         user_id = inactive_user.id
 
         # Create Google user info
-        google_info_data = {
-            "id": "google_inactive_789",
-            "email": "inactive@example.com",
-            "name": "Inactive User",
-            "email_verified": True,
-        }
-        google_info = GoogleUserInfo(google_info_data)
+        google_info = GoogleUserInfo(
+            email="inactive@example.com",
+            name="Inactive User",
+            email_verified=True,
+            google_id="google_inactive_789",
+        )
 
         # Act
         updated_user = await auth_service._update_user_from_google(
@@ -623,13 +613,12 @@ class TestAuthServicePrivateMethods:
     ):
         """Test updating user from Google info with database error causes rollback."""
         # Create Google user info with updates
-        google_info_data = {
-            "id": "google_user_123",
-            "email": "test@example.com",
-            "name": "Updated Name",
-            "email_verified": True,
-        }
-        google_info = GoogleUserInfo(google_info_data)
+        google_info = GoogleUserInfo(
+            email="test@example.com",
+            name="Updated Name",
+            email_verified=True,
+            google_id="google_user_123",
+        )
 
         # Mock session commit to raise an exception
         with (
@@ -654,7 +643,7 @@ class TestAuthServiceExceptionHandling:
         original_exception = Exception("Original error")
         with patch.object(
             auth_service.user_repository,
-            "get_by_google_id",
+            "get_by_email",
             side_effect=original_exception,
         ):
             # Act & Assert
@@ -672,7 +661,7 @@ class TestAuthServiceExceptionHandling:
             patch("workout_api.auth.service.logger") as mock_logger,
             patch.object(
                 auth_service.user_repository,
-                "get_by_google_id",
+                "get_by_email",
                 side_effect=Exception("Test error"),
             ),
         ):
@@ -691,7 +680,7 @@ class TestAuthServiceExceptionHandling:
             patch.object(auth_service.session, "rollback") as mock_rollback,
             patch.object(
                 auth_service.user_repository,
-                "get_by_google_id",
+                "get_by_email",
                 side_effect=Exception("Test error"),
             ),
         ):

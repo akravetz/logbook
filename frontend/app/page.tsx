@@ -1,46 +1,24 @@
 "use client"
 
-import { useAuth } from "@/lib/contexts/auth-context"
+import { useSession } from "next-auth/react"
 import { LoginScreen } from "@/components/login-screen"
-import { AppShell } from "@/components/app-shell"
 import { DashboardScreen } from "@/components/dashboard-screen"
 import { ErrorBoundary } from "@/components/error-boundary"
-import { useEffect, useState } from "react"
 
-function HomePage() {
-  const { user, isLoading } = useAuth()
-  const [mounted, setMounted] = useState(false)
+export default function HomePage() {
+  const { data: session, status } = useSession()
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted || isLoading) {
+  if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
       </div>
     )
   }
 
-  if (!user) {
+  if (!session) {
     return <LoginScreen />
   }
 
-  return (
-    <AppShell>
-      <DashboardScreen />
-    </AppShell>
-  )
-}
-
-export default function Page() {
-  return (
-    <ErrorBoundary>
-      <HomePage />
-    </ErrorBoundary>
-  )
+  return <DashboardScreen />
 }

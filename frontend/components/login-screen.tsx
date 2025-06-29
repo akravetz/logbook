@@ -1,109 +1,72 @@
 "use client"
 
+import { useState } from "react"
+import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dumbbell } from "lucide-react"
-import { useState } from "react"
 import { ApiHealthCheck } from "./api-health-check"
-import { useInitiateGoogleOauthApiV1AuthGooglePost } from "@/lib/api/generated"
 
 export function LoginScreen() {
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Use the generated API hook for Google OAuth
-  const { mutate: initiateGoogleOAuth, isPending: isLoading } = useInitiateGoogleOauthApiV1AuthGooglePost({
-    mutation: {
-      onSuccess: (data) => {
-        console.log("Auth response:", data)
-        if (data.authorization_url) {
-          window.location.href = data.authorization_url
-        } else {
-          setError("No authorization URL received")
-        }
-      },
-      onError: (error) => {
-        console.error("Login failed:", error)
-
-        // Set user-friendly error message
-        if (error instanceof TypeError && error.message === "Failed to fetch") {
-          setError(
-            "Unable to connect to authentication service. This might be due to CORS policy or network issues. Please check the browser console for more details.",
-          )
-        } else if (error instanceof Error) {
-          setError(error.message)
-        } else {
-          setError("An unexpected error occurred. Please try again.")
-        }
-      },
-    },
-  })
 
   const handleGoogleLogin = async () => {
     setError(null)
+    setIsLoading(true)
 
     try {
-      // Call the generated API client
-      initiateGoogleOAuth({
-        params: {
-          // Add redirect_url if needed
-          redirect_url: undefined,
-        },
+      // Use NextAuth.js signIn with Google provider
+      const result = await signIn('google', {
+        callbackUrl: '/', // Redirect to home after successful login
+        redirect: false, // Handle the redirect manually to show errors
       })
+
+      if (result?.error) {
+        setError("Authentication failed. Please try again.")
+        setIsLoading(false)
+      } else if (result?.url) {
+        // Successful login - NextAuth will handle the redirect
+        window.location.href = result.url
+      }
+
     } catch (error) {
       console.error("Unexpected error:", error)
       setError("An unexpected error occurred. Please try again.")
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
         <Card>
-          <CardHeader className="text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary">
-                <Dumbbell className="w-8 h-8 text-primary-foreground" />
-              </div>
-            </div>
-            <div>
-              <CardTitle className="text-2xl font-bold">getswole.ai</CardTitle>
-              <CardDescription className="text-lg">AI-Powered Gains</CardDescription>
-            </div>
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold">LogBK</CardTitle>
+            <CardDescription>
+              Your personal workout tracking companion
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                 {error}
               </div>
             )}
 
-            <Button onClick={handleGoogleLogin} disabled={isLoading} className="w-full h-12 text-base" size="lg">
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Signing in...
-                </div>
-              ) : (
-                <>Sign in with Google</>
-              )}
+            <Button
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full"
+              size="lg"
+            >
+              {isLoading ? "Signing in..." : "Sign in with Google"}
             </Button>
 
-            <div className="text-center text-sm text-muted-foreground">
-              AI-powered workout tracking
-              <br />
-              for serious lifters
+            <div className="pt-4 border-t">
+              <ApiHealthCheck />
             </div>
-
-            {/* Debug info in development */}
-            {process.env.NODE_ENV === "development" && (
-              <div className="text-center text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                API URL: {process.env.NEXT_PUBLIC_API_URL || "https://api.getswole.ai"}
-              </div>
-            )}
           </CardContent>
         </Card>
-
-        <ApiHealthCheck />
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 """Authentication schemas for request/response models."""
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
 
 class OAuthInitiateRequest(BaseModel):
@@ -126,3 +126,26 @@ class SessionInfoResponse(BaseModel):
         default=None, description="When the session expires"
     )
     permissions: list[str] = Field(default_factory=list, description="User permissions")
+
+
+class GoogleUserInfo(BaseModel):
+    """Google user information from OAuth."""
+
+    email: EmailStr
+    name: str | None = None
+    picture: str | None = None
+    email_verified: bool = True
+    google_id: str | None = None
+
+    @classmethod
+    def from_nextauth(cls, user_data: dict) -> "GoogleUserInfo":
+        """Create from NextAuth.js user data."""
+        return cls(
+            email=user_data["email"],
+            name=user_data.get("name"),
+            picture=user_data.get("image"),
+            email_verified=user_data.get("email_verified", True),
+            google_id=user_data.get(
+                "id", user_data["email"]
+            ),  # Use email as fallback ID
+        )

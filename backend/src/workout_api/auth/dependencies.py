@@ -1,11 +1,9 @@
 """FastAPI dependencies for authentication."""
 
 import logging
-from collections.abc import AsyncGenerator
 from functools import lru_cache
 from typing import Annotated
 
-import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +13,6 @@ from ..core.database import get_session
 from ..shared.exceptions import AuthenticationError
 from ..users.models import User
 from ..users.repository import UserRepository
-from .authlib_google import AuthlibGoogleManager
 from .jwt import JWTManager, TokenData
 
 logger = logging.getLogger("workout_api.auth.dependencies")
@@ -163,24 +160,3 @@ TokenOnly = Annotated[TokenData, Depends(verify_token_only)]
 
 # Export JWT manager dependency for use in other modules
 JWTManagerDep = Annotated[JWTManager, Depends(get_jwt_manager)]
-
-
-async def get_http_client() -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Get HTTP client for external API calls."""
-    async with httpx.AsyncClient() as client:
-        yield client
-
-
-@lru_cache
-def get_authlib_google_manager(
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> AuthlibGoogleManager:
-    """Get Authlib Google OAuth manager instance."""
-    return AuthlibGoogleManager(settings)
-
-
-# Export Authlib Google OAuth manager dependency
-AuthlibGoogleOAuthDep = Annotated[
-    AuthlibGoogleManager, Depends(get_authlib_google_manager)
-]
-HttpClientDep = Annotated[httpx.AsyncClient, Depends(get_http_client)]
