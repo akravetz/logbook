@@ -14,6 +14,7 @@ from ..core.config import Settings, get_settings
 from ..core.database import get_session
 from ..shared.exceptions import AuthenticationError
 from ..users.models import User
+from ..users.repository import UserRepository
 from .google import GoogleOAuthManager
 from .jwt import JWTManager, TokenData
 
@@ -45,8 +46,6 @@ async def get_current_user_from_token(
         )
 
         # Get user from database using the repository pattern
-        from ..users.repository import UserRepository
-
         user_repo = UserRepository(session)
         user = await user_repo.get_by_id(token_data.user_id)
 
@@ -101,8 +100,6 @@ async def get_current_user_optional(
         )
 
         # Get user from database using the repository pattern
-        from ..users.repository import UserRepository
-
         user_repo = UserRepository(session)
         user = await user_repo.get_by_id(token_data.user_id)
 

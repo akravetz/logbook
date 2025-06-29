@@ -424,3 +424,41 @@ class TestExerciseRepository:
 
         result = await exercise_repository.can_user_modify(999999, user_id)
         assert result is False
+
+    async def test_get_distinct_body_parts_anonymous_user(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises,  # noqa: ARG002
+    ):
+        """Test getting distinct body parts for anonymous user (system exercises only)."""
+        body_parts = await exercise_repository.get_distinct_body_parts(user_id=None)
+
+        # Anonymous users should only see system exercise body parts
+        expected_body_parts = {
+            "Back",
+            "Chest",
+            "Legs",
+        }  # From system exercises in fixture
+        assert set(body_parts) == expected_body_parts
+        assert body_parts == sorted(body_parts)  # Should be sorted
+
+    async def test_get_distinct_body_parts_authenticated_user(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises,  # noqa: ARG002
+        sample_user: User,
+    ):
+        """Test getting distinct body parts for authenticated user (system + own exercises)."""
+        # Extract user ID early
+        user_id = sample_user.id
+
+        body_parts = await exercise_repository.get_distinct_body_parts(user_id=user_id)
+
+        # Authenticated users should see system + own exercise body parts
+        expected_body_parts = {
+            "Back",
+            "Chest",
+            "Legs",
+        }  # At least these from system and user exercises
+        assert set(body_parts).issuperset(expected_body_parts)
+        assert body_parts == sorted(body_parts)  # Should be sorted

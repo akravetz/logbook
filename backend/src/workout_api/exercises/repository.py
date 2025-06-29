@@ -179,3 +179,24 @@ class ExerciseRepository:
             return False
 
         return exercise.is_user_created and exercise.created_by_user_id == user_id
+
+    async def get_distinct_body_parts(self, user_id: int | None = None) -> list[str]:
+        """Get distinct body parts with proper permission filtering."""
+        stmt = select(Exercise.body_part).distinct()
+
+        if user_id is not None:
+            # User can see their own exercises + system exercises
+            permission_filter = or_(
+                Exercise.created_by_user_id == user_id,
+                ~Exercise.is_user_created,  # System exercises
+            )
+            stmt = stmt.where(permission_filter)
+        else:
+            # Anonymous users can only see system exercises
+            stmt = stmt.where(~Exercise.is_user_created)
+
+        result = await self.session.execute(stmt)
+        body_parts = [
+            bp for bp in result.scalars().all() if bp
+        ]  # Filter out None/empty
+        return sorted(body_parts)

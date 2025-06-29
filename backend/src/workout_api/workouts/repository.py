@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -197,15 +197,13 @@ class WorkoutRepository:
             execution.exercise_order = data.exercise_order
             execution.note_text = data.note_text
 
-            # Delete all existing sets
-            await self.session.execute(
-                delete(Set).where(
-                    and_(
-                        Set.workout_id == workout_id,
-                        Set.exercise_id == exercise_id,
-                    )
-                )
-            )
+            # Delete all existing sets using ORM (leverages cascade relationships)
+            for existing_set in execution.sets:
+                await self.session.delete(existing_set)
+
+            # Clear the sets relationship to reflect the deletion
+            execution.sets.clear()
+            await self.session.flush()  # Ensure deletions are visible
         else:
             # Create new execution
             execution = ExerciseExecution(

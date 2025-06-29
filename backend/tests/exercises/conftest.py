@@ -133,6 +133,12 @@ async def multiple_exercises(
             modality=ExerciseModality.BODYWEIGHT,
             is_user_created=False,
         ),
+        Exercise(
+            name="Bench Press",
+            body_part="Chest",
+            modality=ExerciseModality.BARBELL,
+            is_user_created=False,
+        ),
         # User exercises
         Exercise(
             name="User Chest Fly",

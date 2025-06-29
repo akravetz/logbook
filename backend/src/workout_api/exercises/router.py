@@ -94,40 +94,20 @@ async def search_exercises(
     "/body-parts",
     response_model=list[str],
     summary="Get available body parts",
-    description="Get list of all available body parts from exercises.",
+    description="Get list of all available body parts from exercises user can access.",
 )
-async def get_body_parts(exercise_service: ExerciseServiceDep) -> list[str]:
+async def get_body_parts(
+    exercise_service: ExerciseServiceDep,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
+) -> list[str]:
     """Get available body parts."""
+    # Get user ID if authenticated
+    user_id = current_user.id if current_user else None
+
     try:
-        # Get all exercises and extract unique body parts
-        from .schemas import ExerciseFilters, Pagination
-
-        filters = ExerciseFilters()
-        pagination = Pagination(page=1, size=100)  # Use max allowed size
-
-        # Get multiple pages to ensure we have all exercises
-        all_exercises = []
-        page = 1
-        while True:
-            pagination = Pagination(page=page, size=100)
-            result = await exercise_service.search_exercises(filters, pagination)
-            all_exercises.extend(result.items)
-
-            # If we got fewer items than the page size, we've reached the end
-            if len(result.items) < 100:
-                break
-            page += 1
-
-            # Safety limit to prevent infinite loops
-            if page > 100:  # 10,000 exercises max
-                break
-
-        body_parts = list(
-            {exercise.body_part for exercise in all_exercises if exercise.body_part}
-        )
-        return sorted(body_parts)
+        return await exercise_service.get_available_body_parts(user_id)
     except Exception as e:
-        logger.error(f"Error getting body parts: {e}")
+        logger.error(f"Error getting body parts for user {user_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",

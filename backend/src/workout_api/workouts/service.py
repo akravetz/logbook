@@ -1,8 +1,8 @@
 """Workout service for business logic and data conversion."""
 
 import logging
-from typing import TYPE_CHECKING
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..exercises.models import Exercise
@@ -14,6 +14,7 @@ from .schemas import (
     ExerciseExecutionResponse,
     ExerciseExecutionUpdate,
     ExerciseReorderResponse,
+    Page,
     Pagination,
     SetCreate,
     SetResponse,
@@ -21,9 +22,6 @@ from .schemas import (
     WorkoutFilters,
     WorkoutResponse,
 )
-
-if TYPE_CHECKING:
-    from .schemas import Page
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +44,6 @@ class WorkoutService:
         for workout in page.items:
             workout_response = await self._workout_to_response(workout)
             workout_responses.append(workout_response)
-
-        # Import here to avoid circular imports
-        from .schemas import Page
 
         return Page.create(workout_responses, page.total, pagination)
 
@@ -263,8 +258,6 @@ class WorkoutService:
     ) -> ExerciseExecutionResponse:
         """Convert ExerciseExecution SQLAlchemy object to Pydantic model."""
         # Get exercise name - need to query exercise table
-        from sqlalchemy import select
-
         exercise_stmt = select(Exercise.name).where(
             Exercise.id == execution.exercise_id
         )

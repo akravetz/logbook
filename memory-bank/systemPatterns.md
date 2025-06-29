@@ -89,6 +89,7 @@ class ExerciseRepository:
 - **NO helper functions that bypass repositories** - All data access must go through the repository layer
 - **Repository injection required** - Services receive repositories through constructor injection
 - **Single source of truth** - Each entity type has one repository that handles all its database operations
+- **NO raw SQL deletes** - Use ORM deletion with cascade relationships, never `session.execute(delete(Model)...)`
 
 **Example of proper service layer usage:**
 ```python
@@ -106,6 +107,69 @@ class AuthService:
             existing_user = await self.user_repository.get_by_email(google_user_info.email)
             # ... business logic
 ```
+
+**ORM Deletion Pattern (Required):**
+```python
+# ✅ CORRECT: ORM deletion with cascade relationships
+async def upsert_exercise_execution(self, workout_id: int, exercise_id: int, data):
+    if execution:
+        # Delete existing sets using ORM (leverages cascade relationships)
+        for existing_set in execution.sets:
+            await self.session.delete(existing_set)
+
+        execution.sets.clear()
+        await self.session.flush()  # Ensure deletions are visible
+
+# ❌ WRONG: Raw SQL delete bypasses ORM and cascade rules
+async def upsert_exercise_execution(self, workout_id: int, exercise_id: int, data):
+    if execution:
+        await self.session.execute(
+            delete(Set).where(and_(Set.workout_id == workout_id, Set.exercise_id == exercise_id))
+        )
+```
+
+### Efficient Data Retrieval Pattern
+**Use database-level operations for aggregations and distinct queries:**
+
+```python
+# ❌ WRONG: Fetching all records for simple aggregation
+async def get_distinct_categories_inefficient(self, user_id: int | None = None):
+    all_items = []
+    page = 1
+    while True:
+        result = await self.search_all_items(page=page, size=100)
+        all_items.extend(result.items)
+        if len(result.items) < 100:
+            break
+        page += 1
+
+    categories = list({item.category for item in all_items if item.category})
+    return sorted(categories)
+
+# ✅ CORRECT: Use database DISTINCT query
+async def get_distinct_categories(self, user_id: int | None = None):
+    stmt = select(Item.category).distinct()
+
+    if user_id is not None:
+        permission_filter = or_(
+            Item.created_by_user_id == user_id,
+            ~Item.is_user_created,  # System items
+        )
+        stmt = stmt.where(permission_filter)
+    else:
+        # Anonymous users can only see system items
+        stmt = stmt.where(~Item.is_user_created)
+
+    result = await self.session.execute(stmt)
+    categories = [cat for cat in result.scalars().all() if cat]
+    return sorted(categories)
+```
+
+**Benefits:**
+- **99%+ performance improvement** - Single query vs potentially thousands
+- **Proper permission boundaries** - Enforces user access controls at database level
+- **Minimal memory usage** - Only retrieves needed data, not full objects
+- **Correct security model** - Anonymous users only see appropriate data
 
 ### Service Layer Pattern
 Business logic separate from data access:
@@ -740,3 +804,62 @@ async def test_create_exercise(authenticated_client):
     response = await authenticated_client.post("/exercises", json={...})
     assert response.status_code == 201
 ```
+
+### PEP 8 Import Organization Pattern
+**All imports must be at module level - never inside functions or methods**
+
+```python
+# ✅ CORRECT: Module-level imports
+import logging
+from typing import Annotated
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..core.database import get_session
+from ..users.repository import UserRepository
+from .jwt import JWTManager
+
+async def get_current_user(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    jwt_manager: Annotated[JWTManager, Depends(get_jwt_manager)],
+) -> User:
+    # Use imported classes directly
+    user_repo = UserRepository(session)
+    return await user_repo.get_by_id(user_id)
+
+# ❌ WRONG: Import inside function (PEP 8 violation)
+async def get_current_user(session: AsyncSession) -> User:
+    from ..users.repository import UserRepository  # PEP 8 violation!
+    user_repo = UserRepository(session)
+    return await user_repo.get_by_id(user_id)
+```
+
+**TYPE_CHECKING Usage (Advanced Pattern):**
+```python
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from some_module import TypeOnlyClass  # Only used in type hints
+
+# ✅ CORRECT: TYPE_CHECKING for type-only imports
+def process_data(data: TypeOnlyClass) -> None:  # Type hint only
+    pass  # TypeOnlyClass not used at runtime
+
+# ❌ WRONG: Runtime objects in TYPE_CHECKING
+if TYPE_CHECKING:
+    from .schemas import Page  # Page.create() used at runtime!
+
+# ✅ CORRECT: Runtime imports at module level
+from .schemas import Page
+
+def get_results() -> Page[Item]:
+    return Page.create(items, total, page, size)  # Runtime usage
+```
+
+**Import Organization Rules:**
+- **Module-level only** - All imports at the top of files
+- **Never inside functions** - PEP 8 violation and poor performance
+- **TYPE_CHECKING for types only** - Only for classes used solely in type annotations
+- **Runtime imports are regular** - Objects used at runtime get normal imports
+- **Avoid `if TYPE_CHECKING: pass`** - Serves no purpose and should never exist

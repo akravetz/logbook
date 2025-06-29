@@ -257,3 +257,7 @@ class ExerciseService:
     async def delete(self, exercise_id: int, user_id: int) -> bool:
         """Alias for delete_user_exercise."""
         return await self.delete_user_exercise(exercise_id, user_id)
+
+    async def get_available_body_parts(self, user_id: int | None = None) -> list[str]:
+        """Get available body parts for exercises user can access."""
+        return await self.repository.get_distinct_body_parts(user_id)
