@@ -2,21 +2,23 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dumbbell } from "lucide-react"
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ApiHealthCheck } from "./api-health-check"
 import { useInitiateGoogleOauthApiV1AuthGooglePost } from "@/lib/api/generated"
+import { signIn } from "next-auth/react"
 
 const isDevelopmentMode = process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_ENABLE_DEV_AUTH === 'true'
 
 export function LoginScreen() {
-  const [isLoading, setIsLoading] = useState(false)
   const [isDevLoading, setIsDevLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [devEmail, setDevEmail] = useState("")
 
   // Use the generated API hook for Google OAuth
-  const { mutate: initiateGoogleOAuth, isPending: isLoading } = useInitiateGoogleOauthApiV1AuthGooglePost({
+  const { mutate: initiateGoogleOAuth, isPending: isGoogleLoading } = useInitiateGoogleOauthApiV1AuthGooglePost({
     mutation: {
       onSuccess: (data) => {
         console.log("Auth response:", data)
@@ -140,11 +142,11 @@ export function LoginScreen() {
 
             <Button
               onClick={handleGoogleLogin}
-              disabled={isLoading || isDevLoading}
+              disabled={isGoogleLoading || isDevLoading}
               className="w-full"
               size="lg"
             >
-              {isLoading ? "Signing in..." : "Sign in with Google"}
+              {isGoogleLoading ? "Signing in..." : "Sign in with Google"}
             </Button>
 
             {isDevelopmentMode && (
@@ -178,14 +180,14 @@ export function LoginScreen() {
                             placeholder="developer@example.com"
                             value={devEmail}
                             onChange={(e) => setDevEmail(e.target.value)}
-                            disabled={isLoading || isDevLoading}
+                            disabled={isGoogleLoading || isDevLoading}
                             className="h-8 text-sm"
                             required
                           />
                         </div>
                         <Button
                           type="submit"
-                          disabled={isLoading || isDevLoading || !devEmail}
+                          disabled={isGoogleLoading || isDevLoading || !devEmail}
                           className="w-full h-8 text-sm"
                           variant="outline"
                         >
@@ -198,7 +200,7 @@ export function LoginScreen() {
                         <div className="flex gap-2">
                           <Button
                             onClick={() => handleQuickDevLogin("admin@example.com")}
-                            disabled={isLoading || isDevLoading}
+                            disabled={isGoogleLoading || isDevLoading}
                             size="sm"
                             variant="outline"
                             className="h-6 text-xs px-2"
@@ -207,7 +209,7 @@ export function LoginScreen() {
                           </Button>
                           <Button
                             onClick={() => handleQuickDevLogin("user@example.com")}
-                            disabled={isLoading || isDevLoading}
+                            disabled={isGoogleLoading || isDevLoading}
                             size="sm"
                             variant="outline"
                             className="h-6 text-xs px-2"
@@ -216,7 +218,7 @@ export function LoginScreen() {
                           </Button>
                           <Button
                             onClick={() => handleQuickDevLogin("test@example.com")}
-                            disabled={isLoading || isDevLoading}
+                            disabled={isGoogleLoading || isDevLoading}
                             size="sm"
                             variant="outline"
                             className="h-6 text-xs px-2"
