@@ -6,13 +6,17 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.config import get_settings
+from ..core.config import Settings, get_settings
 from ..core.database import get_session
 from ..shared.exceptions import AuthenticationError
-from .dependencies import CurrentUser, JWTManagerDep, TokenOnly
+from .dependencies import AuthServiceDep, CurrentUser, JWTManagerDep, TokenOnly
 from .schemas import (
+    DevLoginRequest,
+    DevLoginResponse,
     LogoutResponse,
     NextAuthGoogleUserRequest,
+    NextAuthTokenResponse,
+    NextAuthUserResponse,
     NextAuthVerificationResponse,
     SessionInfoResponse,
     TokenRefreshRequest,
@@ -194,4 +198,69 @@ async def verify_google_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="User verification failed",
+        ) from e
+
+
+# Development Login Endpoint
+
+
+@router.post(
+    "/dev-login",
+    response_model=DevLoginResponse,
+    summary="Development login",
+    description="Login with any email in development environment only",
+    responses={
+        401: {"description": "Authentication failed"},
+        403: {"description": "Not available in production"},
+        422: {"description": "Validation Error"},
+    },
+)
+async def dev_login(
+    request: DevLoginRequest,
+    auth_service: AuthServiceDep,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> DevLoginResponse:
+    """Development login endpoint - only available in development environment."""
+    try:
+        # Check if development environment
+        if not settings.is_development:
+            logger.warning("Development login attempted in non-development environment")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Development login not available in production",
+            )
+
+        # Use auth service dependency
+        user, jwt_tokens = await auth_service.authenticate_with_dev_login(request.email)
+
+        # Return properly typed response
+        return DevLoginResponse(
+            user=NextAuthUserResponse(
+                id=user.id,
+                email=user.email_address,
+                name=user.name,
+                image=user.profile_image_url,
+            ),
+            tokens=NextAuthTokenResponse(
+                access_token=jwt_tokens.access_token,
+                refresh_token=jwt_tokens.refresh_token,
+                expires_in=jwt_tokens.expires_in,
+            ),
+            message="Development login successful",
+        )
+
+    except AuthenticationError as e:
+        logger.warning(f"Development login failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        ) from e
+    except HTTPException:
+        # Re-raise HTTP exceptions without wrapping
+        raise
+    except Exception as e:
+        logger.error(f"Development login error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Development login failed",
         ) from e

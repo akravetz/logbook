@@ -1,4 +1,4 @@
-"""FastAPI dependencies for authentication."""
+"""Authentication dependencies for FastAPI dependency injection."""
 
 import logging
 from functools import lru_cache
@@ -14,6 +14,7 @@ from ..shared.exceptions import AuthenticationError
 from ..users.models import User
 from ..users.repository import UserRepository
 from .jwt import JWTManager, TokenData
+from .service import AuthService
 
 logger = logging.getLogger("workout_api.auth.dependencies")
 
@@ -26,6 +27,15 @@ required_bearer_scheme = HTTPBearer(auto_error=True)
 def get_jwt_manager(settings: Annotated[Settings, Depends(get_settings)]) -> JWTManager:
     """Get JWT manager instance."""
     return JWTManager(settings)
+
+
+def get_auth_service_dependency(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    jwt_manager: Annotated[JWTManager, Depends(get_jwt_manager)],
+) -> AuthService:
+    """Get AuthService dependency for dependency injection."""
+    user_repository = UserRepository(session)
+    return AuthService(session, jwt_manager, user_repository)
 
 
 async def get_current_user_from_token(
@@ -129,25 +139,22 @@ async def get_current_admin_user(
     return current_user
 
 
-async def verify_token_only(
+def verify_token_only(
     credentials: Annotated[
         HTTPAuthorizationCredentials, Depends(required_bearer_scheme)
     ],
     jwt_manager: Annotated[JWTManager, Depends(get_jwt_manager)],
 ) -> TokenData:
-    """Verify JWT token and return token data without database lookup."""
+    """Verify JWT token and return token data only (no user lookup)."""
     try:
-        token_data: TokenData = jwt_manager.verify_token(
-            credentials.credentials, "access"
-        )
-        logger.debug(f"Token verified for user {token_data.user_id}")
+        # Verify the token and return token data
+        token_data = jwt_manager.verify_token(credentials.credentials, "access")
         return token_data
-
     except AuthenticationError as e:
         logger.warning(f"Token verification failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
 
@@ -160,3 +167,4 @@ TokenOnly = Annotated[TokenData, Depends(verify_token_only)]
 
 # Export JWT manager dependency for use in other modules
 JWTManagerDep = Annotated[JWTManager, Depends(get_jwt_manager)]
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service_dependency)]
