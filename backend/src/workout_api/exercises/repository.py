@@ -3,6 +3,7 @@
 import logging
 from typing import TYPE_CHECKING
 
+from rapidfuzz import fuzz, process
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,32 +45,11 @@ class ExerciseRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def search(
-        self,
-        filters: ExerciseFilters,
-        pagination: Pagination,
-        user_id: int | None = None,
-    ) -> "Page[Exercise]":
-        """Search exercises with filters and pagination."""
-        # Build base query
-        stmt = select(Exercise)
-        count_stmt = select(func.count(Exercise.id))
-
-        # Apply permission filtering first
-        if user_id is not None:
-            permission_filter = or_(
-                Exercise.created_by_user_id == user_id,
-                ~Exercise.is_user_created,  # System exercises
-            )
-            stmt = stmt.where(permission_filter)
-            count_stmt = count_stmt.where(permission_filter)
-
-        # Apply search filters
+    def _build_base_conditions(self, filters: ExerciseFilters) -> list:
+        """Build all search conditions except name filtering."""
         conditions = []
 
-        if filters.name:
-            conditions.append(Exercise.name.ilike(f"%{filters.name.strip()}%"))
-
+        # Apply non-name filters
         if filters.body_part:
             conditions.append(
                 Exercise.body_part.ilike(f"%{filters.body_part.strip()}%")
@@ -84,8 +64,33 @@ class ExerciseRepository:
         if filters.created_by_user_id:
             conditions.append(Exercise.created_by_user_id == filters.created_by_user_id)
 
-        if conditions:
-            filter_clause = and_(*conditions)
+        return conditions
+
+    def _build_permission_filter(self, user_id: int | None):
+        """Build permission filtering clause."""
+        if user_id is not None:
+            return or_(
+                Exercise.created_by_user_id == user_id,
+                ~Exercise.is_user_created,  # System exercises
+            )
+        return None
+
+    async def _search_without_name_filter(
+        self, base_conditions: list, pagination: Pagination, user_id: int | None = None
+    ) -> "Page[Exercise]":
+        """Search exercises without name filtering (original logic)."""
+        stmt = select(Exercise)
+        count_stmt = select(func.count(Exercise.id))
+
+        # Apply permission filtering
+        permission_filter = self._build_permission_filter(user_id)
+        if permission_filter is not None:
+            stmt = stmt.where(permission_filter)
+            count_stmt = count_stmt.where(permission_filter)
+
+        # Apply other conditions
+        if base_conditions:
+            filter_clause = and_(*base_conditions)
             stmt = stmt.where(filter_clause)
             count_stmt = count_stmt.where(filter_clause)
 
@@ -111,6 +116,122 @@ class ExerciseRepository:
             page=pagination.page,
             size=pagination.size,
         )
+
+    async def _search_with_simple_name_filter(
+        self,
+        base_conditions: list,
+        name_query: str,
+        pagination: Pagination,
+        user_id: int | None = None,
+    ) -> "Page[Exercise]":
+        """Search exercises with simple ILIKE name filtering for short queries."""
+        conditions = base_conditions.copy()
+        conditions.append(Exercise.name.ilike(f"%{name_query}%"))
+
+        return await self._search_without_name_filter(conditions, pagination, user_id)
+
+    async def _search_with_fuzzy_name_filter(
+        self,
+        base_conditions: list,
+        name_query: str,
+        pagination: Pagination,
+        user_id: int | None = None,
+    ) -> "Page[Exercise]":
+        """Search exercises with fuzzy name matching for longer queries."""
+        # Step 1: Get all exercises matching non-name criteria
+        stmt = select(Exercise)
+
+        # Apply permission filtering
+        permission_filter = self._build_permission_filter(user_id)
+        if permission_filter is not None:
+            stmt = stmt.where(permission_filter)
+
+        # Apply non-name conditions
+        if base_conditions:
+            filter_clause = and_(*base_conditions)
+            stmt = stmt.where(filter_clause)
+
+        # Get all candidates (no pagination yet)
+        stmt = stmt.order_by(Exercise.name)
+        result = await self.session.execute(stmt)
+        all_candidates = result.scalars().all()
+
+        # Step 2: Apply fuzzy filtering using rapidfuzz.process for efficiency
+        if not all_candidates:
+            from .schemas import Page
+
+            return Page.create(
+                items=[],
+                total=0,
+                page=pagination.page,
+                size=pagination.size,
+            )
+
+        # Create a mapping of exercise names to exercise objects
+        exercise_map = {exercise.name: exercise for exercise in all_candidates}
+        exercise_names = list(exercise_map.keys())
+
+        # Use rapidfuzz.process.extract for efficient batch fuzzy matching
+        fuzzy_results = process.extract(
+            name_query,
+            exercise_names,
+            scorer=fuzz.partial_ratio,
+            score_cutoff=70,
+            limit=None,  # Get all matches above threshold
+        )
+
+        # Convert back to exercise objects, maintaining score order
+        fuzzy_matches = [exercise_map[name] for name, score, _ in fuzzy_results]
+
+        # Step 3: Apply pagination to fuzzy results
+        total = len(fuzzy_matches)
+        start_idx = pagination.offset
+        end_idx = start_idx + pagination.size
+        paginated_exercises = fuzzy_matches[start_idx:end_idx]
+
+        from .schemas import Page
+
+        return Page.create(
+            items=paginated_exercises,
+            total=total,
+            page=pagination.page,
+            size=pagination.size,
+        )
+
+    async def search(
+        self,
+        filters: ExerciseFilters,
+        pagination: Pagination,
+        user_id: int | None = None,
+    ) -> "Page[Exercise]":
+        """Search exercises with filters and pagination.
+
+        Uses different strategies based on name query length:
+        - No name filter: Standard database query
+        - Short name queries (< 4 chars): ILIKE database matching
+        - Long name queries (>= 4 chars): Fuzzy matching with rapidfuzz
+        """
+        # Build base conditions (all filters except name)
+        base_conditions = self._build_base_conditions(filters)
+
+        # Handle name filtering with different strategies
+        if not filters.name:
+            # No name filter - use standard logic
+            return await self._search_without_name_filter(
+                base_conditions, pagination, user_id
+            )
+
+        name_query = filters.name.strip()
+        if len(name_query) < 4:
+            # Short query - use simple ILIKE matching
+            return await self._search_with_simple_name_filter(
+                base_conditions, name_query, pagination, user_id
+            )
+        else:
+            # Long query - use fuzzy matching
+            return await self._search_with_fuzzy_name_filter(
+                base_conditions, name_query, pagination, user_id
+            )
 
     async def get_by_body_part(
         self, body_part: str, pagination: Pagination, user_id: int | None = None

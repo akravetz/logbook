@@ -227,6 +227,184 @@ class TestExerciseRepository:
             if len(result.items) > 0 and len(result2.items) > 0:
                 assert result.items[0].id != result2.items[0].id
 
+    async def test_search_short_query_uses_ilike(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test that short queries (< 4 chars) use ILIKE matching."""
+        filters = ExerciseFilters(name="Pre")  # 3 characters - should use ILIKE
+        pagination = Pagination(page=1, size=10)
+
+        result = await exercise_repository.search(filters, pagination)
+
+        # Should find "User Leg Press" which contains "Pre"
+        assert result.total >= 1
+        found_press = any("Press" in exercise.name for exercise in result.items)
+        assert found_press
+
+    async def test_search_long_query_uses_fuzzy_matching(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test that long queries (>= 4 chars) use fuzzy matching."""
+        # Create a deliberate typo that should match with fuzzy matching
+        filters = ExerciseFilters(name="Bench Pres")  # Missing 's' in "Press"
+        pagination = Pagination(page=1, size=10)
+
+        result = await exercise_repository.search(filters, pagination)
+
+        # Should find "Bench Press" via fuzzy matching
+        assert result.total >= 1
+        found_bench = any("Bench Press" in exercise.name for exercise in result.items)
+        assert found_bench
+
+    async def test_search_fuzzy_partial_match(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test fuzzy matching with partial string matches."""
+        filters = ExerciseFilters(name="Chest Flye")  # "Flye" instead of "Fly"
+        pagination = Pagination(page=1, size=10)
+
+        result = await exercise_repository.search(filters, pagination)
+
+        # Should find "User Chest Fly" via fuzzy matching
+        assert result.total >= 1
+        found_fly = any("Chest Fly" in exercise.name for exercise in result.items)
+        assert found_fly
+
+    async def test_search_fuzzy_no_match_below_threshold(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test that fuzzy matching doesn't match below 70% threshold."""
+        # Use a query that should be below 70% similarity
+        filters = ExerciseFilters(name="Completely Different Exercise Name")
+        pagination = Pagination(page=1, size=10)
+
+        result = await exercise_repository.search(filters, pagination)
+
+        # Should not find any of our test exercises
+        assert result.total == 0
+
+    async def test_search_fuzzy_with_other_filters(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test fuzzy matching combined with other filters."""
+        # Search for exercises with fuzzy name match AND specific body part
+        filters = ExerciseFilters(
+            name="Chest Flye",  # Should fuzzy match "User Chest Fly"
+            body_part="Chest",
+        )
+        pagination = Pagination(page=1, size=10)
+
+        result = await exercise_repository.search(filters, pagination)
+
+        # Should find "User Chest Fly" (matches both fuzzy name and body part)
+        assert result.total >= 1
+        for exercise in result.items:
+            assert "Chest" in exercise.body_part
+            assert "Chest Fly" in exercise.name
+
+    async def test_search_fuzzy_with_user_permissions(
+        self,
+        exercise_repository: ExerciseRepository,
+        test_user: User,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test fuzzy matching respects user permissions."""
+        user_id = test_user.id
+
+        # Search for user's exercise with fuzzy matching
+        filters = ExerciseFilters(name="User Chst")  # Missing 'e' in "Chest"
+        pagination = Pagination(page=1, size=10)
+
+        result = await exercise_repository.search(filters, pagination, user_id)
+
+        # Should find "User Chest Fly" (user's own exercise)
+        assert result.total >= 1
+        found_user_exercise = any(
+            "User Chest Fly" in exercise.name for exercise in result.items
+        )
+        assert found_user_exercise
+
+        # Verify no other user's exercises are returned
+        for exercise in result.items:
+            if exercise.is_user_created:
+                assert exercise.created_by_user_id == user_id
+
+    async def test_search_fuzzy_pagination(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test fuzzy matching with pagination."""
+        # Use a query that should match multiple exercises
+        filters = ExerciseFilters(
+            name="User"
+        )  # Should match "User Chest Fly", "User Leg Press"
+        pagination = Pagination(page=1, size=1)
+
+        result = await exercise_repository.search(filters, pagination)
+
+        # Should have at least 2 total matches but only 1 item due to pagination
+        assert result.total >= 2
+        assert len(result.items) == 1
+        assert result.page == 1
+        assert result.size == 1
+
+        # Test second page
+        pagination = Pagination(page=2, size=1)
+        result2 = await exercise_repository.search(filters, pagination)
+
+        assert result2.page == 2
+        assert len(result2.items) <= 1
+        # Should be different exercise than first page
+        if len(result2.items) > 0:
+            assert result.items[0].id != result2.items[0].id
+
+    async def test_search_fuzzy_case_insensitive(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test fuzzy matching is case insensitive."""
+        filters = ExerciseFilters(name="bench press")  # Lowercase
+        pagination = Pagination(page=1, size=10)
+
+        result = await exercise_repository.search(filters, pagination)
+
+        # Should find "Bench Press" despite case difference
+        assert result.total >= 1
+        found_bench = any("Bench Press" in exercise.name for exercise in result.items)
+        assert found_bench
+
+    async def test_search_fuzzy_ordering_consistency(
+        self,
+        exercise_repository: ExerciseRepository,
+        multiple_exercises: list[Exercise],  # noqa: ARG002
+    ):
+        """Test that fuzzy matching maintains consistent ordering."""
+        filters = ExerciseFilters(name="User")  # Should match multiple exercises
+        pagination = Pagination(page=1, size=10)
+
+        # Run same search twice
+        result1 = await exercise_repository.search(filters, pagination)
+        result2 = await exercise_repository.search(filters, pagination)
+
+        assert result1.total == result2.total
+        assert len(result1.items) == len(result2.items)
+
+        # Items should be in same order
+        for i in range(len(result1.items)):
+            assert result1.items[i].id == result2.items[i].id
+
     async def test_get_by_body_part(
         self,
         exercise_repository: ExerciseRepository,
