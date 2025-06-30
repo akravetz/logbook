@@ -1131,3 +1131,186 @@ class Settings(BaseSettings):
         if not self.session_secret_key:
             object.__setattr__(self, "session_secret_key", self.secret_key)
 ```
+
+### Dependency Injection Pattern
+Proper FastAPI dependency injection replaces patching and global state:
+
+```python
+# ✅ CORRECT: FastAPI dependency injection
+from functools import lru_cache
+
+@lru_cache
+def get_auth_service_dependency() -> Callable:
+    """Returns a dependency function that provides AuthService instances."""
+    def auth_service_dependency(
+        session: AsyncSession = Depends(get_session),
+        jwt_manager: JWTManager = Depends(get_jwt_manager),
+        settings: Settings = Depends(get_settings),
+    ) -> AuthService:
+        return AuthService(session, jwt_manager, settings)
+    return auth_service_dependency
+
+# Router usage
+@router.post("/dev-login")
+async def dev_login(
+    request: DevLoginRequest,
+    auth_service: AuthService = Depends(get_auth_service_dependency()),
+):
+    return await auth_service.authenticate_with_dev_login(request.email)
+
+# ❌ WRONG: Direct function calls or global state
+@router.post("/dev-login")
+async def dev_login(request: DevLoginRequest):
+    # Don't call functions directly - prevents testability
+    auth_service = AuthService(...)
+    return await auth_service.authenticate_with_dev_login(request.email)
+```
+
+**Testing with Dependency Overrides:**
+```python
+# ✅ CORRECT: Override dependencies for testing
+@pytest.fixture
+def mock_auth_service():
+    service = Mock(spec=AuthService)
+    service.authenticate_with_dev_login = AsyncMock(return_value=mock_response)
+    return service
+
+async def test_dev_login(client: AsyncClient, mock_auth_service):
+    app.dependency_overrides[get_auth_service_dependency()] = lambda: mock_auth_service
+    response = await client.post("/api/v1/auth/dev-login", json={"email": "test@example.com"})
+
+# ❌ WRONG: Using patch in tests
+async def test_dev_login(client: AsyncClient):
+    with patch('auth.router.AuthService') as mock_service:
+        # Patching breaks dependency injection patterns
+```
+
+### Development Authentication Pattern
+Environment-based authentication that maintains production security:
+
+```python
+# Backend: Environment-restricted endpoint
+@router.post("/dev-login", response_model=DevLoginResponse)
+async def dev_login(
+    request: DevLoginRequest,
+    auth_service: AuthService = Depends(get_auth_service_dependency()),
+    settings: Settings = Depends(get_settings),
+):
+    # Critical: Environment check prevents production access
+    if not settings.is_development:
+        raise HTTPException(
+            status_code=404,
+            detail="Endpoint not found"
+        )
+
+    try:
+        return await auth_service.authenticate_with_dev_login(request.email)
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+# Service: Email prefix for user isolation
+class AuthService:
+    async def authenticate_with_dev_login(self, email: str) -> DevLoginResponse:
+        # Add "dev:" prefix to prevent conflicts with production users
+        dev_email = f"dev:{email}"
+        display_name = f"Dev User ({email})"
+
+        # Reuse existing user creation/login infrastructure
+        user = await self.user_repository.get_by_email(dev_email)
+        if not user:
+            user = await self.user_repository.create(UserCreate(
+                email=dev_email,
+                name=display_name,
+                image=None
+            ))
+
+        # Use same JWT generation as Google OAuth
+        tokens = await self.jwt_manager.create_tokens_for_user(user)
+        return DevLoginResponse(user=user, tokens=tokens)
+```
+
+**Frontend Integration:**
+```typescript
+// NextAuth.js configuration
+export const authOptions: NextAuthOptions = {
+  providers: [
+    GoogleProvider({ ... }),
+    // Development-only provider
+    ...(process.env.NODE_ENV === "development" ? [
+      CredentialsProvider({
+        id: "dev-login",
+        name: "Development Login",
+        credentials: { email: { label: "Email", type: "email" } },
+        async authorize(credentials) {
+          const response = await fetch("/api/v1/auth/dev-login", {
+            method: "POST",
+            body: JSON.stringify({ email: credentials.email }),
+          });
+          return response.ok ? await response.json() : null;
+        },
+      })
+    ] : []),
+  ],
+  // Same callbacks handle both auth methods
+  callbacks: {
+    async signIn({ account }) {
+      return account?.provider === "google" || account?.provider === "dev-login";
+    }
+  }
+};
+```
+
+**Key Benefits:**
+- **Zero Setup Friction**: Developers can authenticate with any email
+- **Production Security**: Completely disabled in non-development environments
+- **Architectural Consistency**: Uses same JWT and NextAuth infrastructure
+- **User Isolation**: "dev:" prefix prevents conflicts with real users
+
+### OpenAPI Generation Pattern
+Single source of truth for API documentation generation:
+
+```yaml
+# Backend Taskfile.yml - Generate directly to consumer
+generate-openapi:
+  desc: Generate OpenAPI spec directly to frontend directory
+  cmds:
+    - uv run python -c "from {{.PROJECT_NAME}}.core.main import app; import json; open('../frontend/openapi.json', 'w').write(json.dumps(app.openapi(), indent=2).strip())"
+    - echo "OpenAPI spec generated at ../frontend/openapi.json"
+
+# Frontend orval.config.ts - Read from local file
+export default defineConfig({
+  workoutApi: {
+    input: "openapi.json",  // Local file, not ../backend/openapi.json
+    output: { ... }
+  }
+});
+```
+
+**Workflow Benefits:**
+- **No Duplication**: Single file where it's actually consumed
+- **Simplified Process**: Generate → Generate Types (50% fewer steps)
+- **No Sync Issues**: Eliminates copy step that could fail or be forgotten
+- **Clean Version Control**: Prevents accidental commits of backend copies
+
+### Import Organization Pattern
+All imports at module level following Python best practices:
+
+```python
+# ✅ CORRECT: Top-level imports
+from workout_api.auth.schemas import DevLoginRequest, DevLoginResponse
+from workout_api.auth.service import AuthService
+
+async def dev_login(request: DevLoginRequest, auth_service: AuthService):
+    return await auth_service.authenticate_with_dev_login(request.email)
+
+# ❌ WRONG: Imports inside functions
+async def dev_login(request, auth_service):
+    from workout_api.auth.schemas import DevLoginRequest, DevLoginResponse
+    # Violates Python conventions and affects performance
+```
+
+**Rules:**
+- All imports at module top level
+- Use type annotations with proper imports
+- Group imports: standard library, third-party, local
+- Use `# noqa: ARG002` for fixtures that appear unused but are required for test setup

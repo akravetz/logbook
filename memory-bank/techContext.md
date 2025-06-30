@@ -108,40 +108,102 @@ task db:migrate  # Apply database migrations
 task db:status   # Check migration status
 task db:diff     # Generate new migration
 task db:reset    # Reset database
+
+# OpenAPI Generation (Optimized)
+task generate-openapi    # Generate OpenAPI spec directly to frontend/openapi.json
 ```
 
+### Frontend Development
+```bash
+npm run dev              # Start Next.js development server
+npm run refresh-api      # Regenerate API types (calls backend generate-openapi)
+npm run generate-api     # Generate TypeScript types from OpenAPI spec
+npm run build           # Build for production
+npm run dev:full        # Refresh API and start dev server
+```
+
+### Development Authentication (Latest)
+**Two authentication options available in development:**
+
+1. **Development Login** (Recommended for local dev):
+   - Available only when `NODE_ENV=development`
+   - Login with any email address
+   - No Google OAuth setup required
+   - Creates users with "dev:" prefix to prevent conflicts
+
+2. **Google OAuth** (Production-ready):
+   - Requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+   - Full production OAuth flow
+   - Same as production authentication
+
+**Setup for Development:**
+```bash
+# Option 1: Use dev login (zero setup)
+NODE_ENV=development npm run dev
+# Login screen will show "Dev Login" option
+
+# Option 2: Use Google OAuth (requires credentials)
+# Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local
+npm run dev
+```
+
+### OpenAPI Workflow (Optimized)
+**Streamlined generation process:**
+```bash
+# Single command regenerates everything
+npm run refresh-api
+
+# What it does:
+# 1. Backend: Generate OpenAPI spec → frontend/openapi.json
+# 2. Frontend: Generate TypeScript types from openapi.json
+```
+
+**Key Improvements:**
+- ✅ No file duplication (single openapi.json in frontend)
+- ✅ Simplified workflow (50% fewer steps)
+- ✅ No sync issues between backend/frontend copies
+- ✅ Version control friendly (no accidental backend commits)
+
 ### Testing Strategy (Updated)
-- **Unit Tests**: Business logic in services (69+ service tests)
+- **Unit Tests**: Business logic in services (93+ authentication tests)
 - **Integration Tests**: API endpoints with real database (26+ router tests)
 - **Repository Tests**: Database operations with complex queries (26+ repository tests)
 - **Test Isolation**: Transaction rollback with savepoints - perfect isolation
 - **Test Database**: PostgreSQL testcontainers for realistic testing
 - **Modern Async**: pytest-anyio for better async handling
-- **Authentication Testing**: Dependency injection patterns instead of patching
+- **Authentication Testing**: FastAPI dependency injection instead of patching
+- **Development Auth Testing**: Environment-based availability and security testing
 
-#### ⚠️ CRITICAL: Pytest Fixture Patterns
-**NEVER remove fixture parameters from test functions - they are always used for test setup**
-
+#### ⚠️ CRITICAL: Test Patterns
+**FastAPI Dependency Injection in Tests:**
 ```python
-# ✅ CORRECT: Fixtures create test data even if not directly referenced
-async def test_user_statistics(
-    self, authenticated_client: AsyncClient, test_user: User  # noqa: ARG002
-):
-    """The test_user fixture creates a user in the database for authentication."""
-    response = await authenticated_client.get("/api/v1/users/me/stats")
-    assert response.status_code == 200
+# ✅ CORRECT: Use dependency overrides
+@pytest.fixture
+def mock_auth_service():
+    service = Mock(spec=AuthService)
+    service.authenticate_with_dev_login = AsyncMock(return_value=mock_response)
+    return service
 
-# ❌ WRONG: Removing fixtures breaks test setup
-async def test_user_statistics(self, authenticated_client: AsyncClient):
-    """Without test_user fixture, authenticated_client has no user to authenticate!"""
-    response = await authenticated_client.get("/api/v1/users/me/stats")  # Will fail
+async def test_dev_login(client: AsyncClient, mock_auth_service):
+    app.dependency_overrides[get_auth_service_dependency()] = lambda: mock_auth_service
+    response = await client.post("/api/v1/auth/dev-login", json={"email": "test@example.com"})
+
+# ❌ WRONG: Patching breaks dependency injection
+async def test_dev_login(client: AsyncClient):
+    with patch('auth.router.AuthService') as mock_service:
+        # Breaks FastAPI dependency system
 ```
 
-**Fixture Usage Rules:**
-- Fixtures perform setup even when not directly referenced in test code
-- Use `# noqa: ARG002` to suppress "unused argument" warnings for fixtures
-- Common fixtures: `test_user`, `sample_workout`, `authenticated_client`, `session`
-- Never remove fixture parameters to "fix" linting warnings
+**Import Organization:**
+```python
+# ✅ CORRECT: All imports at module level
+from workout_api.auth.schemas import DevLoginRequest, DevLoginResponse
+from workout_api.auth.service import AuthService
+
+# ❌ WRONG: Imports inside functions
+async def dev_login(request, auth_service):
+    from workout_api.auth.schemas import DevLoginRequest  # Violates conventions
+```
 
 ### Code Quality
 - **Pre-commit Hooks**: Format, lint, security checks

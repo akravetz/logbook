@@ -1,7 +1,7 @@
 ---
-description: Request this file when doing any work in the backend or any work on python modules
+description:
 globs:
-alwaysApply: false
+alwaysApply: true
 ---
 # Workout App Project Rules
 
@@ -141,3 +141,152 @@ async def list_exercises(
 - Connection pooling configured in engine
 - Avoid N+1 queries with proper joins
 - Index foreign keys and search fields
+
+## Authentication Architecture (Latest Updates)
+
+### Development Login System
+- **Environment-based availability**: Backend uses `settings.is_development`, frontend uses `NODE_ENV === "development"`
+- **Email prefixing**: Always add "dev:" prefix to development emails to prevent production conflicts
+- **Infrastructure reuse**: Development auth MUST use same JWT/NextAuth patterns as production
+- **Security isolation**: Development endpoints return 404 in production environments, not 401/403
+- **User display names**: Format as "Dev User (original-email)" for easy identification
+
+### NextAuth.js Integration Patterns
+- **Conditional providers**: Use array spreading for environment-based providers: `...(isDev ? [DevProvider] : [])`
+- **Callback consistency**: Same signIn/jwt/session callbacks must handle both Google OAuth and dev login
+- **Token flow**: NextAuth handles OAuth tokens, backend handles JWT API tokens
+- **Type safety**: Extend NextAuth types for custom JWT properties
+
+### FastAPI Dependency Injection (CRITICAL)
+- **LRU cached factories**: Use `@lru_cache` on dependency factory functions that return dependency functions
+- **Constructor injection**: Services take all dependencies in constructor, not as method parameters
+- **Repository pattern**: ALL database operations must go through repository classes - no exceptions
+- **NO patching in tests**: Use `app.dependency_overrides` with proper mock objects
+
+```python
+# ✅ CORRECT Pattern
+@lru_cache
+def get_auth_service_dependency():
+    def dependency(session=Depends(get_session), jwt_manager=Depends(get_jwt_manager)):
+        return AuthService(session, jwt_manager)
+    return dependency
+
+# Test pattern
+app.dependency_overrides[get_auth_service_dependency()] = lambda: mock_service
+
+# ❌ WRONG Pattern - Direct calls or patching
+@patch('auth.router.AuthService')  # Breaks DI system
+```
+
+## Code Quality Rules (ENFORCED)
+
+### Import Organization (CRITICAL)
+- **Top-level ONLY**: ALL imports must be at module level, NEVER inside functions
+- **Performance impact**: Imports inside functions hurt performance and violate Python conventions
+- **Type annotations**: Always import types needed for proper annotations
+- **Test fixtures**: Fixture parameters must be preserved even if they appear unused (`# noqa: ARG002`)
+
+### Repository Pattern (STRICTLY ENFORCED)
+- **No direct database queries**: Services MUST use repository methods exclusively
+- **No raw SQL deletes**: Use ORM deletion with cascade relationships
+- **Single source of truth**: Each entity has one repository handling all its database operations
+- **Repository injection**: Services receive repositories through constructor injection
+
+```python
+# ✅ CORRECT: ORM deletion with cascade
+for existing_set in execution.sets:
+    await self.session.delete(existing_set)
+
+# ❌ WRONG: Raw SQL bypasses ORM and cascade rules
+await self.session.execute(delete(Set).where(...))
+```
+
+## Development Workflow Optimizations
+
+### OpenAPI Generation (Streamlined)
+- **Single source of truth**: Generate OpenAPI spec directly to `frontend/openapi.json`
+- **No duplication**: Backend should NOT keep local copy of OpenAPI spec
+- **Orval configuration**: Point to local `openapi.json`, not `../backend/openapi.json`
+- **Task automation**: `task generate-openapi` outputs to `../frontend/openapi.json`
+- **Version control**: Add `backend/openapi.json` to `.gitignore` to prevent accidental commits
+
+### Development Authentication Options
+1. **Development Login** (Recommended for local dev):
+   - Zero setup required - login with any email
+   - Available only when `NODE_ENV=development`
+   - Creates users with "dev:" prefix
+   - Same JWT token flow as production
+
+2. **Google OAuth** (Production-ready):
+   - Requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+   - Full production OAuth flow
+   - Same as production authentication
+
+## Testing Patterns (Updated)
+
+### FastAPI Testing
+- **Dependency overrides**: Use `app.dependency_overrides` instead of patching
+- **Service mocking**: Create `Mock(spec=Service)` with `AsyncMock` methods for async operations
+- **Environment testing**: Test both development availability AND production blocking
+- **Fixture composition**: Use centralized fixtures, avoid duplication across test modules
+
+### Authentication Testing
+- **93+ tests passing**: Comprehensive coverage of all authentication scenarios
+- **Service layer**: Test user creation, login, error scenarios
+- **Router layer**: Test success cases, production blocking, validation
+- **Integration**: Test complete flows with real API endpoints
+
+## Security & Environment Patterns
+
+### Environment Isolation
+- **Production safety**: Development features must be impossible to access in production
+- **Error responses**: Return 404 for disabled endpoints in production (not 401/403)
+- **User namespacing**: Development users clearly separated with "dev:" prefix
+- **Token consistency**: Same JWT validation regardless of authentication method
+
+### Configuration Management
+- **Environment variables**: Use .env files for all configuration
+- **Default values**: Provide sensible defaults for development
+- **Secret handling**: Never commit secrets, use .env.example for documentation
+
+## User Experience Guidelines
+
+### Development Mode Indicators
+- **Clear labeling**: Show "Development Mode" when dev features are active
+- **Visual distinction**: Use different button styles (outline) for dev vs production auth
+- **Environment detection**: Check both backend and frontend environments consistently
+
+### Error Handling
+- **User-friendly messages**: Transform technical errors to readable messages
+- **Loading states**: Show proper loading during authentication flows
+- **Graceful degradation**: Handle service unavailability gracefully
+
+## Performance & Architecture
+
+### Database Patterns
+- **Async throughout**: Use AsyncSession for all database operations
+- **Efficient queries**: Use database-level operations for aggregations (99%+ performance improvement)
+- **Connection management**: Proper session lifecycle management
+- **Migration management**: Use Atlas for all schema changes
+
+### Backend Architecture
+- **Functional cohesion**: Organize by domain (auth/, users/, workouts/, exercises/)
+- **Service layer**: Business logic separate from data access
+- **Error translation**: Convert repository exceptions to appropriate HTTP responses
+- **Transaction management**: Handle commits/rollbacks in service layer
+
+## Critical Success Patterns
+
+### Development Workflow
+1. **Backend-first**: Implement and test API endpoints before frontend integration
+2. **OpenAPI regeneration**: Always regenerate after schema changes with `npm run refresh-api`
+3. **Type safety**: Use generated TypeScript types, never manual API calls
+4. **Test coverage**: Prioritize service layer, repository layer, then router layer
+
+### Deployment Considerations
+- **Environment detection**: Backend uses `ENVIRONMENT` setting, frontend uses `NODE_ENV`
+- **Production readiness**: Google OAuth configured and tested
+- **Development features**: Properly disabled in production environments
+- **Token management**: JWT refresh logic working in both auth methods
+
+This project successfully implements a dual authentication system that provides zero-friction development while maintaining production security through environment-based feature availability.
