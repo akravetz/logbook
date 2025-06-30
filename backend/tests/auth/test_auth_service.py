@@ -690,3 +690,180 @@ class TestAuthServiceExceptionHandling:
 
             # Assert
             mock_rollback.assert_called_once()
+
+
+class TestAuthServiceDevelopmentLogin:
+    """Test development login flows in AuthService."""
+
+    async def test_authenticate_with_dev_login_new_user(
+        self, auth_service: AuthService
+    ):
+        """Test development login creates new user with dev: prefix."""
+        # Act
+        user, tokens = await auth_service.authenticate_with_dev_login(
+            "newuser@example.com"
+        )
+
+        # Assert
+        assert user.id is not None
+        assert user.email_address == "dev:newuser@example.com"
+        assert user.name == "Dev User (newuser@example.com)"
+        assert user.google_id == "dev:newuser@example.com"
+        assert user.profile_image_url is None
+        assert user.is_active is True
+        assert user.is_admin is False
+        assert isinstance(tokens, TokenPair)
+        assert tokens.access_token is not None
+        assert tokens.refresh_token is not None
+
+    async def test_authenticate_with_dev_login_existing_user(
+        self, auth_service: AuthService, session: AsyncSession
+    ):
+        """Test development login with existing dev user."""
+        # Arrange - Create existing dev user
+        existing_user = User(
+            email_address="dev:existing@example.com",
+            google_id="dev:existing@example.com",
+            name="Dev User (existing@example.com)",
+            is_active=True,
+            is_admin=False,
+        )
+        session.add(existing_user)
+        await session.flush()
+        await session.refresh(existing_user)
+
+        # Extract attributes early
+        user_id = existing_user.id
+        user_email = existing_user.email_address
+        user_name = existing_user.name
+
+        # Act
+        user, tokens = await auth_service.authenticate_with_dev_login(
+            "existing@example.com"
+        )
+
+        # Assert
+        assert user.id == user_id
+        assert user.email_address == user_email
+        assert user.name == user_name
+        assert isinstance(tokens, TokenPair)
+        assert tokens.access_token is not None
+        assert tokens.refresh_token is not None
+
+    async def test_authenticate_with_dev_login_database_error(
+        self, auth_service: AuthService
+    ):
+        """Test development login with database error causes rollback."""
+        # Mock the user repository to raise an exception
+        with (
+            patch.object(
+                auth_service.user_repository,
+                "get_by_email",
+                side_effect=Exception("DB Error"),
+            ),
+            pytest.raises(
+                AuthenticationError, match="Development authentication failed: DB Error"
+            ),
+        ):
+            await auth_service.authenticate_with_dev_login("error@example.com")
+
+    async def test_authenticate_with_dev_login_create_user_error(
+        self, auth_service: AuthService
+    ):
+        """Test development login with user creation error."""
+        # Mock repository methods to simulate creation failure
+        with (
+            patch.object(
+                auth_service.user_repository,
+                "get_by_email",
+                return_value=None,  # User doesn't exist
+            ),
+            patch.object(
+                auth_service.user_repository,
+                "create",
+                side_effect=Exception("Create Error"),
+            ),
+            pytest.raises(
+                AuthenticationError,
+                match="Development authentication failed: Dev user already exists or creation failed",
+            ),
+        ):
+            await auth_service.authenticate_with_dev_login("createerror@example.com")
+
+    async def test_create_dev_user_success(self, auth_service: AuthService):
+        """Test _create_dev_user private method."""
+        # Act
+        user = await auth_service._create_dev_user(
+            "test@example.com", "dev:test@example.com"
+        )
+
+        # Assert
+        assert user.id is not None
+        assert user.email_address == "dev:test@example.com"
+        assert user.name == "Dev User (test@example.com)"
+        assert user.google_id == "dev:test@example.com"
+        assert user.profile_image_url is None
+        assert user.is_active is True
+        assert user.is_admin is False
+
+    async def test_create_dev_user_duplicate_error(self, auth_service: AuthService):
+        """Test _create_dev_user with duplicate user error."""
+        # Mock repository to raise DuplicateError
+        with (
+            patch.object(
+                auth_service.user_repository,
+                "create",
+                side_effect=DuplicateError("User already exists"),
+            ),
+            pytest.raises(DuplicateError, match="User already exists"),
+        ):
+            await auth_service._create_dev_user(
+                "dup@example.com", "dev:dup@example.com"
+            )
+
+    async def test_create_dev_user_database_error(self, auth_service: AuthService):
+        """Test _create_dev_user with database error."""
+        # Mock repository to raise generic exception
+        with (
+            patch.object(
+                auth_service.user_repository,
+                "create",
+                side_effect=Exception("DB Error"),
+            ),
+            pytest.raises(
+                DuplicateError, match="Dev user already exists or creation failed"
+            ),
+        ):
+            await auth_service._create_dev_user(
+                "error@example.com", "dev:error@example.com"
+            )
+
+    async def test_authenticate_with_dev_login_jwt_error(
+        self, auth_service: AuthService, session: AsyncSession
+    ):
+        """Test development login with JWT creation error."""
+        # Arrange - Create existing dev user
+        existing_user = User(
+            email_address="dev:jwt@example.com",
+            google_id="dev:jwt@example.com",
+            name="Dev User (jwt@example.com)",
+            is_active=True,
+            is_admin=False,
+        )
+        session.add(existing_user)
+        await session.flush()
+        await session.refresh(existing_user)
+
+        # Mock JWT manager to raise an exception
+        with (
+            patch.object(
+                auth_service.jwt_manager,
+                "create_token_pair",
+                side_effect=Exception("JWT Error"),
+            ),
+            pytest.raises(
+                AuthenticationError,
+                match="Development authentication failed: JWT Error",
+            ),
+        ):
+            await auth_service.authenticate_with_dev_login("jwt@example.com")

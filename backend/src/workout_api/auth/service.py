@@ -244,6 +244,63 @@ class AuthService:
             logger.error(f"Failed to validate user access {user_id}: {e}")
             return False
 
+    async def authenticate_with_dev_login(self, email: str) -> tuple[User, TokenPair]:
+        """Authenticate or create user for development login and return user with tokens."""
+        try:
+            # Create dev email format
+            dev_email = f"dev:{email}"
+
+            # Look for existing dev user
+            user = await self.user_repository.get_by_email(dev_email)
+
+            if user:
+                logger.info(f"Existing dev user authenticated: {dev_email}")
+            else:
+                # Create new dev user
+                user = await self._create_dev_user(email, dev_email)
+                logger.info(f"New dev user created: {dev_email}")
+
+            # Create JWT tokens
+            tokens = self.jwt_manager.create_token_pair(user.id, user.email_address)
+
+            return user, tokens
+
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Development authentication error: {e}")
+            raise AuthenticationError(
+                f"Development authentication failed: {str(e)}"
+            ) from e
+
+    async def _create_dev_user(self, original_email: str, dev_email: str) -> User:
+        """Create a new development user."""
+        try:
+            # Create user data for dev user
+            user_data = {
+                "email_address": dev_email,
+                "google_id": dev_email,  # Use dev email as google_id for consistency
+                "name": f"Dev User ({original_email})",
+                "profile_image_url": None,
+                "is_active": True,
+                "is_admin": False,
+            }
+
+            user = await self.user_repository.create(user_data)
+            await self.session.commit()
+            # Refresh the object to ensure it stays attached to the session
+            await self.session.refresh(user)
+
+            logger.info(f"Created new dev user: {user.id} - {user.email_address}")
+            return user
+
+        except (DuplicateError, AuthenticationError):
+            # Re-raise specific exceptions without wrapping
+            raise
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"Failed to create dev user: {e}")
+            raise DuplicateError("Dev user already exists or creation failed") from e
+
 
 def get_auth_service(session: AsyncSession, jwt_manager: JWTManager) -> AuthService:
     """Factory function to create AuthService with dependencies."""

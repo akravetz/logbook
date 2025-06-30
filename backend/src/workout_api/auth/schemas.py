@@ -194,3 +194,19 @@ class NextAuthVerificationResponse(BaseModel):
 
     user: NextAuthUserResponse = Field(description="User information")
     tokens: NextAuthTokenResponse = Field(description="JWT token pair")
+
+
+class DevLoginRequest(BaseModel):
+    """Development login request - email only."""
+
+    email: EmailStr = Field(description="Email address for development login")
+
+
+class DevLoginResponse(BaseModel):
+    """Development login response."""
+
+    user: NextAuthUserResponse = Field(description="User information")
+    tokens: NextAuthTokenResponse = Field(description="JWT token pair")
+    message: str = Field(
+        default="Development login successful", description="Success message"
+    )

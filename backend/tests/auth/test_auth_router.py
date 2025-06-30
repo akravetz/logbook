@@ -1,6 +1,6 @@
 """Test auth router endpoints with anyio and transaction isolation."""
 
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
@@ -9,12 +9,14 @@ from httpx import AsyncClient
 from httpx._transports.asgi import ASGITransport
 
 from workout_api.auth.dependencies import (
+    get_auth_service_dependency,
     get_current_user_from_token,
     get_jwt_manager,
     verify_token_only,
 )
-from workout_api.auth.jwt import JWTManager, TokenData
+from workout_api.auth.jwt import JWTManager, TokenData, TokenPair
 from workout_api.auth.schemas import GoogleUserInfo
+from workout_api.core.config import Settings, get_settings
 from workout_api.core.main import app
 from workout_api.shared.exceptions import AuthenticationError
 from workout_api.users.models import User
@@ -29,8 +31,6 @@ def mock_token_data(test_user: User):
     # Extract user attributes early
     user_id = test_user.id
     user_email = test_user.email_address
-
-    from datetime import datetime, timedelta
 
     return TokenData(
         user_id=user_id,
@@ -80,6 +80,73 @@ def sample_google_user_info():
         email_verified=True,
         google_id="google123",
     )
+
+
+@pytest.fixture
+def dev_settings():
+    """Create development settings for testing."""
+    return Settings(
+        environment="development",
+        database_url="postgresql://test",
+        secret_key="test_secret_key_with_at_least_32_characters",
+        google_client_id="test_client_id",
+        google_client_secret="test_client_secret",
+    )
+
+
+@pytest.fixture
+def prod_settings():
+    """Create production settings for testing."""
+    return Settings(
+        environment="production",
+        database_url="postgresql://test",
+        secret_key="test_secret_key_with_at_least_32_characters",
+        google_client_id="test_client_id",
+        google_client_secret="test_client_secret",
+    )
+
+
+@pytest.fixture
+def mock_auth_service_success():
+    """Create a mock auth service that succeeds."""
+    mock_service = Mock()
+
+    # Mock successful dev login
+    mock_user = User(
+        id=1,
+        email_address="dev:test@example.com",
+        name="Dev User (test@example.com)",
+        google_id="dev:test@example.com",
+        is_active=True,
+        is_admin=False,
+    )
+
+    mock_tokens = TokenPair(
+        access_token="test_access_token",
+        refresh_token="test_refresh_token",
+        expires_in=1800,
+    )
+
+    mock_service.authenticate_with_dev_login.return_value = (mock_user, mock_tokens)
+    return mock_service
+
+
+@pytest.fixture
+def mock_auth_service_error():
+    """Create a mock auth service that raises AuthenticationError."""
+    mock_service = Mock()
+    mock_service.authenticate_with_dev_login.side_effect = AuthenticationError(
+        "Service error"
+    )
+    return mock_service
+
+
+@pytest.fixture
+def mock_auth_service_server_error():
+    """Create a mock auth service that raises generic Exception."""
+    mock_service = Mock()
+    mock_service.authenticate_with_dev_login.side_effect = Exception("Server error")
+    return mock_service
 
 
 class TestAuthRouterTokens:
@@ -259,8 +326,6 @@ class TestAuthRouterSession:
         await session.refresh(admin_user)
 
         # Create token data for admin user
-        from datetime import datetime, timedelta
-
         admin_token_data = TokenData(
             user_id=admin_user.id,
             email=admin_user.email_address,
@@ -270,8 +335,6 @@ class TestAuthRouterSession:
         )
 
         # Create authenticated client with admin user
-        from httpx import AsyncClient
-
         client = AsyncClient(transport=ASGITransport(app), base_url="http://test")
 
         async def override_get_current_user():
@@ -379,3 +442,168 @@ class TestAuthRouterEdgeCases:
             assert response.headers.get("content-type", "").startswith(
                 "application/json"
             )
+
+
+class TestAuthRouterDevLogin:
+    """Test development login endpoint."""
+
+    async def test_dev_login_success_new_user(self, client: AsyncClient, dev_settings):
+        """Test successful development login with new user."""
+        # Override settings dependency
+        app.dependency_overrides[get_settings] = lambda: dev_settings
+
+        try:
+            # Act
+            response = await client.post(
+                "/api/v1/auth/dev-login", json={"email": "devtest@example.com"}
+            )
+
+            # Assert
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            assert data["message"] == "Development login successful"
+            assert data["user"]["email"] == "dev:devtest@example.com"
+            assert data["user"]["name"] == "Dev User (devtest@example.com)"
+            assert data["user"]["id"] is not None
+            assert "access_token" in data["tokens"]
+            assert "refresh_token" in data["tokens"]
+            assert "expires_in" in data["tokens"]
+        finally:
+            # Clean up
+            app.dependency_overrides.pop(get_settings, None)
+
+    async def test_dev_login_success_existing_user(
+        self, client: AsyncClient, session, dev_settings
+    ):
+        """Test successful development login with existing dev user."""
+        # Arrange - Create existing dev user
+        existing_user = User(
+            email_address="dev:existing@example.com",
+            google_id="dev:existing@example.com",
+            name="Dev User (existing@example.com)",
+            is_active=True,
+            is_admin=False,
+        )
+        session.add(existing_user)
+        await session.flush()
+        await session.refresh(existing_user)
+
+        # Extract attributes early
+        user_id = existing_user.id
+        user_email = existing_user.email_address
+
+        # Override settings dependency
+        app.dependency_overrides[get_settings] = lambda: dev_settings
+
+        try:
+            # Act
+            response = await client.post(
+                "/api/v1/auth/dev-login", json={"email": "existing@example.com"}
+            )
+
+            # Assert
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+            assert data["user"]["id"] == user_id
+            assert data["user"]["email"] == user_email
+            assert "access_token" in data["tokens"]
+            assert "refresh_token" in data["tokens"]
+        finally:
+            # Clean up
+            app.dependency_overrides.pop(get_settings, None)
+
+    async def test_dev_login_production_environment(
+        self, client: AsyncClient, prod_settings
+    ):
+        """Test development login blocked in production environment."""
+        # Override settings dependency
+        app.dependency_overrides[get_settings] = lambda: prod_settings
+
+        try:
+            # Act
+            response = await client.post(
+                "/api/v1/auth/dev-login", json={"email": "blocked@example.com"}
+            )
+
+            # Assert
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            data = response.json()
+            assert "not available in production" in data["detail"]
+        finally:
+            # Clean up
+            app.dependency_overrides.pop(get_settings, None)
+
+    async def test_dev_login_invalid_email(self, client: AsyncClient, dev_settings):
+        """Test development login with invalid email format."""
+        # Override settings dependency
+        app.dependency_overrides[get_settings] = lambda: dev_settings
+
+        try:
+            # Act
+            response = await client.post(
+                "/api/v1/auth/dev-login", json={"email": "invalid-email"}
+            )
+
+            # Assert
+            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        finally:
+            # Clean up
+            app.dependency_overrides.pop(get_settings, None)
+
+    async def test_dev_login_missing_email(self, client: AsyncClient):
+        """Test development login with missing email field."""
+        # Act
+        response = await client.post("/api/v1/auth/dev-login", json={})
+
+        # Assert
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    async def test_dev_login_authentication_error(
+        self, client: AsyncClient, dev_settings, mock_auth_service_error
+    ):
+        """Test development login with authentication service error."""
+        # Override dependencies
+        app.dependency_overrides[get_settings] = lambda: dev_settings
+        app.dependency_overrides[get_auth_service_dependency] = (
+            lambda: mock_auth_service_error
+        )
+
+        try:
+            # Act
+            response = await client.post(
+                "/api/v1/auth/dev-login", json={"email": "error@example.com"}
+            )
+
+            # Assert
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED
+            data = response.json()
+            assert "Service error" in data["detail"]
+        finally:
+            # Clean up
+            app.dependency_overrides.pop(get_settings, None)
+            app.dependency_overrides.pop(get_auth_service_dependency, None)
+
+    async def test_dev_login_server_error(
+        self, client: AsyncClient, dev_settings, mock_auth_service_server_error
+    ):
+        """Test development login with server error."""
+        # Override dependencies
+        app.dependency_overrides[get_settings] = lambda: dev_settings
+        app.dependency_overrides[get_auth_service_dependency] = (
+            lambda: mock_auth_service_server_error
+        )
+
+        try:
+            # Act
+            response = await client.post(
+                "/api/v1/auth/dev-login", json={"email": "servererror@example.com"}
+            )
+
+            # Assert
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            data = response.json()
+            assert "Development login failed" in data["detail"]
+        finally:
+            # Clean up
+            app.dependency_overrides.pop(get_settings, None)
+            app.dependency_overrides.pop(get_auth_service_dependency, None)
