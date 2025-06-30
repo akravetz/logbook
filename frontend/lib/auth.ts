@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
+import CredentialsProvider from "next-auth/providers/credentials"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -7,6 +8,63 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
+    // Development-only credentials provider
+    ...(process.env.NODE_ENV === "development"
+      ? [
+          CredentialsProvider({
+            id: "dev-login",
+            name: "Development Login",
+            credentials: {
+              email: {
+                label: "Email",
+                type: "email",
+                placeholder: "developer@example.com",
+              },
+            },
+            async authorize(credentials) {
+              if (!credentials?.email) {
+                return null
+              }
+
+              try {
+                // Call our backend dev login endpoint
+                const response = await fetch(
+                  `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/auth/dev-login`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      email: credentials.email,
+                    }),
+                  }
+                )
+
+                if (!response.ok) {
+                  console.error("Dev login failed:", response.status, response.statusText)
+                  return null
+                }
+
+                const data = await response.json()
+
+                // Return user object with tokens
+                return {
+                  id: data.user.id.toString(),
+                  email: data.user.email,
+                  name: data.user.name,
+                  image: data.user.image,
+                  accessToken: data.tokens.access_token,
+                  refreshToken: data.tokens.refresh_token,
+                }
+              } catch (error) {
+                console.error("Error during dev login:", error)
+                return null
+              }
+            },
+          }),
+        ]
+      : []),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -43,6 +101,10 @@ export const authOptions: NextAuthOptions = {
           console.error('Error verifying user with backend:', error)
           return false
         }
+      } else if (account?.provider === "dev-login") {
+        // Dev login already handled in authorize function
+        // Tokens are already attached to user object
+        return true
       }
       return true
     },

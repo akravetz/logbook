@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 import type {
   DatabaseHealthResponse,
+  DevLoginRequest,
+  DevLoginResponse,
   ExerciseCreate,
   ExerciseExecutionRequest,
   ExerciseExecutionResponse,
@@ -838,6 +840,88 @@ export const useVerifyGoogleUserApiV1AuthVerifyGoogleUserPost = <
 > => {
   const mutationOptions =
     getVerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationOptions(options);
+
+  return useMutation(mutationOptions);
+};
+
+/**
+ * Login with any email in development environment only
+ * @summary Development login
+ */
+export const devLoginApiV1AuthDevLoginPost = (
+  devLoginRequest: DevLoginRequest,
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  return customInstance<DevLoginResponse>(
+    {
+      url: `/api/v1/auth/dev-login`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: devLoginRequest,
+    },
+    options,
+  );
+};
+
+export const getDevLoginApiV1AuthDevLoginPostMutationOptions = <
+  TError = void,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
+    TError,
+    { data: DevLoginRequest },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
+  TError,
+  { data: DevLoginRequest },
+  TContext
+> => {
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
+    { data: DevLoginRequest }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return devLoginApiV1AuthDevLoginPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DevLoginApiV1AuthDevLoginPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>
+>;
+export type DevLoginApiV1AuthDevLoginPostMutationBody = DevLoginRequest;
+export type DevLoginApiV1AuthDevLoginPostMutationError = void;
+
+/**
+ * @summary Development login
+ */
+export const useDevLoginApiV1AuthDevLoginPost = <
+  TError = void,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
+    TError,
+    { data: DevLoginRequest },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
+  TError,
+  { data: DevLoginRequest },
+  TContext
+> => {
+  const mutationOptions =
+    getDevLoginApiV1AuthDevLoginPostMutationOptions(options);
 
   return useMutation(mutationOptions);
 };
