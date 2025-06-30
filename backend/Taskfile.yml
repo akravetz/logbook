@@ -61,23 +61,16 @@ tasks:
 
   # OpenAPI Generation Tasks
   generate-openapi:
-    desc: Generate OpenAPI spec from FastAPI app
+    desc: Generate OpenAPI spec directly to frontend directory
     cmds:
-      - uv run python -c "from {{.PROJECT_NAME}}.core.main import app; import json; open('openapi.json', 'w').write(json.dumps(app.openapi(), indent=2).strip())"
-      - echo "OpenAPI spec generated at openapi.json"
-
-  generate-openapi-frontend:
-    desc: Generate OpenAPI spec and copy to frontend
-    cmds:
-      - task: generate-openapi
-      - cp openapi.json ../frontend/openapi.json
-      - echo "OpenAPI spec copied to frontend/openapi.json"
+      - uv run python -c "from {{.PROJECT_NAME}}.core.main import app; import json; open('../frontend/openapi.json', 'w').write(json.dumps(app.openapi(), indent=2).strip())"
+      - echo "OpenAPI spec generated at ../frontend/openapi.json"
 
   validate-openapi:
     desc: Validate that OpenAPI spec is current
     cmds:
-      - task: generate-openapi
-      - git diff --exit-code openapi.json || (echo "⚠️  OpenAPI spec is out of date! Run 'task generate-openapi' to update" && exit 1)
+      - task: generate-openapi-local
+      - git diff --exit-code ../frontend/openapi.json || (echo "⚠️  OpenAPI spec is out of date! Run 'task generate-openapi' to update" && exit 1)
       - echo "✅ OpenAPI spec is current"
 
   # Database Migration Tasks (Atlas)

@@ -2,7 +2,7 @@ import { defineConfig } from "orval"
 
 export default defineConfig({
   workoutApi: {
-    input: "../backend/openapi.json",
+    input: "openapi.json",
     output: {
       mode: "single",
       target: "lib/api/generated.ts",

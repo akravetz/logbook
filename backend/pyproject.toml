@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings>=2.10.0",
     "pydantic[email]>=2.11.7",
     "python-jose[cryptography]>=3.5.0",
+    "radon>=6.0.1",
     "sqlalchemy[asyncio]>=2.0.41",
 ]
 
