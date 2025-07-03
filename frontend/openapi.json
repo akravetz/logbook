@@ -1493,6 +1493,64 @@
         }
       }
     },
+    "/api/v1/workouts/{workout_id}/exercise-executions/reorder": {
+      "patch": {
+        "tags": [
+          "workouts"
+        ],
+        "summary": "Reorder Exercises",
+        "description": "Reorder exercises in a workout.",
+        "operationId": "reorder_exercises_api_v1_workouts__workout_id__exercise_executions_reorder_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseReorderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseReorderResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workouts/{workout_id}/exercise-executions/{exercise_id}": {
       "get": {
         "tags": [
@@ -1711,64 +1769,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ExerciseExecutionResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/workouts/{workout_id}/exercise-executions/reorder": {
-      "patch": {
-        "tags": [
-          "workouts"
-        ],
-        "summary": "Reorder Exercises",
-        "description": "Reorder exercises in a workout.",
-        "operationId": "reorder_exercises_api_v1_workouts__workout_id__exercise_executions_reorder_patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workout_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Workout Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExerciseReorderRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExerciseReorderResponse"
                 }
               }
             }

@@ -51,11 +51,13 @@ async def list_workouts(
 
         filters = WorkoutFilters()
         if start_date:
-            filters.start_date = datetime.fromisoformat(
-                start_date.replace("Z", "+00:00")
-            )
+            # Parse the datetime and remove timezone info to match database fields
+            parsed_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            filters.start_date = parsed_date.replace(tzinfo=None)
         if end_date:
-            filters.end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            # Parse the datetime and remove timezone info to match database fields
+            parsed_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            filters.end_date = parsed_date.replace(tzinfo=None)
         if finished is not None:
             filters.finished = finished
 
@@ -174,6 +176,48 @@ async def delete_workout(
 
 
 # Exercise Execution endpoints
+
+# IMPORTANT: Specific routes like /reorder must come BEFORE parameterized routes like /{exercise_id}
+# to avoid FastAPI path matching conflicts
+
+
+@router.patch(
+    "/{workout_id}/exercise-executions/reorder", response_model=ExerciseReorderResponse
+)
+async def reorder_exercises(
+    workout_id: int,
+    data: ExerciseReorderRequest,
+    current_user: CurrentUser,
+    service: WorkoutServiceDep,
+) -> ExerciseReorderResponse:
+    """Reorder exercises in a workout."""
+    user_id = current_user.id
+
+    try:
+        return await service.reorder_exercises(workout_id, data.exercise_ids, user_id)
+    except Exception as e:
+        logger.error(
+            f"Error reordering exercises workout={workout_id} user={user_id}: {e}"
+        )
+        if "not found" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
+            ) from e
+        if "cannot modify finished workout" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot modify finished workout",
+            ) from e
+        if "mismatch" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            ) from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        ) from e
+
+
 @router.get(
     "/{workout_id}/exercise-executions/{exercise_id}",
     response_model=ExerciseExecutionResponse,
@@ -308,43 +352,6 @@ async def update_exercise_execution(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot modify finished workout",
-            ) from e
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        ) from e
-
-
-@router.patch(
-    "/{workout_id}/exercise-executions/reorder", response_model=ExerciseReorderResponse
-)
-async def reorder_exercises(
-    workout_id: int,
-    data: ExerciseReorderRequest,
-    current_user: CurrentUser,
-    service: WorkoutServiceDep,
-) -> ExerciseReorderResponse:
-    """Reorder exercises in a workout."""
-    user_id = current_user.id
-
-    try:
-        return await service.reorder_exercises(workout_id, data.exercise_ids, user_id)
-    except Exception as e:
-        logger.error(
-            f"Error reordering exercises workout={workout_id} user={user_id}: {e}"
-        )
-        if "not found" in str(e).lower():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
-            ) from e
-        if "cannot modify finished workout" in str(e).lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot modify finished workout",
-            ) from e
-        if "mismatch" in str(e).lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
             ) from e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

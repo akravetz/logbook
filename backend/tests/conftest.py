@@ -263,12 +263,23 @@ def valid_token_pair(
 
 
 @pytest.fixture
-async def authenticated_client(client: AsyncClient, test_user: User) -> AsyncClient:
+async def authenticated_client(
+    client: AsyncClient, test_user: User, session: AsyncSession
+) -> AsyncClient:
     """Create authenticated HTTP client for standard user - shared across modules."""
+    from sqlalchemy import select
+
     from workout_api.auth.dependencies import get_current_user_from_token
 
+    # Extract user_id early to avoid lazy loading issues
+    user_id = test_user.id
+
     async def override_get_current_user_from_token():
-        return test_user
+        # Get a fresh user object from the database for each request to avoid detached instance issues
+        stmt = select(User).where(User.id == user_id)
+        result = await session.execute(stmt)
+        fresh_user = result.scalar_one()
+        return fresh_user
 
     app.dependency_overrides[get_current_user_from_token] = (
         override_get_current_user_from_token
@@ -282,13 +293,22 @@ async def authenticated_client(client: AsyncClient, test_user: User) -> AsyncCli
 
 @pytest.fixture
 async def admin_authenticated_client(
-    client: AsyncClient, test_admin_user: User
+    client: AsyncClient, test_admin_user: User, session: AsyncSession
 ) -> AsyncClient:
     """Create authenticated HTTP client for admin user - shared across modules."""
+    from sqlalchemy import select
+
     from workout_api.auth.dependencies import get_current_user_from_token
 
+    # Extract user_id early to avoid lazy loading issues
+    user_id = test_admin_user.id
+
     async def override_get_current_user_from_token():
-        return test_admin_user
+        # Get a fresh user object from the database for each request to avoid detached instance issues
+        stmt = select(User).where(User.id == user_id)
+        result = await session.execute(stmt)
+        fresh_user = result.scalar_one()
+        return fresh_user
 
     app.dependency_overrides[get_current_user_from_token] = (
         override_get_current_user_from_token
@@ -315,13 +335,22 @@ async def user_repository(session: AsyncSession):
 
 @pytest.fixture
 async def another_authenticated_client(
-    client: AsyncClient, another_user: User
+    client: AsyncClient, another_user: User, session: AsyncSession
 ) -> AsyncClient:
     """Create authenticated HTTP client for second user - shared across modules."""
+    from sqlalchemy import select
+
     from workout_api.auth.dependencies import get_current_user_from_token
 
+    # Extract user_id early to avoid lazy loading issues
+    user_id = another_user.id
+
     async def override_get_current_user_from_token():
-        return another_user
+        # Get a fresh user object from the database for each request to avoid detached instance issues
+        stmt = select(User).where(User.id == user_id)
+        result = await session.execute(stmt)
+        fresh_user = result.scalar_one()
+        return fresh_user
 
     app.dependency_overrides[get_current_user_from_token] = (
         override_get_current_user_from_token

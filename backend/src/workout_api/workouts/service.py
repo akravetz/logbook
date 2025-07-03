@@ -263,24 +263,37 @@ class WorkoutService:
         created_at = workout.created_at
         updated_at = workout.updated_at
 
-        # Convert exercise executions - safely handle potentially unloaded relationships
+        # Get exercise executions via explicit query to avoid lazy loading issues
         execution_responses = []
         try:
-            # Check if exercise_executions relationship is loaded
-            if (
-                hasattr(workout, "_sa_instance_state")
-                and workout._sa_instance_state.expired
-            ):
-                # If the workout instance is expired, we'll get exercise executions via query
-                pass
-            else:
-                for execution in workout.exercise_executions:
-                    execution_response = await self._exercise_execution_to_response(
-                        execution, list(execution.sets)
+            # Query for exercise executions explicitly instead of using the relationship
+            execution_stmt = (
+                select(ExerciseExecution)
+                .where(ExerciseExecution.workout_id == workout_id)
+                .order_by(ExerciseExecution.exercise_order)
+            )
+            execution_result = await self.session.execute(execution_stmt)
+            executions = execution_result.scalars().all()
+
+            for execution in executions:
+                # Query for sets explicitly
+                set_stmt = (
+                    select(Set)
+                    .where(
+                        Set.workout_id == workout_id,
+                        Set.exercise_id == execution.exercise_id,
                     )
-                    execution_responses.append(execution_response)
+                    .order_by(Set.created_at)
+                )
+                set_result = await self.session.execute(set_stmt)
+                sets = set_result.scalars().all()
+
+                execution_response = await self._exercise_execution_to_response(
+                    execution, list(sets)
+                )
+                execution_responses.append(execution_response)
         except Exception:
-            # If lazy loading fails, just assume no exercise executions (common for new workouts)
+            # If anything fails, return empty exercise executions
             execution_responses = []
 
         return WorkoutResponse(
