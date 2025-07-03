@@ -2605,13 +2605,19 @@
             "type": "integer",
             "title": "Expires In",
             "description": "Access token expiration in seconds"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At",
+            "description": "Access token expiration timestamp in ISO format"
           }
         },
         "type": "object",
         "required": [
           "access_token",
           "refresh_token",
-          "expires_in"
+          "expires_in",
+          "expires_at"
         ],
         "title": "NextAuthTokenResponse",
         "description": "JWT tokens in NextAuth.js expected format."
@@ -3122,6 +3128,11 @@
             "title": "Access Token",
             "description": "New JWT access token"
           },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token",
+            "description": "New JWT refresh token"
+          },
           "token_type": {
             "type": "string",
             "title": "Token Type",
@@ -3132,12 +3143,19 @@
             "type": "integer",
             "title": "Expires In",
             "description": "Access token expiration in seconds"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At",
+            "description": "Access token expiration timestamp in ISO format"
           }
         },
         "type": "object",
         "required": [
           "access_token",
-          "expires_in"
+          "refresh_token",
+          "expires_in",
+          "expires_at"
         ],
         "title": "TokenRefreshResponse",
         "description": "Token refresh response."

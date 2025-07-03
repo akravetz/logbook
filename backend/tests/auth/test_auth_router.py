@@ -156,8 +156,14 @@ class TestAuthRouterTokens:
         """Test successful token refresh."""
         # Arrange
         refresh_token = "valid_refresh_token"
-        new_access_token = "new_access_token"
-        mock_jwt_manager.refresh_access_token = Mock(return_value=new_access_token)
+        new_token_pair = TokenPair(
+            access_token="new_access_token",
+            refresh_token="new_refresh_token",
+            expires_in=1800,
+            expires_at="2024-01-01T12:30:00+00:00",
+        )
+
+        mock_jwt_manager.refresh_token_pair = Mock(return_value=new_token_pair)
 
         def override_get_jwt_manager():
             return mock_jwt_manager
@@ -173,10 +179,12 @@ class TestAuthRouterTokens:
             # Assert
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
-            assert data["access_token"] == new_access_token
-            assert "expires_in" in data
+            assert data["access_token"] == new_token_pair.access_token
+            assert data["refresh_token"] == new_token_pair.refresh_token
+            assert data["expires_in"] == new_token_pair.expires_in
+            assert "expires_at" in data
 
-            mock_jwt_manager.refresh_access_token.assert_called_once_with(refresh_token)
+            mock_jwt_manager.refresh_token_pair.assert_called_once_with(refresh_token)
 
         finally:
             app.dependency_overrides.pop(get_jwt_manager, None)
@@ -187,7 +195,7 @@ class TestAuthRouterTokens:
         """Test token refresh with invalid refresh token."""
         # Arrange
         refresh_token = "invalid_refresh_token"
-        mock_jwt_manager.refresh_access_token = Mock(
+        mock_jwt_manager.refresh_token_pair = Mock(
             side_effect=AuthenticationError("Invalid refresh token")
         )
 
@@ -224,7 +232,7 @@ class TestAuthRouterTokens:
         """Test token refresh with server error."""
         # Arrange
         refresh_token = "valid_refresh_token"
-        mock_jwt_manager.refresh_access_token = Mock(
+        mock_jwt_manager.refresh_token_pair = Mock(
             side_effect=Exception("Database connection failed")
         )
 

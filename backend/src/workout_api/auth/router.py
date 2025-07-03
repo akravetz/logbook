@@ -43,17 +43,17 @@ async def refresh_token(
 ) -> TokenRefreshResponse:
     """Refresh JWT access token using refresh token."""
     try:
-        # Verify refresh token and get new access token
-        new_access_token = jwt_manager.refresh_access_token(
-            refresh_request.refresh_token
-        )
+        # Get new token pair (implements token rotation)
+        token_pair = jwt_manager.refresh_token_pair(refresh_request.refresh_token)
 
-        settings = get_settings()
-        logger.info("Access token refreshed successfully")
+        logger.info("Token pair refreshed successfully")
 
         return TokenRefreshResponse(
-            access_token=new_access_token,
-            expires_in=settings.access_token_expire_minutes * 60,
+            access_token=token_pair.access_token,
+            refresh_token=token_pair.refresh_token,
+            token_type=token_pair.token_type,
+            expires_in=token_pair.expires_in,
+            expires_at=token_pair.expires_at,
         )
 
     except AuthenticationError as e:
@@ -184,6 +184,7 @@ async def verify_google_user(
                 access_token=jwt_tokens.access_token,
                 refresh_token=jwt_tokens.refresh_token,
                 expires_in=jwt_tokens.expires_in,
+                expires_at=jwt_tokens.expires_at,
             ),
         )
 
@@ -245,6 +246,7 @@ async def dev_login(
                 access_token=jwt_tokens.access_token,
                 refresh_token=jwt_tokens.refresh_token,
                 expires_in=jwt_tokens.expires_in,
+                expires_at=jwt_tokens.expires_at,
             ),
             message="Development login successful",
         )

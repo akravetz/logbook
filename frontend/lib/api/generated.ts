@@ -2882,6 +2882,120 @@ export const useFinishWorkoutApiV1WorkoutsWorkoutIdFinishPatch = <
 };
 
 /**
+ * Reorder exercises in a workout.
+ * @summary Reorder Exercises
+ */
+export const reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch =
+  (
+    workoutId: number,
+    exerciseReorderRequest: ExerciseReorderRequest,
+    options?: SecondParameter<typeof customInstance>,
+  ) => {
+    return customInstance<ExerciseReorderResponse>(
+      {
+        url: `/api/v1/workouts/${workoutId}/exercise-executions/reorder`,
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        data: exerciseReorderRequest,
+      },
+      options,
+    );
+  };
+
+export const getReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationOptions =
+  <TError = HTTPValidationError, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
+        >
+      >,
+      TError,
+      { workoutId: number; data: ExerciseReorderRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<
+        typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
+      >
+    >,
+    TError,
+    { workoutId: number; data: ExerciseReorderRequest },
+    TContext
+  > => {
+    const { mutation: mutationOptions, request: requestOptions } =
+      options ?? {};
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<
+          typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
+        >
+      >,
+      { workoutId: number; data: ExerciseReorderRequest }
+    > = (props) => {
+      const { workoutId, data } = props ?? {};
+
+      return reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch(
+        workoutId,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type ReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<
+        typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
+      >
+    >
+  >;
+export type ReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationBody =
+  ExerciseReorderRequest;
+export type ReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationError =
+  HTTPValidationError;
+
+/**
+ * @summary Reorder Exercises
+ */
+export const useReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch =
+  <TError = HTTPValidationError, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<
+          typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
+        >
+      >,
+      TError,
+      { workoutId: number; data: ExerciseReorderRequest },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  }): UseMutationResult<
+    Awaited<
+      ReturnType<
+        typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
+      >
+    >,
+    TError,
+    { workoutId: number; data: ExerciseReorderRequest },
+    TContext
+  > => {
+    const mutationOptions =
+      getReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationOptions(
+        options,
+      );
+
+    return useMutation(mutationOptions);
+  };
+
+/**
  * Get exercise execution with sets.
  * @summary Get Exercise Execution
  */
@@ -3367,120 +3481,6 @@ export const useUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsE
   > => {
     const mutationOptions =
       getUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPatchMutationOptions(
-        options,
-      );
-
-    return useMutation(mutationOptions);
-  };
-
-/**
- * Reorder exercises in a workout.
- * @summary Reorder Exercises
- */
-export const reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch =
-  (
-    workoutId: number,
-    exerciseReorderRequest: ExerciseReorderRequest,
-    options?: SecondParameter<typeof customInstance>,
-  ) => {
-    return customInstance<ExerciseReorderResponse>(
-      {
-        url: `/api/v1/workouts/${workoutId}/exercise-executions/reorder`,
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        data: exerciseReorderRequest,
-      },
-      options,
-    );
-  };
-
-export const getReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationOptions =
-  <TError = HTTPValidationError, TContext = unknown>(options?: {
-    mutation?: UseMutationOptions<
-      Awaited<
-        ReturnType<
-          typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
-        >
-      >,
-      TError,
-      { workoutId: number; data: ExerciseReorderRequest },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  }): UseMutationOptions<
-    Awaited<
-      ReturnType<
-        typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
-      >
-    >,
-    TError,
-    { workoutId: number; data: ExerciseReorderRequest },
-    TContext
-  > => {
-    const { mutation: mutationOptions, request: requestOptions } =
-      options ?? {};
-
-    const mutationFn: MutationFunction<
-      Awaited<
-        ReturnType<
-          typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
-        >
-      >,
-      { workoutId: number; data: ExerciseReorderRequest }
-    > = (props) => {
-      const { workoutId, data } = props ?? {};
-
-      return reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch(
-        workoutId,
-        data,
-        requestOptions,
-      );
-    };
-
-    return { mutationFn, ...mutationOptions };
-  };
-
-export type ReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationResult =
-  NonNullable<
-    Awaited<
-      ReturnType<
-        typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
-      >
-    >
-  >;
-export type ReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationBody =
-  ExerciseReorderRequest;
-export type ReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationError =
-  HTTPValidationError;
-
-/**
- * @summary Reorder Exercises
- */
-export const useReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch =
-  <TError = HTTPValidationError, TContext = unknown>(options?: {
-    mutation?: UseMutationOptions<
-      Awaited<
-        ReturnType<
-          typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
-        >
-      >,
-      TError,
-      { workoutId: number; data: ExerciseReorderRequest },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  }): UseMutationResult<
-    Awaited<
-      ReturnType<
-        typeof reorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
-      >
-    >,
-    TError,
-    { workoutId: number; data: ExerciseReorderRequest },
-    TContext
-  > => {
-    const mutationOptions =
-      getReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatchMutationOptions(
         options,
       );
 

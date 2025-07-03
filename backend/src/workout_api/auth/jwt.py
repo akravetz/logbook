@@ -30,6 +30,9 @@ class TokenPair(BaseModel):
     refresh_token: str = Field(description="JWT refresh token")
     token_type: str = Field(default="Bearer", description="Token type")
     expires_in: int = Field(description="Access token expiration in seconds")
+    expires_at: str = Field(
+        description="Access token expiration timestamp in ISO format"
+    )
 
 
 class TimeProvider(Protocol):
@@ -110,10 +113,16 @@ class JWTManager:
         access_token = self.create_access_token(user_id, email)
         refresh_token = self.create_refresh_token(user_id, email)
 
+        # Calculate expiration timestamp
+        expires_at = self.time_provider.now() + timedelta(
+            minutes=self.access_token_expire_minutes
+        )
+
         return TokenPair(
             access_token=access_token,
             refresh_token=refresh_token,
             expires_in=self.access_token_expire_minutes * 60,  # Convert to seconds
+            expires_at=expires_at.isoformat(),
         )
 
     def verify_token(self, token: str, expected_type: str = "access") -> TokenData:
@@ -181,6 +190,21 @@ class JWTManager:
 
         logger.info(f"Refreshed access token for user {token_data.user_id}")
         return new_access_token
+
+    def refresh_token_pair(self, refresh_token: str) -> TokenPair:
+        """Create new token pair from a valid refresh token.
+
+        This implements token rotation - the old refresh token should be
+        invalidated after this call.
+        """
+        # Verify the refresh token
+        token_data = self.verify_token(refresh_token, expected_type="refresh")
+
+        # Create new token pair
+        token_pair = self.create_token_pair(token_data.user_id, token_data.email)
+
+        logger.info(f"Refreshed token pair for user {token_data.user_id}")
+        return token_pair
 
     def get_token_info(self, token: str) -> dict[str, Any]:
         """Get token information without full validation (for debugging)."""

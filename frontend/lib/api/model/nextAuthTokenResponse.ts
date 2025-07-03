@@ -12,6 +12,8 @@
 export interface NextAuthTokenResponse {
   /** JWT access token */
   access_token: string;
+  /** Access token expiration timestamp in ISO format */
+  expires_at: string;
   /** Access token expiration in seconds */
   expires_in: number;
   /** JWT refresh token */

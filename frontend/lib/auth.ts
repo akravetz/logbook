@@ -48,6 +48,9 @@ export const authOptions: NextAuthOptions = {
 
                 const data = await response.json()
 
+                // Convert ISO timestamp to Unix timestamp for NextAuth
+                const expiresAt = Math.floor(new Date(data.tokens.expires_at).getTime() / 1000)
+
                 // Return user object with tokens
                 return {
                   id: data.user.id.toString(),
@@ -56,6 +59,7 @@ export const authOptions: NextAuthOptions = {
                   image: data.user.image,
                   accessToken: data.tokens.access_token,
                   refreshToken: data.tokens.refresh_token,
+                  tokenExpiresAt: expiresAt,
                 }
               } catch (error) {
                 console.error("Error during dev login:", error)
@@ -91,9 +95,13 @@ export const authOptions: NextAuthOptions = {
 
           const data = await response.json()
 
+          // Convert ISO timestamp to Unix timestamp for NextAuth
+          const expiresAt = Math.floor(new Date(data.tokens.expires_at).getTime() / 1000)
+
           // Store JWT tokens in the user object for later use
           user.accessToken = data.tokens.access_token
           user.refreshToken = data.tokens.refresh_token
+          user.tokenExpiresAt = expiresAt
           user.id = data.user.id.toString()
 
           return true
@@ -111,9 +119,64 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       // Initial sign in
       if (account && user) {
-        token.accessToken = user.accessToken
-        token.refreshToken = user.refreshToken
-        token.userId = user.id
+        return {
+          ...token,
+          accessToken: user.accessToken,
+          refreshToken: user.refreshToken,
+          tokenExpiresAt: user.tokenExpiresAt,
+          userId: user.id,
+        }
+      }
+
+      // Check if token should be refreshed
+      // Refresh if token expires in less than 5 minutes
+      const shouldRefresh = token.tokenExpiresAt
+        ? (token.tokenExpiresAt as number) * 1000 < Date.now() + 5 * 60 * 1000
+        : false
+
+      if (shouldRefresh && token.refreshToken) {
+        try {
+          console.log("Token expiring soon, refreshing...")
+
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/auth/refresh`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                refresh_token: token.refreshToken,
+              }),
+            }
+          )
+
+          if (!response.ok) {
+            throw new Error(`Refresh failed: ${response.status}`)
+          }
+
+          const refreshedTokens = await response.json()
+
+          // Convert ISO timestamp to Unix timestamp for NextAuth
+          const newExpiresAt = Math.floor(new Date(refreshedTokens.expires_at).getTime() / 1000)
+
+          console.log("Token refreshed successfully")
+
+          return {
+            ...token,
+            accessToken: refreshedTokens.access_token,
+            refreshToken: refreshedTokens.refresh_token,
+            tokenExpiresAt: newExpiresAt,
+            error: undefined, // Clear any previous errors
+          }
+        } catch (error) {
+          console.error("Error refreshing access token:", error)
+          // Return token with error flag
+          return {
+            ...token,
+            error: "RefreshTokenError",
+          }
+        }
       }
 
       return token
@@ -123,6 +186,7 @@ export const authOptions: NextAuthOptions = {
       session.accessToken = token.accessToken as string
       session.refreshToken = token.refreshToken as string
       session.userId = token.userId as string
+      session.error = token.error as "RefreshTokenError" | undefined
 
       return session
     },
@@ -132,6 +196,8 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
+    // Set session max age to 7 days to match refresh token
+    maxAge: 7 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
