@@ -144,10 +144,61 @@ class TestJWTManager:
 
     def test_refresh_with_access_token(self, jwt_manager):
         """Test refreshing with access token (should fail)."""
-        access_token = jwt_manager.create_access_token(1, "test@example.com")
+        # Create access token
+        access_token = jwt_manager.create_access_token(123, "test@example.com")
 
+        # Try to use it as refresh token
         with pytest.raises(AuthenticationError, match="Invalid token type"):
             jwt_manager.refresh_access_token(access_token)
+
+    def test_refresh_token_pair(self, jwt_manager):
+        """Test refreshing both access and refresh tokens."""
+        # Create initial refresh token
+        initial_refresh_token = jwt_manager.create_refresh_token(
+            123, "test@example.com"
+        )
+
+        # Refresh the token pair
+        token_pair = jwt_manager.refresh_token_pair(initial_refresh_token)
+
+        # Verify the returned token pair
+        assert token_pair.access_token is not None
+        assert token_pair.refresh_token is not None
+        assert token_pair.access_token != token_pair.refresh_token
+        assert token_pair.expires_in == jwt_manager.access_token_expire_minutes * 60
+        assert token_pair.expires_at is not None
+
+        # Verify expires_at is in ISO format and represents a future time
+        from datetime import datetime
+
+        expires_at_dt = datetime.fromisoformat(
+            token_pair.expires_at.replace("Z", "+00:00")
+        )
+        assert expires_at_dt > jwt_manager.time_provider.now()
+
+        expected_expiry = jwt_manager.time_provider.now() + timedelta(
+            minutes=jwt_manager.access_token_expire_minutes
+        )
+        # Allow 1 second tolerance for test execution time
+        assert abs((expires_at_dt - expected_expiry).total_seconds()) < 1
+
+        # Verify the new tokens are valid
+        access_token_data = jwt_manager.verify_token(
+            token_pair.access_token, expected_type="access"
+        )
+        assert access_token_data.user_id == 123
+        assert access_token_data.email == "test@example.com"
+
+        refresh_token_data = jwt_manager.verify_token(
+            token_pair.refresh_token, expected_type="refresh"
+        )
+        assert refresh_token_data.user_id == 123
+        assert refresh_token_data.email == "test@example.com"
+
+    def test_refresh_token_pair_with_invalid_token(self, jwt_manager):
+        """Test refreshing token pair with invalid refresh token."""
+        with pytest.raises(AuthenticationError):
+            jwt_manager.refresh_token_pair("invalid_token")
 
     def test_get_token_info(self, jwt_manager):
         """Test getting token info without validation."""
@@ -223,12 +274,14 @@ class TestTokenPair:
             access_token="access_token",
             refresh_token="refresh_token",
             expires_in=1800,
+            expires_at="2024-01-01T12:30:00+00:00",
         )
 
         assert token_pair.access_token == "access_token"
         assert token_pair.refresh_token == "refresh_token"
         assert token_pair.token_type == "Bearer"
         assert token_pair.expires_in == 1800
+        assert token_pair.expires_at == "2024-01-01T12:30:00+00:00"
 
     def test_token_pair_custom_type(self):
         """Test TokenPair with custom token type."""
@@ -237,6 +290,7 @@ class TestTokenPair:
             refresh_token="refresh_token",
             token_type="Custom",
             expires_in=1800,
+            expires_at="2024-01-01T12:30:00+00:00",
         )
 
         assert token_pair.token_type == "Custom"

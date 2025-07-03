@@ -37,6 +37,9 @@ class TokenResponse(BaseModel):
     refresh_token: str = Field(description="JWT refresh token")
     token_type: str = Field(default="Bearer", description="Token type")
     expires_in: int = Field(description="Access token expiration in seconds")
+    expires_at: str = Field(
+        description="Access token expiration timestamp in ISO format"
+    )
 
 
 class TokenRefreshRequest(BaseModel):
@@ -49,8 +52,12 @@ class TokenRefreshResponse(BaseModel):
     """Token refresh response."""
 
     access_token: str = Field(description="New JWT access token")
+    refresh_token: str = Field(description="New JWT refresh token")
     token_type: str = Field(default="Bearer", description="Token type")
     expires_in: int = Field(description="Access token expiration in seconds")
+    expires_at: str = Field(
+        description="Access token expiration timestamp in ISO format"
+    )
 
 
 class UserProfileResponse(BaseModel):
@@ -187,6 +194,9 @@ class NextAuthTokenResponse(BaseModel):
     access_token: str = Field(description="JWT access token")
     refresh_token: str = Field(description="JWT refresh token")
     expires_in: int = Field(description="Access token expiration in seconds")
+    expires_at: str = Field(
+        description="Access token expiration timestamp in ISO format"
+    )
 
 
 class NextAuthVerificationResponse(BaseModel):

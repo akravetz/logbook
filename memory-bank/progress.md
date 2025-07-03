@@ -2,6 +2,38 @@
 
 ## Completed Work
 
+### ✅ Token Rotation Implementation (LATEST)
+- **Complete JWT Token Rotation**: Implemented automatic token refresh following Auth.js best practices
+  - **Backend Enhancements**: Updated `/api/v1/auth/refresh` endpoint to return full token pairs
+    - Returns both new access AND refresh tokens (one-time use pattern)
+    - Includes `expires_at` timestamp for frontend tracking
+    - Added `refresh_token_pair()` method to JWTManager
+    - Updated `TokenRefreshResponse` schema with all required fields
+
+  - **Frontend NextAuth Integration**: Automatic token refresh in JWT callback
+    - Checks token expiration on each session request
+    - Proactively refreshes tokens when < 5 minutes remain
+    - Stores new token pair in NextAuth session
+    - Sets `RefreshTokenError` on refresh failure for proper handling
+
+  - **Error Handling & Recovery**: Graceful handling of token expiration
+    - Custom `useAuthErrorHandler` hook monitors session errors
+    - Automatic logout on `RefreshTokenError`
+    - Integrated into `AuthProvider` for app-wide coverage
+    - Simplified axios interceptor - removed manual refresh logic
+
+  - **Security Improvements**: Enhanced token security patterns
+    - One-time refresh tokens (old tokens invalidated after use)
+    - Proactive refresh prevents authentication interruptions
+    - Tokens stored in encrypted NextAuth JWT cookies
+    - TypeScript types extended for type safety
+
+- **Testing & Verification**:
+  - ✅ **Backend Tests Updated**: Refresh token tests handle new response format
+  - ✅ **JWT Tests Enhanced**: Added `test_refresh_token_pair` for new functionality
+  - ✅ **Manual Test Script**: Created `test-token-rotation.ts` for verification
+  - ✅ **All Tests Passing**: Authentication tests continue to work correctly
+
 ### ✅ Development Login System (LATEST)
 - **Complete Development Authentication**: Implemented comprehensive dev login system for simplified local development
   - **Backend Dev Login Endpoint**: `/api/v1/auth/dev-login` POST endpoint with environment restrictions
