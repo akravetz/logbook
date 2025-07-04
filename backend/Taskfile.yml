@@ -139,7 +139,7 @@ tasks:
   seed:exercises:
     desc: Seed exercises only
     cmds:
-      - uv run python scripts/seed_database.py --seeders exercises {{.CLI_ARGS}}
+      - uv run python scripts/seed_database.py --seeders exercises --clean {{.CLI_ARGS}}
 
   seed:list:
     desc: List available seeders

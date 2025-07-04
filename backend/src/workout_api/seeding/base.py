@@ -2,9 +2,30 @@
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CleanResult:
+    """Result of a table cleaning operation."""
+
+    tables_cleaned: list[str]
+    rows_deleted: int
+    success: bool = True
+    errors: list[str] = field(default_factory=list)
+
+    def add_error(self, error: str) -> None:
+        """Add an error to the result."""
+        self.errors.append(error)
+        self.success = False
+
+    def __str__(self) -> str:
+        status = "✅ SUCCESS" if self.success else "❌ FAILED"
+        if self.errors:
+            return f"{status} Clean: {len(self.errors)} errors"
+        return f"{status} Clean: {len(self.tables_cleaned)} tables, {self.rows_deleted} rows deleted"
 
 
 @dataclass
@@ -17,6 +38,7 @@ class SeedResult:
     skipped_items: int
     errors: list[str]
     success: bool
+    clean_result: CleanResult | None = None
 
     @property
     def updated_items(self) -> int:
@@ -31,13 +53,21 @@ class SeedResult:
     def __str__(self) -> str:
         """String representation of the result."""
         status = "✅ SUCCESS" if self.success else "❌ FAILED"
-        return (
-            f"{status} {self.seeder_name}: "
-            f"{self.created_items} created, "
-            f"{self.updated_items} updated, "
-            f"{self.skipped_items} skipped, "
-            f"{len(self.errors)} errors"
+
+        parts = []
+        if self.clean_result:
+            parts.append(f"cleaned {self.clean_result.rows_deleted} rows")
+
+        parts.extend(
+            [
+                f"{self.created_items} created",
+                f"{self.updated_items} updated",
+                f"{self.skipped_items} skipped",
+                f"{len(self.errors)} errors",
+            ]
         )
+
+        return f"{status} {self.seeder_name}: {', '.join(parts)}"
 
 
 class BaseSeeder(ABC):
@@ -73,6 +103,24 @@ class BaseSeeder(ABC):
     @abstractmethod
     async def should_skip_existing(self) -> bool:
         """Whether this seeder should skip existing items by default."""
+        pass
+
+    @abstractmethod
+    async def clean(self) -> CleanResult:
+        """Clean (truncate) tables managed by this seeder.
+
+        Returns:
+            CleanResult containing operation results
+        """
+        pass
+
+    @abstractmethod
+    def get_managed_tables(self) -> list[str]:
+        """Get list of table names this seeder manages.
+
+        Returns:
+            List of table names that this seeder is responsible for
+        """
         pass
 
     async def log_progress(

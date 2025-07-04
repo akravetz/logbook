@@ -1,4 +1,4 @@
-
+name,body_part,modality
 Ab Crunch Machine,core,MACHINE
 Arnold Press,shoulders,DUMBBELL
 Assisted Pull-ups,back,MACHINE
@@ -16,13 +16,12 @@ Box Jumps,legs,BODYWEIGHT
 Bulgarian Split Squat,legs,DUMBBELL
 Burpees,full body,BODYWEIGHT
 Cable Bicep Curl,biceps,CABLE
-Cable Calf Raises,calves,CABLE
 Cable Crossover,chest,CABLE
 Cable Crunches,core,CABLE
-Cable Curl,biceps,CABLE
 Cable Face Pull,rear delts,CABLE
 Cable Flyes,chest,CABLE
 Cable Front Raises,shoulders,CABLE
+Cable Hammer Curl,biceps,CABLE
 Cable Kickbacks,glutes,CABLE
 Cable Lateral Raises,shoulders,CABLE
 Cable Pullover,back,CABLE
@@ -30,7 +29,6 @@ Cable Rear Delt Flyes,shoulders,CABLE
 Cable Russian Twists,core,CABLE
 Cable Shrugs,traps,CABLE
 Cable Woodchoppers,core,CABLE
-Calf Raise Machine,legs,MACHINE
 Calf Raise,calves,MACHINE
 Calf Raises,calves,DUMBBELL
 Chest Cable Fly,chest,CABLE
@@ -40,7 +38,6 @@ Clean and Jerk,full body,BARBELL
 Close-Grip Bench Press,triceps,BARBELL
 Concentration Curl,biceps,DUMBBELL
 Crunches,core,BODYWEIGHT
-Dead Bug,core,BODYWEIGHT
 Deadlift,back,BARBELL
 Decline Bench Press,chest,BARBELL
 Decline Dumbbell Press,chest,DUMBBELL
@@ -54,7 +51,7 @@ Dumbbell Hip Thrust,glutes,DUMBBELL
 Dumbbell Lunges,legs,DUMBBELL
 Dumbbell Row,back,DUMBBELL
 Dumbbell Shoulder Press,shoulders,DUMBBELL
-Dumbbell Shrugs,traps,DUMBBELL
+Dumbbell Shrug,traps,DUMBBELL
 EZ-Bar Curl,biceps,BARBELL
 Face Pull,shoulders,CABLE
 Farmer's Walk,forearms,DUMBBELL
@@ -65,7 +62,6 @@ Glute Ham Raise,hamstrings,BODYWEIGHT
 Goblet Squat,legs,DUMBBELL
 Good Mornings,lower back,BARBELL
 Hack Squat,legs,MACHINE
-Hammer Curl Cable,biceps,CABLE
 Hammer Curl,biceps,DUMBBELL
 Handstand Push-ups,shoulders,BODYWEIGHT
 Hanging Leg Raises,core,BODYWEIGHT
@@ -106,10 +102,7 @@ Romanian Deadlift,hamstrings,BARBELL
 Russian Twists,core,BODYWEIGHT
 Seated Cable Row,back,CABLE
 Seated Calf Raise,calves,MACHINE
-Seated Calf Raises,calves,DUMBBELL
 Shoulder Press Machine,shoulders,MACHINE
-Shoulder Press,shoulders,BARBELL
-Dumbbell Shrug,traps,DUMBBELL
 Shrugs,traps,BARBELL
 Side Plank,core,BODYWEIGHT
 Single-Leg Romanian Deadlift,legs,DUMBBELL
@@ -123,15 +116,13 @@ Smith Machine Overhead Press,shoulders,SMITH
 Smith Machine Shrugs,traps,SMITH
 Smith Machine Squat,legs,SMITH
 Snatch,full body,BARBELL
-Squat,legs,BARBELL
 Standing Calf Raise,calves,MACHINE
-Standing Calf Raises,calves,BODYWEIGHT
 Stiff-Leg Deadlift,legs,BARBELL
 T-Bar Row,back,BARBELL
 Tricep Dip Machine,triceps,MACHINE
 Tricep Dips,triceps,BODYWEIGHT
-Triceps Pushdown,triceps,CABLE
 Triceps Kickback,triceps,DUMBBELL
+Triceps Pushdown,triceps,CABLE
 Upright Row,shoulders,DUMBBELL
 Walking Lunges,legs,DUMBBELL
 Wide-Grip Lat Pulldown,back,CABLE

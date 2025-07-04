@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 # Add the src directory to Python path
@@ -23,6 +24,16 @@ from workout_api.seeding.exercise_seeder import (
 # Import all models to ensure SQLAlchemy metadata is properly registered
 from workout_api.users.models import User  # noqa: F401
 from workout_api.workouts.models import ExerciseExecution, Set, Workout  # noqa: F401
+
+
+@dataclass
+class SeederConfig:
+    """Configuration for seeding operations."""
+
+    dry_run: bool = False
+    force: bool = False
+    clean: bool = False
+    csv_file: str | None = None
 
 
 def setup_argument_parser() -> argparse.ArgumentParser:
@@ -67,6 +78,12 @@ Examples:
         "--force",
         action="store_true",
         help="Force seeding (skip existing item checks)",
+    )
+
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Clean (truncate) relevant tables before seeding",
     )
 
     parser.add_argument(
@@ -172,18 +189,18 @@ def determine_and_validate_seeders(seeders_arg: str | None) -> list[str]:
 async def run_seeders(
     db_manager: DatabaseManager,
     seeder_names: list[str],
-    dry_run: bool,
-    force: bool,
-    csv_file: str | None,
+    config: SeederConfig,
 ) -> list[SeedResult]:
     """Run the specified seeders and return results."""
     logger = logging.getLogger(__name__)
 
     logger.info(f"Running seeders: {seeder_names}")
-    if dry_run:
+    if config.dry_run:
         logger.info("🔍 DRY RUN MODE - No changes will be made")
-    if force:
+    if config.force:
         logger.info("💪 FORCE MODE - Existing items will be overwritten")
+    if config.clean:
+        logger.info("🧹 CLEAN MODE - Tables will be truncated before seeding")
 
     all_results = []
 
@@ -195,16 +212,29 @@ async def run_seeders(
 
             try:
                 seeder_class = SeederRegistry.get_seeder(seeder_name)
-                seeder = seeder_class(session, dry_run=dry_run, force=force)
+                seeder = seeder_class(
+                    session, dry_run=config.dry_run, force=config.force
+                )
+
+                # Clean tables if requested
+                clean_result = None
+                if config.clean:
+                    logger.info(f"Cleaning tables for {seeder_name}...")
+                    clean_result = await seeder.clean()
+                    logger.info(f"Clean result: {clean_result}")
 
                 # Pass additional arguments based on seeder type
                 kwargs = {}
-                if seeder_name == "exercises" and csv_file:
-                    kwargs["csv_file_path"] = csv_file
+                if seeder_name == "exercises" and config.csv_file:
+                    kwargs["csv_file_path"] = config.csv_file
 
                 result = await seeder.seed(**kwargs)
-                all_results.append(result)
 
+                # Attach clean result to seed result
+                if clean_result:
+                    result.clean_result = clean_result
+
+                all_results.append(result)
                 logger.info(f"Seeder result: {result}")
 
             except Exception as e:
@@ -224,12 +254,15 @@ def print_summary(results: list[SeedResult]) -> None:
     total_updated = sum(r.updated_items for r in results)
     total_skipped = sum(r.skipped_items for r in results)
     total_errors = sum(len(r.errors) for r in results)
+    total_cleaned = sum(
+        r.clean_result.rows_deleted if r.clean_result else 0 for r in results
+    )
 
     for result in results:
         print(result)
 
     print(
-        f"\nOverall: {total_created} created, {total_updated} updated, {total_skipped} skipped, {total_errors} errors"
+        f"\nOverall: {total_cleaned} cleaned, {total_created} created, {total_updated} updated, {total_skipped} skipped, {total_errors} errors"
     )
 
     if total_errors > 0:
@@ -260,12 +293,16 @@ async def main() -> None:
     seeder_names = determine_and_validate_seeders(args.seeders)
 
     # Run seeders
+    config = SeederConfig(
+        dry_run=args.dry_run,
+        force=args.force,
+        clean=args.clean,
+        csv_file=args.csv_file,
+    )
     results = await run_seeders(
         db_manager=db_manager,
         seeder_names=seeder_names,
-        dry_run=args.dry_run,
-        force=args.force,
-        csv_file=args.csv_file,
+        config=config,
     )
 
     # Print summary and exit

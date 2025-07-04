@@ -5,9 +5,11 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import text
+
 from ..exercises.models import ExerciseModality
 from ..exercises.repository import ExerciseRepository
-from .base import BaseSeeder, SeedResult
+from .base import BaseSeeder, CleanResult, SeedResult
 from .seeder_registry import register_seeder
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,53 @@ class ExerciseSeeder(BaseSeeder):
     async def should_skip_existing(self) -> bool:
         """Exercise seeder skips existing items by default."""
         return True
+
+    def get_managed_tables(self) -> list[str]:
+        """Get list of table names this seeder manages."""
+        return ["exercises"]
+
+    async def clean(self) -> CleanResult:
+        """Clean (truncate) the exercises table.
+
+        Returns:
+            CleanResult containing operation results
+        """
+        result = CleanResult(tables_cleaned=[], rows_deleted=0)
+
+        try:
+            # First, get the count of rows to be deleted
+            count_result = await self.session.execute(
+                text("SELECT COUNT(*) FROM exercises WHERE is_user_created = FALSE")
+            )
+            rows_count = count_result.scalar() or 0
+
+            if self.dry_run:
+                self.logger.info(
+                    f"[DRY RUN] Would delete {rows_count} system exercises"
+                )
+                result.tables_cleaned = ["exercises"]
+                result.rows_deleted = rows_count
+                return result
+
+            # Delete only system exercises (not user-created ones)
+            delete_result = await self.session.execute(
+                text("DELETE FROM exercises WHERE is_user_created = FALSE")
+            )
+
+            actual_deleted = delete_result.rowcount or 0
+
+            self.logger.info(f"Deleted {actual_deleted} system exercises")
+
+            result.tables_cleaned = ["exercises"]
+            result.rows_deleted = actual_deleted
+
+            return result
+
+        except Exception as e:
+            error_msg = f"Failed to clean exercises table: {e}"
+            self.logger.error(error_msg)
+            result.add_error(error_msg)
+            return result
 
     def _get_csv_path(self, csv_file_path: str | None = None) -> Path:
         """Get the path to the exercises CSV file."""
@@ -94,32 +143,33 @@ class ExerciseSeeder(BaseSeeder):
 
         Returns:
             List of exercise data dictionaries
+
+        Raises:
+            FileNotFoundError: If CSV file doesn't exist
+            ValueError: If CSV headers don't match expected format
         """
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
 
         exercises = []
+        expected_headers = ["name", "body_part", "modality"]
 
         with open(csv_path, encoding="utf-8") as file:
-            # Try to detect if file has headers by checking first row
-            first_line = file.readline().strip()
-            file.seek(0)
+            reader = csv.DictReader(file)
 
-            # If first line looks like headers, use DictReader
-            if "," in first_line and any(
-                header in first_line.lower() for header in ["name", "body", "modality"]
-            ):
-                reader = csv.DictReader(file)
-                fieldnames = reader.fieldnames
-                self.logger.info(f"Detected CSV headers: {fieldnames}")
-            else:
-                # No headers, assume order: name, body_part, modality
-                reader = csv.DictReader(
-                    file, fieldnames=["name", "body_part", "modality"]
+            # Validate headers
+            if not reader.fieldnames:
+                raise ValueError("CSV file must have headers")
+
+            # Check that headers match exactly what we expect
+            actual_headers = [header.strip() for header in reader.fieldnames]
+            if actual_headers != expected_headers:
+                raise ValueError(
+                    f"CSV headers must be exactly {expected_headers}, "
+                    f"but found {actual_headers}"
                 )
-                self.logger.info(
-                    "No headers detected, using default field order: name, body_part, modality"
-                )
+
+            self.logger.info(f"Validated CSV headers: {actual_headers}")
 
             for row_num, row in enumerate(
                 reader, start=2
