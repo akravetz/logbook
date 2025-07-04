@@ -2093,6 +2093,14 @@
             "type": "string",
             "title": "Exercise Name"
           },
+          "exercise_body_part": {
+            "type": "string",
+            "title": "Exercise Body Part"
+          },
+          "exercise_modality": {
+            "type": "string",
+            "title": "Exercise Modality"
+          },
           "exercise_order": {
             "type": "integer",
             "title": "Exercise Order"
@@ -2131,6 +2139,8 @@
         "required": [
           "exercise_id",
           "exercise_name",
+          "exercise_body_part",
+          "exercise_modality",
           "exercise_order",
           "created_at",
           "updated_at"

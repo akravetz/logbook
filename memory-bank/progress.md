@@ -117,7 +117,7 @@
 
 #### **Exercise Management (Complete)**
 - ✅ **Search System**: Debounced search with grouping by body part
-- ✅ **Exercise Categories**: Proper modality tags and body part organization
+- ✅ **Exercise Categories**: Proper modality tags and body part organization using actual API data
 - ✅ **User vs System Exercises**: Support for both user-created and system exercises
 - ✅ **Exercise Execution**: Add exercises to workouts with proper ordering
 
@@ -155,6 +155,27 @@ The authentication and data management systems are production-ready:
 - **PATCH Method Missing**: The exercise reorder endpoint uses `@router.patch()` but PATCH was missing from the backend CORS `allowed_methods` list
 - **Resolution**: Added "PATCH" to `allowed_methods` in `backend/src/workout_api/core/config.py`
 - **Lesson**: Always ensure CORS `allowed_methods` includes all HTTP methods used by API endpoints
+
+#### **API Schema Enhancement**
+- **Hardcoded Values Issue**: Exercise body_part and modality were hardcoded in frontend instead of using API data
+- **Resolution**: Enhanced `ExerciseExecutionResponse` schema to include `exercise_body_part` and `exercise_modality` fields
+- **Backend Changes**: Updated workout service to query exercise table for complete details in `_exercise_execution_to_response` method
+- **Frontend Changes**: Updated components to use actual API data instead of placeholder values
+- **Lesson**: Always design API responses with all required data to avoid additional client-side queries
+
+#### **State Management Cache Issue**
+- **Problem**: Local state changes lost when navigating away and back to workout page
+- **Root Cause**: React Query serves stale cached data (5min staleTime) instead of fetching fresh data after mutations
+- **Resolution**: Added React Query cache invalidation after all workout mutations (reorder, add sets, delete sets, finish workout)
+- **Implementation**: Uses `queryClient.invalidateQueries()` with workout-specific query key after successful mutations
+- **Result**: Navigation back to workout page now fetches fresh data from server, preserving all changes
+
+#### **Multi-Cache Invalidation Issue**
+- **Problem**: Main page workout list shows stale exercise order after reordering exercises in active workout
+- **Root Cause**: Only individual workout query was being invalidated, not the workout list query that powers the main page
+- **Resolution**: Added dual cache invalidation - both individual workout and workout list queries
+- **Implementation**: Uses `Promise.all()` to invalidate both `getGetWorkoutApiV1WorkoutsWorkoutIdGetQueryKey()` and `getListWorkoutsApiV1WorkoutsGetQueryKey()`
+- **Result**: Both individual workout pages AND main page workout list now show consistent, up-to-date data after mutations
 
 ### **Current Technical State**
 

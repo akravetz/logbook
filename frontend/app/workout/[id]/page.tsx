@@ -10,7 +10,7 @@ import { AddExerciseModal } from "@/components/modals/add-exercise-modal"
 import { AddSetModal } from "@/components/modals/add-set-modal"
 import { EditSetModal } from "@/components/modals/edit-set-modal"
 import { useWorkoutStore } from "@/lib/stores/workout-store"
-import { useGetWorkoutApiV1WorkoutsWorkoutIdGet } from "@/lib/api/generated"
+import { useTaggedGetWorkout } from "@/lib/hooks/use-tagged-queries"
 
 interface WorkoutPageProps {
   params: Promise<{ id: string }>
@@ -30,8 +30,8 @@ export default function WorkoutPage({ params }: WorkoutPageProps) {
     })
   }, [params])
 
-  // Fetch the workout data
-  const { data: workoutData, isLoading, error } = useGetWorkoutApiV1WorkoutsWorkoutIdGet(
+  // Fetch the workout data with cache tags
+  const { data: workoutData, isLoading, error } = useTaggedGetWorkout(
     workoutId || 0,
     {
       query: {

@@ -111,6 +111,8 @@ class ExerciseExecutionResponse(BaseModel):
 
     exercise_id: int
     exercise_name: str
+    exercise_body_part: str
+    exercise_modality: str
     exercise_order: int
     note_text: str | None = None
     created_at: datetime

@@ -317,10 +317,15 @@ class WorkoutService:
         created_at = execution.created_at
         updated_at = execution.updated_at
 
-        # Get exercise name - need to query exercise table
-        exercise_stmt = select(Exercise.name).where(Exercise.id == exercise_id)
+        # Get exercise details - need to query exercise table
+        exercise_stmt = select(
+            Exercise.name, Exercise.body_part, Exercise.modality
+        ).where(Exercise.id == exercise_id)
         exercise_result = await self.session.execute(exercise_stmt)
-        exercise_name = exercise_result.scalar_one()
+        exercise_row = exercise_result.one()
+        exercise_name = exercise_row.name
+        exercise_body_part = exercise_row.body_part
+        exercise_modality = exercise_row.modality.value  # Convert enum to string
 
         # Convert sets to Pydantic models
         set_responses = [SetResponse.model_validate(set_obj) for set_obj in sets]
@@ -328,6 +333,8 @@ class WorkoutService:
         return ExerciseExecutionResponse(
             exercise_id=exercise_id,
             exercise_name=exercise_name,
+            exercise_body_part=exercise_body_part,
+            exercise_modality=exercise_modality,
             exercise_order=exercise_order,
             note_text=note_text,
             created_at=created_at,

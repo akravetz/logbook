@@ -11,21 +11,23 @@ import {
 import { useUIStore } from '@/lib/stores/ui-store'
 import { useWorkoutStore } from '@/lib/stores/workout-store'
 import {
-  useSearchExercisesApiV1ExercisesGet,
   useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPut
 } from '@/lib/api/generated'
+import { useTaggedSearchExercises } from '@/lib/hooks/use-tagged-queries'
+import { useCacheUtils } from '@/lib/cache-tags'
 import type { ExerciseExecutionRequest, ExerciseResponse } from '@/lib/api/model'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 
 export function SelectExerciseModal() {
   const { modals, closeAllModals, openAddNewExerciseModal } = useUIStore()
   const { activeWorkout, addExerciseToWorkout } = useWorkoutStore()
+  const { invalidateWorkoutData } = useCacheUtils()
   const [searchTerm, setSearchTerm] = useState('')
   const [isAdding, setIsAdding] = useState<number | null>(null)
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
-  const { data: searchResults, isLoading } = useSearchExercisesApiV1ExercisesGet({
+  const { data: searchResults, isLoading } = useTaggedSearchExercises({
     name: debouncedSearchTerm || undefined,
     page: 1,
     size: 50,
@@ -41,7 +43,7 @@ export function SelectExerciseModal() {
   const groupedExercises = useMemo(() => {
     if (!searchResults?.items) return {}
 
-    return searchResults.items.reduce((groups, exercise) => {
+    return searchResults.items.reduce((groups: Record<string, ExerciseResponse[]>, exercise: ExerciseResponse) => {
       const bodyPart = exercise.body_part
       if (!groups[bodyPart]) {
         groups[bodyPart] = []
@@ -67,6 +69,9 @@ export function SelectExerciseModal() {
         exerciseId: exercise.id,
         data: executionData,
       })
+
+      // Invalidate workout data using cache tags
+      await invalidateWorkoutData()
 
       // Update local state
       addExerciseToWorkout(executionResult)

@@ -28,6 +28,7 @@ import {
   useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPut,
   useReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
 } from '@/lib/api/generated'
+import { useCacheUtils } from '@/lib/cache-tags'
 import type { ExerciseExecutionRequest, SetCreate, ExerciseExecutionResponse } from '@/lib/api/model'
 
 interface ActiveWorkoutScreenProps {
@@ -90,8 +91,8 @@ function SortableExerciseCard({
             <div>
               <h3 className="font-semibold text-lg">{execution.exercise_name}</h3>
               <div className="flex items-center gap-3 mt-1">
-                <span className="exercise-badge">chest</span>
-                <span className="exercise-badge">barbell</span>
+                <span className="exercise-badge">{execution.exercise_body_part}</span>
+                <span className="exercise-badge">{execution.exercise_modality.toLowerCase()}</span>
               </div>
             </div>
           </div>
@@ -151,8 +152,8 @@ function SortableExerciseCard({
             onClick={() => onOpenAddSetModal(execution.exercise_id, {
               id: execution.exercise_id,
               name: execution.exercise_name,
-              body_part: 'chest', // TODO: Get from actual exercise data
-              modality: 'barbell', // TODO: Get from actual exercise data
+              body_part: execution.exercise_body_part,
+              modality: execution.exercise_modality,
             })}
             className="w-full mt-4 py-3 border border-gray-300 rounded-lg font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
@@ -168,6 +169,7 @@ function SortableExerciseCard({
 export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
   const router = useRouter()
   const { data: session } = useSession()
+  const { invalidateWorkoutData } = useCacheUtils()
   const {
     activeWorkout,
     workoutTimer,
@@ -211,6 +213,10 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
 
     try {
       await finishWorkoutMutation.mutateAsync({ workoutId: activeWorkout.id })
+
+      // Invalidate workout data using cache tags
+      await invalidateWorkoutData()
+
       stopTimer()
       resetTimer()
       setActiveWorkout(null)
@@ -260,6 +266,9 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
         data: executionData,
       })
 
+      // Invalidate workout data using cache tags
+      await invalidateWorkoutData()
+
       // Update local state
       updateExerciseInWorkout(updatedExecution)
     } catch (error) {
@@ -304,6 +313,9 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
           workoutId: activeWorkout.id,
           data: { exercise_ids: exerciseIds }
         })
+
+        // Invalidate workout data using cache tags
+        await invalidateWorkoutData()
 
         // Update state with the API response
         reorderExercises(result.exercise_executions)

@@ -13,7 +13,9 @@ import type { SetResponse } from "./setResponse";
  */
 export interface ExerciseExecutionResponse {
   created_at: string;
+  exercise_body_part: string;
   exercise_id: number;
+  exercise_modality: string;
   exercise_name: string;
   exercise_order: number;
   note_text?: ExerciseExecutionResponseNoteText;
