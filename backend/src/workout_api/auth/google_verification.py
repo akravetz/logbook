@@ -3,7 +3,7 @@
 import logging
 
 import httpx
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ValidationError
 
 from ..core.config import Settings
 from ..shared.exceptions import AuthenticationError
@@ -73,15 +73,11 @@ class GoogleTokenVerifier:
                 raise AuthenticationError("Google account email not verified")
 
             # Create validated token info
-            token_info = GoogleTokenInfo(
-                email=token_data["email"],
-                name=token_data.get("name"),
-                picture=token_data.get("picture"),
-                user_id=token_data["user_id"],
-                email_verified=token_data.get("email_verified", True),
-                audience=token_data["audience"],
-                expires_in=int(token_data.get("expires_in", 0)),
-            )
+            try:
+                token_info = GoogleTokenInfo.model_validate(token_data)
+            except ValidationError as e:
+                logger.error(f"Invalid Google token response format: {e}")
+                raise AuthenticationError("Invalid Google token response format") from e
 
             logger.info(
                 f"Successfully verified Google token for user: {token_info.email}"
