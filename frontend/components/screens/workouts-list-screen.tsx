@@ -138,7 +138,7 @@ export function WorkoutsListScreen() {
             {(!workoutsData?.items || workoutsData.items.length === 0) && (
               <div className="text-center py-12 text-gray-500">
                 <p className="mb-2">No workouts yet</p>
-                <p className="text-sm">Tap "New Workout" to get started!</p>
+                <p className="text-sm">Tap &ldquo;New Workout&rdquo; to get started!</p>
               </div>
             )}
           </div>

@@ -68,13 +68,17 @@ class JWTManager:
         expires_delta = timedelta(minutes=self.access_token_expire_minutes)
         expires_at = now + expires_delta
 
+        # Convert to Unix timestamps for JWT
+        now_timestamp = int(now.timestamp())
+        expires_timestamp = int(expires_at.timestamp())
+
         payload = {
             "sub": str(user_id),  # Subject (user ID)
             "email": email,
             "token_type": "access",
-            "iat": now,  # Issued at
-            "exp": expires_at,  # Expiration time
-            "jti": f"access_{user_id}_{int(now.timestamp())}",  # JWT ID
+            "iat": now_timestamp,  # Issued at (Unix timestamp)
+            "exp": expires_timestamp,  # Expiration time (Unix timestamp)
+            "jti": f"access_{user_id}_{now_timestamp}",  # JWT ID
         }
 
         try:
@@ -95,8 +99,8 @@ class JWTManager:
             "sub": str(user_id),
             "email": email,
             "token_type": "refresh",
-            "iat": now,
-            "exp": expires_at,
+            "iat": int(now.timestamp()),  # Issued at (Unix timestamp)
+            "exp": int(expires_at.timestamp()),  # Expiration time (Unix timestamp)
             "jti": f"refresh_{user_id}_{int(now.timestamp())}",
         }
 
@@ -151,7 +155,8 @@ class JWTManager:
                 raise AuthenticationError("Invalid token type")
 
             # Check if token has expired using our time provider
-            if expires_at < self.time_provider.now():
+            current_time = self.time_provider.now()
+            if expires_at < current_time:
                 logger.warning(f"Token expired for user {user_id}")
                 raise AuthenticationError("Token has expired")
 

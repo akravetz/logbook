@@ -119,6 +119,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       // Initial sign in
       if (account && user) {
+        console.log("JWT: Initial sign in, setting tokens")
         return {
           ...token,
           accessToken: user.accessToken,
@@ -129,14 +130,27 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Check if token should be refreshed
-      // Refresh if token expires in less than 5 minutes
+      // Refresh if token has expired OR expires in less than 5 minutes
+      const currentTime = Date.now()
+      const expirationTime = token.tokenExpiresAt ? (token.tokenExpiresAt as number) * 1000 : 0
+      const timeUntilExpiry = expirationTime - currentTime
       const shouldRefresh = token.tokenExpiresAt
-        ? (token.tokenExpiresAt as number) * 1000 < Date.now() + 5 * 60 * 1000
+        ? expirationTime < currentTime + 5 * 60 * 1000  // Expires in less than 5 minutes OR already expired
         : false
+
+      console.log("JWT callback debug:", {
+        hasToken: !!token.tokenExpiresAt,
+        currentTime: new Date(currentTime).toISOString(),
+        expirationTime: new Date(expirationTime).toISOString(),
+        timeUntilExpiryMinutes: Math.round(timeUntilExpiry / 1000 / 60),
+        isExpired: expirationTime < currentTime,
+        shouldRefresh,
+        hasRefreshToken: !!token.refreshToken
+      })
 
       if (shouldRefresh && token.refreshToken) {
         try {
-          console.log("Token expiring soon, refreshing...")
+          console.log("JWT: Token expiring soon, refreshing...")
 
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/auth/refresh`,
@@ -160,7 +174,9 @@ export const authOptions: NextAuthOptions = {
           // Convert ISO timestamp to Unix timestamp for NextAuth
           const newExpiresAt = Math.floor(new Date(refreshedTokens.expires_at).getTime() / 1000)
 
-          console.log("Token refreshed successfully")
+          console.log("JWT: Token refreshed successfully", {
+            newExpiresAt: new Date(newExpiresAt * 1000).toISOString()
+          })
 
           return {
             ...token,
@@ -170,7 +186,7 @@ export const authOptions: NextAuthOptions = {
             error: undefined, // Clear any previous errors
           }
         } catch (error) {
-          console.error("Error refreshing access token:", error)
+          console.error("JWT: Error refreshing access token:", error)
           // Return token with error flag
           return {
             ...token,
