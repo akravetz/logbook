@@ -102,15 +102,6 @@ class TestVoiceTranscriptionService:
 
             assert "DeepGram transcription failed" in str(exc_info.value)
 
-    def test_mime_type_detection(self, service):
-        """Test MIME type detection."""
-        assert service._get_mimetype("test.webm") == "audio/webm"
-        assert service._get_mimetype("test.mp3") == "audio/mpeg"
-        assert service._get_mimetype("test.wav") == "audio/wav"
-        assert service._get_mimetype("test.m4a") == "audio/mp4"
-        assert service._get_mimetype("test.ogg") == "audio/ogg"
-        assert service._get_mimetype("test.unknown") == "audio/webm"  # Default
-
     async def test_transcribe_audio_uses_mock_in_development(
         self, mock_service, audio_file
     ):
@@ -169,9 +160,14 @@ class TestVoiceTranscriptionService:
             assert response.confidence == 0.95
             assert response.duration_seconds == 3.5
 
-    async def test_filename_parameter_handling(self, mock_service, audio_file):
-        """Test that filename parameter is handled correctly."""
-        response = await mock_service.transcribe_audio(audio_file)
+    async def test_audio_transcription_consistency(self, mock_service, audio_file):
+        """Test that the same audio produces consistent results."""
+        response1 = await mock_service.transcribe_audio(audio_file)
+        response2 = await mock_service.transcribe_audio(audio_file)
 
-        assert isinstance(response, TranscriptionResponse)
-        assert response.transcribed_text is not None
+        assert isinstance(response1, TranscriptionResponse)
+        assert isinstance(response2, TranscriptionResponse)
+        # Should get the same result for the same audio data
+        assert response1.transcribed_text == response2.transcribed_text
+        assert response1.confidence == response2.confidence
+        assert response1.duration_seconds == response2.duration_seconds

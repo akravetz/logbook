@@ -1,7 +1,6 @@
 """Voice transcription service."""
 
 import asyncio
-from pathlib import Path
 from typing import BinaryIO
 
 from deepgram import DeepgramClient, PrerecordedOptions
@@ -107,15 +106,3 @@ class VoiceTranscriptionService:
 
         except Exception as e:
             raise Exception(f"DeepGram transcription failed: {str(e)}") from e
-
-    def _get_mimetype(self, filename: str) -> str:
-        """Get MIME type from filename extension."""
-        extension = Path(filename).suffix.lower()
-        mime_types = {
-            ".webm": "audio/webm",
-            ".mp3": "audio/mpeg",
-            ".wav": "audio/wav",
-            ".m4a": "audio/mp4",
-            ".ogg": "audio/ogg",
-        }
-        return mime_types.get(extension, "audio/webm")

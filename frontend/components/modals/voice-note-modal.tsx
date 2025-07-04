@@ -16,6 +16,28 @@ import {
 } from '@/lib/api/generated'
 import { useCacheUtils } from '@/lib/cache-tags'
 
+// Utility function to detect supported audio MIME types
+function getSupportedAudioMimeType(): { mimeType: string; extension: string } {
+  const formats = [
+    { mimeType: 'audio/webm;codecs=opus', extension: 'webm' },
+    { mimeType: 'audio/webm', extension: 'webm' },
+    { mimeType: 'audio/ogg;codecs=opus', extension: 'ogg' },
+    { mimeType: 'audio/ogg', extension: 'ogg' },
+    { mimeType: 'audio/mp4', extension: 'mp4' },
+    { mimeType: 'audio/mpeg', extension: 'mp3' },
+    { mimeType: 'audio/wav', extension: 'wav' },
+  ]
+
+  for (const format of formats) {
+    if (MediaRecorder.isTypeSupported(format.mimeType)) {
+      return format
+    }
+  }
+
+  // Fallback to webm if no specific format is supported
+  return { mimeType: 'audio/webm', extension: 'webm' }
+}
+
 export function VoiceNoteModal() {
   const { modals, closeAllModals } = useUIStore()
   const { activeWorkout, updateExerciseInWorkout } = useWorkoutStore()
@@ -24,6 +46,7 @@ export function VoiceNoteModal() {
   const [isProcessing, setIsProcessing] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const audioFormatRef = useRef<{ mimeType: string; extension: string } | null>(null)
 
   const updateExerciseMutation = useUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPatch()
   const transcribeMutation = useTranscribeAudioApiV1VoiceTranscribePost()
@@ -31,7 +54,14 @@ export function VoiceNoteModal() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream)
+
+      // Detect the best supported audio format
+      const supportedFormat = getSupportedAudioMimeType()
+      audioFormatRef.current = supportedFormat
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: supportedFormat.mimeType
+      })
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []
 
@@ -40,7 +70,8 @@ export function VoiceNoteModal() {
       }
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const format = audioFormatRef.current || getSupportedAudioMimeType()
+        const audioBlob = new Blob(audioChunksRef.current, { type: format.mimeType })
         await handleAudioTranscription(audioBlob)
 
         // Stop all tracks to release microphone
@@ -69,9 +100,15 @@ export function VoiceNoteModal() {
         throw new Error('No active workout or exercise selected')
       }
 
+      const format = audioFormatRef.current || getSupportedAudioMimeType()
+
       // Call transcription API using the generated hook
       const transcriptionResult = await transcribeMutation.mutateAsync({
-        data: { audio_file: new File([audioBlob], 'voice_note.webm', { type: 'audio/webm' }) }
+        data: {
+          audio_file: new File([audioBlob], `voice_note.${format.extension}`, {
+            type: format.mimeType
+          })
+        }
       })
 
       const transcriptionText = transcriptionResult.transcribed_text
