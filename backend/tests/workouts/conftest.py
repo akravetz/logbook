@@ -1,5 +1,7 @@
 """Workout test fixtures and configuration."""
 
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -102,8 +104,6 @@ async def sample_workout(session: AsyncSession, test_user: User) -> Workout:
 @pytest.fixture
 async def finished_workout(session: AsyncSession, test_user: User) -> Workout:
     """Create a finished workout for testing."""
-    from datetime import UTC, datetime
-
     user_id = test_user.id
 
     workout = Workout(

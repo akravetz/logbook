@@ -13,6 +13,7 @@ from ..core.database import get_session
 from ..shared.exceptions import AuthenticationError
 from ..users.models import User
 from ..users.repository import UserRepository
+from .google_verification import GoogleTokenVerifier
 from .jwt import JWTManager, TokenData
 from .service import AuthService
 
@@ -29,13 +30,22 @@ def get_jwt_manager(settings: Annotated[Settings, Depends(get_settings)]) -> JWT
     return JWTManager(settings)
 
 
+@lru_cache
+def get_google_verifier(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> GoogleTokenVerifier:
+    """Get Google token verifier instance."""
+    return GoogleTokenVerifier(settings)
+
+
 def get_auth_service_dependency(
     session: Annotated[AsyncSession, Depends(get_session)],
     jwt_manager: Annotated[JWTManager, Depends(get_jwt_manager)],
+    google_verifier: Annotated[GoogleTokenVerifier, Depends(get_google_verifier)],
 ) -> AuthService:
     """Get AuthService dependency for dependency injection."""
     user_repository = UserRepository(session)
-    return AuthService(session, jwt_manager, user_repository)
+    return AuthService(session, jwt_manager, user_repository, google_verifier)
 
 
 async def get_current_user_from_token(

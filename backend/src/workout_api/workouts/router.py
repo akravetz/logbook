@@ -1,6 +1,7 @@
 """Workout API router."""
 
 import logging
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -33,7 +34,7 @@ CurrentUser = Annotated[User, Depends(get_current_user_from_token)]
 
 
 @router.get("/", response_model=Page[WorkoutResponse])
-async def list_workouts(
+async def list_workouts(  # noqa: PLR0913
     service: WorkoutServiceDep,
     current_user: CurrentUser,
     start_date: str | None = None,
@@ -47,8 +48,6 @@ async def list_workouts(
 
     try:
         # Build filters
-        from datetime import datetime
-
         filters = WorkoutFilters()
         if start_date:
             # Parse the datetime and remove timezone info to match database fields
@@ -400,7 +399,7 @@ async def create_set(
     "/{workout_id}/exercise-executions/{exercise_id}/sets/{set_id}",
     response_model=SetResponse,
 )
-async def update_set(
+async def update_set(  # noqa: PLR0913
     workout_id: int,
     exercise_id: int,
     set_id: int,

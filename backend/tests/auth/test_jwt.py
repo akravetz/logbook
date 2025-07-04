@@ -169,8 +169,6 @@ class TestJWTManager:
         assert token_pair.expires_at is not None
 
         # Verify expires_at is in ISO format and represents a future time
-        from datetime import datetime
-
         expires_at_dt = datetime.fromisoformat(
             token_pair.expires_at.replace("Z", "+00:00")
         )

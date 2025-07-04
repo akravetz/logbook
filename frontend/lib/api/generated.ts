@@ -16,9 +16,9 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 import type {
+  AuthTokenRequest,
+  AuthTokenResponse,
   DatabaseHealthResponse,
-  DevLoginRequest,
-  DevLoginResponse,
   ExerciseCreate,
   ExerciseExecutionRequest,
   ExerciseExecutionResponse,
@@ -36,8 +36,6 @@ import type {
   HTTPValidationError,
   ListWorkoutsApiV1WorkoutsGetParams,
   LogoutResponse,
-  NextAuthGoogleUserRequest,
-  NextAuthVerificationResponse,
   PageExerciseResponse,
   PageWorkoutResponse,
   SearchExercisesApiV1ExercisesGetParams,
@@ -47,8 +45,6 @@ import type {
   SetUpdate,
   SimpleHealthResponse,
   SystemInfoResponse,
-  TokenRefreshRequest,
-  TokenRefreshResponse,
   TokenValidationResponse,
   UserProfileUpdate,
   UserResponse,
@@ -446,89 +442,6 @@ export const useSystemInfoApiV1HealthSystemGet = <
 };
 
 /**
- * Use refresh token to get new access token
- * @summary Refresh access token
- */
-export const refreshTokenApiV1AuthRefreshPost = (
-  tokenRefreshRequest: TokenRefreshRequest,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<TokenRefreshResponse>(
-    {
-      url: `/api/v1/auth/refresh`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: tokenRefreshRequest,
-    },
-    options,
-  );
-};
-
-export const getRefreshTokenApiV1AuthRefreshPostMutationOptions = <
-  TError = void | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>,
-    TError,
-    { data: TokenRefreshRequest },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>,
-  TError,
-  { data: TokenRefreshRequest },
-  TContext
-> => {
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>,
-    { data: TokenRefreshRequest }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return refreshTokenApiV1AuthRefreshPost(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type RefreshTokenApiV1AuthRefreshPostMutationResult = NonNullable<
-  Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>
->;
-export type RefreshTokenApiV1AuthRefreshPostMutationBody = TokenRefreshRequest;
-export type RefreshTokenApiV1AuthRefreshPostMutationError =
-  void | HTTPValidationError;
-
-/**
- * @summary Refresh access token
- */
-export const useRefreshTokenApiV1AuthRefreshPost = <
-  TError = void | HTTPValidationError,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>,
-    TError,
-    { data: TokenRefreshRequest },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof refreshTokenApiV1AuthRefreshPost>>,
-  TError,
-  { data: TokenRefreshRequest },
-  TContext
-> => {
-  const mutationOptions =
-    getRefreshTokenApiV1AuthRefreshPostMutationOptions(options);
-
-  return useMutation(mutationOptions);
-};
-
-/**
  * Logout current user (client-side token invalidation)
  * @summary Logout user
  */
@@ -761,167 +674,84 @@ export const useValidateTokenApiV1AuthValidateGet = <
 };
 
 /**
- * Create or update user from Google OAuth data via NextAuth.js
- * @summary Verify Google user for NextAuth
+ * Securely verify Google OAuth token from Auth.js and return session token
+ * @summary Verify Auth.js Google token
  */
-export const verifyGoogleUserApiV1AuthVerifyGoogleUserPost = (
-  nextAuthGoogleUserRequest: NextAuthGoogleUserRequest,
+export const verifyAuthTokenApiV1AuthVerifyTokenPost = (
+  authTokenRequest: AuthTokenRequest,
   options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<NextAuthVerificationResponse>(
+  return customInstance<AuthTokenResponse>(
     {
-      url: `/api/v1/auth/verify-google-user`,
+      url: `/api/v1/auth/verify-token`,
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      data: nextAuthGoogleUserRequest,
+      data: authTokenRequest,
     },
     options,
   );
 };
 
-export const getVerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationOptions = <
+export const getVerifyAuthTokenApiV1AuthVerifyTokenPostMutationOptions = <
   TError = void,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
+    Awaited<ReturnType<typeof verifyAuthTokenApiV1AuthVerifyTokenPost>>,
     TError,
-    { data: NextAuthGoogleUserRequest },
+    { data: AuthTokenRequest },
     TContext
   >;
   request?: SecondParameter<typeof customInstance>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
+  Awaited<ReturnType<typeof verifyAuthTokenApiV1AuthVerifyTokenPost>>,
   TError,
-  { data: NextAuthGoogleUserRequest },
+  { data: AuthTokenRequest },
   TContext
 > => {
   const { mutation: mutationOptions, request: requestOptions } = options ?? {};
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
-    { data: NextAuthGoogleUserRequest }
+    Awaited<ReturnType<typeof verifyAuthTokenApiV1AuthVerifyTokenPost>>,
+    { data: AuthTokenRequest }
   > = (props) => {
     const { data } = props ?? {};
 
-    return verifyGoogleUserApiV1AuthVerifyGoogleUserPost(data, requestOptions);
+    return verifyAuthTokenApiV1AuthVerifyTokenPost(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationResult =
-  NonNullable<
-    Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>
-  >;
-export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationBody =
-  NextAuthGoogleUserRequest;
-export type VerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationError = void;
-
-/**
- * @summary Verify Google user for NextAuth
- */
-export const useVerifyGoogleUserApiV1AuthVerifyGoogleUserPost = <
-  TError = void,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
-    TError,
-    { data: NextAuthGoogleUserRequest },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof verifyGoogleUserApiV1AuthVerifyGoogleUserPost>>,
-  TError,
-  { data: NextAuthGoogleUserRequest },
-  TContext
-> => {
-  const mutationOptions =
-    getVerifyGoogleUserApiV1AuthVerifyGoogleUserPostMutationOptions(options);
-
-  return useMutation(mutationOptions);
-};
-
-/**
- * Login with any email in development environment only
- * @summary Development login
- */
-export const devLoginApiV1AuthDevLoginPost = (
-  devLoginRequest: DevLoginRequest,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<DevLoginResponse>(
-    {
-      url: `/api/v1/auth/dev-login`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: devLoginRequest,
-    },
-    options,
-  );
-};
-
-export const getDevLoginApiV1AuthDevLoginPostMutationOptions = <
-  TError = void,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
-    TError,
-    { data: DevLoginRequest },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
-  TError,
-  { data: DevLoginRequest },
-  TContext
-> => {
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
-    { data: DevLoginRequest }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return devLoginApiV1AuthDevLoginPost(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type DevLoginApiV1AuthDevLoginPostMutationResult = NonNullable<
-  Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>
+export type VerifyAuthTokenApiV1AuthVerifyTokenPostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyAuthTokenApiV1AuthVerifyTokenPost>>
 >;
-export type DevLoginApiV1AuthDevLoginPostMutationBody = DevLoginRequest;
-export type DevLoginApiV1AuthDevLoginPostMutationError = void;
+export type VerifyAuthTokenApiV1AuthVerifyTokenPostMutationBody =
+  AuthTokenRequest;
+export type VerifyAuthTokenApiV1AuthVerifyTokenPostMutationError = void;
 
 /**
- * @summary Development login
+ * @summary Verify Auth.js Google token
  */
-export const useDevLoginApiV1AuthDevLoginPost = <
+export const useVerifyAuthTokenApiV1AuthVerifyTokenPost = <
   TError = void,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
+    Awaited<ReturnType<typeof verifyAuthTokenApiV1AuthVerifyTokenPost>>,
     TError,
-    { data: DevLoginRequest },
+    { data: AuthTokenRequest },
     TContext
   >;
   request?: SecondParameter<typeof customInstance>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof devLoginApiV1AuthDevLoginPost>>,
+  Awaited<ReturnType<typeof verifyAuthTokenApiV1AuthVerifyTokenPost>>,
   TError,
-  { data: DevLoginRequest },
+  { data: AuthTokenRequest },
   TContext
 > => {
   const mutationOptions =
-    getDevLoginApiV1AuthDevLoginPostMutationOptions(options);
+    getVerifyAuthTokenApiV1AuthVerifyTokenPostMutationOptions(options);
 
   return useMutation(mutationOptions);
 };

@@ -2,7 +2,6 @@
 
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,14 +13,12 @@ from .models import ExerciseExecution, Set, Workout
 from .schemas import (
     ExerciseExecutionRequest,
     ExerciseExecutionUpdate,
+    Page,
     Pagination,
     SetCreate,
     SetUpdate,
     WorkoutFilters,
 )
-
-if TYPE_CHECKING:
-    from .schemas import Page
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +87,6 @@ class WorkoutRepository:
 
         result = await self.session.execute(stmt)
         workouts = result.scalars().all()
-
-        # Import here to avoid circular imports
-        from .schemas import Page
 
         return Page.create(list(workouts), total, pagination)
 

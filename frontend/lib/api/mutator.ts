@@ -5,13 +5,13 @@ export const AXIOS_INSTANCE = Axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080",
 })
 
-// Add a request interceptor to include the JWT token from NextAuth session
+// Add a request interceptor to include the session token from NextAuth
 AXIOS_INSTANCE.interceptors.request.use(
   async (config) => {
     const session = await getSession()
 
-    if (session?.accessToken) {
-      config.headers.Authorization = `Bearer ${session.accessToken}`
+    if (session?.sessionToken) {
+      config.headers.Authorization = `Bearer ${session.sessionToken}`
     }
 
     return config
@@ -25,16 +25,10 @@ AXIOS_INSTANCE.interceptors.request.use(
 AXIOS_INSTANCE.interceptors.response.use(
   (response) => response, // Pass through successful responses
   async (error: AxiosError) => {
-    // If we get a 401, the token is invalid/expired
-    // NextAuth JWT callback should have already tried to refresh
+    // If we get a 401, the session has expired - force sign out
     if (error.response?.status === 401) {
-      const session = await getSession()
-
-      // If we have a refresh error, force sign out
-      if (session?.error === "RefreshTokenError") {
-        console.error("Refresh token expired, forcing sign out")
-        await signOut({ callbackUrl: "/" })
-      }
+      console.error("Session expired, forcing sign out")
+      await signOut({ callbackUrl: "/" })
     }
 
     return Promise.reject(error)

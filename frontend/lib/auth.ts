@@ -1,6 +1,5 @@
 import { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
-import CredentialsProvider from "next-auth/providers/credentials"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -8,196 +7,77 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    // Development-only credentials provider
-    ...(process.env.NODE_ENV === "development"
-      ? [
-          CredentialsProvider({
-            id: "dev-login",
-            name: "Development Login",
-            credentials: {
-              email: {
-                label: "Email",
-                type: "email",
-                placeholder: "developer@example.com",
-              },
-            },
-            async authorize(credentials) {
-              if (!credentials?.email) {
-                return null
-              }
-
-              try {
-                // Call our backend dev login endpoint
-                const response = await fetch(
-                  `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/auth/dev-login`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      email: credentials.email,
-                    }),
-                  }
-                )
-
-                if (!response.ok) {
-                  console.error("Dev login failed:", response.status, response.statusText)
-                  return null
-                }
-
-                const data = await response.json()
-
-                // Convert ISO timestamp to Unix timestamp for NextAuth
-                const expiresAt = Math.floor(new Date(data.tokens.expires_at).getTime() / 1000)
-
-                // Return user object with tokens
-                return {
-                  id: data.user.id.toString(),
-                  email: data.user.email,
-                  name: data.user.name,
-                  image: data.user.image,
-                  accessToken: data.tokens.access_token,
-                  refreshToken: data.tokens.refresh_token,
-                  tokenExpiresAt: expiresAt,
-                }
-              } catch (error) {
-                console.error("Error during dev login:", error)
-                return null
-              }
-            },
-          }),
-        ]
-      : []),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
-      if (account?.provider === "google") {
+    async signIn({ user, account }) {
+      if (account?.provider === "google" && account.access_token) {
         try {
-          // Call our backend to verify/create user and get JWT tokens
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/auth/verify-google-user`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: user.email,
-              name: user.name,
-              image: user.image,
-              email_verified: true,
-            }),
-          })
-
-          if (!response.ok) {
-            console.error('Backend user verification failed:', response.status, response.statusText)
-            return false
-          }
-
-          const data = await response.json()
-
-          // Convert ISO timestamp to Unix timestamp for NextAuth
-          const expiresAt = Math.floor(new Date(data.tokens.expires_at).getTime() / 1000)
-
-          // Store JWT tokens in the user object for later use
-          user.accessToken = data.tokens.access_token
-          user.refreshToken = data.tokens.refresh_token
-          user.tokenExpiresAt = expiresAt
-          user.id = data.user.id.toString()
-
-          return true
-        } catch (error) {
-          console.error('Error verifying user with backend:', error)
-          return false
-        }
-      } else if (account?.provider === "dev-login") {
-        // Dev login already handled in authorize function
-        // Tokens are already attached to user object
-        return true
-      }
-      return true
-    },
-    async jwt({ token, user, account }) {
-      // Initial sign in
-      if (account && user) {
-        return {
-          ...token,
-          accessToken: user.accessToken,
-          refreshToken: user.refreshToken,
-          tokenExpiresAt: user.tokenExpiresAt,
-          userId: user.id,
-        }
-      }
-
-      // Check if token should be refreshed
-      // Refresh if token expires in less than 5 minutes
-      const shouldRefresh = token.tokenExpiresAt
-        ? (token.tokenExpiresAt as number) * 1000 < Date.now() + 5 * 60 * 1000
-        : false
-
-      if (shouldRefresh && token.refreshToken) {
-        try {
-          console.log("Token expiring soon, refreshing...")
-
+          // Send Google's access_token to backend for secure verification
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/auth/refresh`,
+            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/auth/verify-token`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                refresh_token: token.refreshToken,
+                access_token: account.access_token,
               }),
             }
           )
 
           if (!response.ok) {
-            throw new Error(`Refresh failed: ${response.status}`)
+            console.error("Backend token verification failed:", response.status, response.statusText)
+            return false
           }
 
-          const refreshedTokens = await response.json()
+          const data = await response.json()
 
-          // Convert ISO timestamp to Unix timestamp for NextAuth
-          const newExpiresAt = Math.floor(new Date(refreshedTokens.expires_at).getTime() / 1000)
+          // Store the backend session token for API access
+          user.sessionToken = data.session_token
+          user.id = data.user.id.toString()
 
-          console.log("Token refreshed successfully")
-
-          return {
-            ...token,
-            accessToken: refreshedTokens.access_token,
-            refreshToken: refreshedTokens.refresh_token,
-            tokenExpiresAt: newExpiresAt,
-            error: undefined, // Clear any previous errors
-          }
+          return true
         } catch (error) {
-          console.error("Error refreshing access token:", error)
-          // Return token with error flag
-          return {
-            ...token,
-            error: "RefreshTokenError",
-          }
+          console.error("Error verifying Google token with backend:", error)
+          return false
         }
       }
-
+      return false
+    },
+    async jwt({ token, user }) {
+      // Store session token from sign in
+      if (user?.sessionToken) {
+        token.sessionToken = user.sessionToken
+        token.userId = user.id
+      }
       return token
     },
     async session({ session, token }) {
-      // Send properties to the client
-      session.accessToken = token.accessToken as string
-      session.refreshToken = token.refreshToken as string
+      // Send session token to client for API calls
+      session.sessionToken = token.sessionToken as string
       session.userId = token.userId as string
-      session.error = token.error as "RefreshTokenError" | undefined
-
       return session
-    },
+    }
   },
   pages: {
     signIn: '/', // Redirect to home page for sign in
   },
   session: {
     strategy: 'jwt',
-    // Set session max age to 7 days to match refresh token
-    maxAge: 7 * 24 * 60 * 60,
+    // Set session max age to 6 hours to match backend token expiry
+    maxAge: 6 * 60 * 60, // 6 hours
+  },
+  cookies: {
+    sessionToken: {
+      name: 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    }
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

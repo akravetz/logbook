@@ -3,7 +3,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from sqlalchemy import event, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .config import get_settings
@@ -32,9 +32,7 @@ class DatabaseManager:
             future=True,
         )
 
-        # Add connection event listeners for monitoring
-        event.listen(self._engine.sync_engine, "connect", self._on_connect)
-        event.listen(self._engine.sync_engine, "checkout", self._on_checkout)
+        # Engine configured with connection pooling
 
         # Create session factory
         self._session_maker = async_sessionmaker(
@@ -46,23 +44,6 @@ class DatabaseManager:
         )
 
         logger.info("Database engine initialized")
-
-    @staticmethod
-    def _on_connect(
-        dbapi_connection: Any,  # noqa: ARG004
-        connection_record: Any,  # noqa: ARG004
-    ) -> None:
-        """Called when a new connection is established."""
-        logger.debug("New database connection established")
-
-    @staticmethod
-    def _on_checkout(
-        dbapi_connection: Any,  # noqa: ARG004
-        connection_record: Any,  # noqa: ARG004
-        connection_proxy: Any,  # noqa: ARG004
-    ) -> None:
-        """Called when a connection is checked out from the pool."""
-        logger.debug("Database connection checked out from pool")
 
     @property
     def engine(self):

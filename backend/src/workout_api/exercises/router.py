@@ -9,6 +9,7 @@ from ..auth.dependencies import get_current_user_from_token, get_current_user_op
 from ..shared.exceptions import NotFoundError, ValidationError
 from ..users.models import User
 from .dependencies import ExerciseServiceDep
+from .models import ExerciseModality
 from .schemas import (
     ExerciseCreate,
     ExerciseFilters,
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/exercises", tags=["exercises"])
     summary="Search exercises",
     description="Search and filter exercises with pagination. Public endpoint - shows only system exercises unless authenticated.",
 )
-async def search_exercises(
+async def search_exercises(  # noqa: PLR0913
     exercise_service: ExerciseServiceDep,
     current_user: Annotated[User | None, Depends(get_current_user_optional)] = None,
     name: Annotated[
@@ -57,8 +58,6 @@ async def search_exercises(
         modality_enum = None
         if modality:
             try:
-                from .models import ExerciseModality
-
                 modality_enum = ExerciseModality(modality.upper())
             except ValueError:
                 raise HTTPException(
@@ -123,8 +122,6 @@ async def get_body_parts(
 async def get_modalities() -> list[str]:
     """Get available exercise modalities."""
     try:
-        from .models import ExerciseModality
-
         return [modality.value for modality in ExerciseModality]
     except Exception as e:
         logger.error(f"Error getting modalities: {e}")
@@ -234,8 +231,6 @@ async def get_exercises_by_modality(
     try:
         # Validate modality
         try:
-            from .models import ExerciseModality
-
             ExerciseModality(modality.upper())
         except ValueError:
             raise HTTPException(
