@@ -5,6 +5,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..shared.exceptions import NotFoundError, ValidationError
+from .models import ExerciseModality
 from .repository import ExerciseRepository
 from .schemas import (
     ExerciseCreate,
@@ -187,8 +188,6 @@ class ExerciseService:
     ) -> Page[ExerciseResponse]:
         """Get exercises by modality."""
         try:
-            from .models import ExerciseModality
-
             modality_enum = ExerciseModality(modality.upper())
             filters = ExerciseFilters(modality=modality_enum)
             return await self.search_exercises(filters, pagination, user_id)

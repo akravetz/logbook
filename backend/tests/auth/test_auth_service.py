@@ -1,19 +1,14 @@
 """Test auth service with comprehensive coverage."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from workout_api.auth.jwt import JWTManager, TokenPair
-from workout_api.auth.schemas import GoogleUserInfo
+from workout_api.auth.google_verification import GoogleTokenInfo, GoogleTokenVerifier
+from workout_api.auth.jwt import JWTManager
 from workout_api.auth.service import AuthService
-from workout_api.shared.exceptions import (
-    AuthenticationError,
-    DuplicateError,
-    NotFoundError,
-)
-from workout_api.users.models import User
+from workout_api.shared.exceptions import AuthenticationError, NotFoundError
 from workout_api.users.repository import UserRepository
 
 # Mark all tests in this module as anyio tests
@@ -21,849 +16,494 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def auth_service(
-    session: AsyncSession, jwt_manager: JWTManager, user_repository: UserRepository
+def mock_google_verifier():
+    """Create mock Google token verifier."""
+    mock = Mock(spec=GoogleTokenVerifier)
+    mock.verify_access_token = AsyncMock()
+    return mock
+
+
+@pytest.fixture
+def auth_service(
+    session: AsyncSession,
+    jwt_manager: JWTManager,
+    user_repository: UserRepository,
+    mock_google_verifier: GoogleTokenVerifier,
 ):
-    """Create AuthService instance with injected dependencies."""
-    return AuthService(session, jwt_manager, user_repository)
+    """Create AuthService with real repository for integration testing."""
+    return AuthService(
+        session=session,
+        jwt_manager=jwt_manager,
+        user_repository=user_repository,
+        google_verifier=mock_google_verifier,
+    )
 
 
 @pytest.fixture
-def alternate_google_user_info() -> GoogleUserInfo:
-    """Create alternate Google user info for testing account linking."""
-    return GoogleUserInfo(
-        email="existing@example.com",
-        name="Existing User",
-        picture="https://example.com/existing_avatar.jpg",
+def sample_google_token_info():
+    """Create sample Google token info."""
+    return GoogleTokenInfo(
+        email="test@example.com",
+        name="Test User",
+        picture="https://example.com/avatar.jpg",
+        user_id="google_123",
         email_verified=True,
-        google_id="google_user_456",
+        audience="test_client_id",
+        expires_in=3600,
     )
-
-
-@pytest.fixture
-async def existing_user_no_google(session: AsyncSession):
-    """Create a user with different Google ID for account linking tests."""
-    user = User(
-        email_address="existing@example.com",
-        google_id="temp_google_id_to_be_overwritten",  # Will be updated during linking
-        name="Existing User",
-        is_active=True,
-        is_admin=False,
-    )
-    session.add(user)
-    await session.flush()
-    await session.refresh(user)
-    # Extract attributes early to avoid lazy loading issues
-    _ = user.id, user.email_address, user.name, user.is_active
-    return user
-
-
-@pytest.fixture
-async def inactive_user(session: AsyncSession):
-    """Create an inactive user for testing."""
-    user = User(
-        email_address="inactive@example.com",
-        google_id="google_inactive_789",
-        name="Inactive User",
-        is_active=False,
-        is_admin=False,
-    )
-    session.add(user)
-    await session.flush()
-    await session.refresh(user)
-    # Extract attributes early
-    _ = user.id, user.email_address, user.name, user.is_active
-    return user
 
 
 class TestAuthServiceAuthentication:
-    """Test authentication flows in AuthService."""
+    """Test main authentication method."""
 
-    async def test_authenticate_with_google_existing_user(
+    async def test_authenticate_with_verified_google_token_new_user(
         self,
         auth_service: AuthService,
-        test_user: User,
-        mock_google_user_info: GoogleUserInfo,
+        session: AsyncSession,  # noqa: ARG002
+        user_repository: UserRepository,
+        mock_google_verifier: GoogleTokenVerifier,
+        sample_google_token_info: GoogleTokenInfo,
     ):
-        """Test authentication with existing user by Google ID."""
-        # Extract user attributes early to avoid lazy loading issues
-        user_id = test_user.id
-        user_email = test_user.email_address
-        user_name = test_user.name
+        """Test authentication with verified token for new user."""
+        # Arrange
+        access_token = "valid_google_token"
+        mock_google_verifier.verify_access_token.return_value = sample_google_token_info
+
+        # Verify no existing user
+        existing_user = await user_repository.get_by_email("test@example.com")
+        assert existing_user is None
 
         # Act
-        user, tokens = await auth_service.authenticate_with_google(
-            mock_google_user_info
-        )
+        (
+            user,
+            session_token,
+        ) = await auth_service.authenticate_with_verified_google_token(access_token)
 
         # Assert
-        assert user.id == user_id
-        assert user.email_address == user_email
-        assert user.name == user_name
-        assert isinstance(tokens, TokenPair)
-        assert tokens.access_token is not None
-        assert tokens.refresh_token is not None
-
-    async def test_authenticate_with_google_account_linking(
-        self,
-        auth_service: AuthService,
-        existing_user_no_google: User,
-        alternate_google_user_info: GoogleUserInfo,
-    ):
-        """Test linking Google account to existing user by email."""
-        # Extract attributes early
-        user_id = existing_user_no_google.id
-        user_email = existing_user_no_google.email_address
-
-        # Act
-        user, tokens = await auth_service.authenticate_with_google(
-            alternate_google_user_info
-        )
-
-        # Assert
-        assert user.id == user_id
-        assert user.email_address == user_email
-        assert user.google_id == "google_user_456"
-        assert user.name == "Existing User"  # Updated from Google info
-        assert isinstance(tokens, TokenPair)
-
-    async def test_authenticate_with_google_new_user(
-        self, auth_service: AuthService, mock_google_user_info: GoogleUserInfo
-    ):
-        """Test creating new user from Google OAuth."""
-        # Act
-        user, tokens = await auth_service.authenticate_with_google(
-            mock_google_user_info
-        )
-
-        # Assert
-        assert user.id is not None
+        assert user is not None
         assert user.email_address == "test@example.com"
+        assert user.google_id == "google_123"
         assert user.name == "Test User"
-        assert user.google_id == "google_user_123"
+        assert user.profile_image_url == "https://example.com/avatar.jpg"
         assert user.is_active is True
         assert user.is_admin is False
-        assert isinstance(tokens, TokenPair)
+        assert user.id is not None
+        assert isinstance(session_token, str)
+        assert len(session_token) > 0
 
-    async def test_authenticate_with_google_user_info_update(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test updating existing user info during authentication."""
-        # Create Google user info with updated details
-        google_info = GoogleUserInfo(
-            email="test@example.com",
-            name="Updated Name",
-            picture="https://example.com/new_avatar.jpg",
-            email_verified=True,
-            google_id="google_user_123",
-        )
+        # Verify Google verifier was called
+        mock_google_verifier.verify_access_token.assert_called_once_with(access_token)
 
-        # Extract original user attributes
-        user_id = test_user.id
-        user_email = test_user.email_address
+        # Verify user was created in database
+        created_user = await user_repository.get_by_email("test@example.com")
+        assert created_user is not None
+        assert created_user.id == user.id
+        assert created_user.google_id == "google_123"
 
-        # Act
-        user, tokens = await auth_service.authenticate_with_google(google_info)
-
-        # Assert
-        assert user.id == user_id
-        assert user.email_address == user_email
-        assert user.name == "Updated Name"  # Updated
-        assert (
-            str(user.profile_image_url) == "https://example.com/new_avatar.jpg"
-        )  # Updated
-        isinstance(tokens, TokenPair)
-
-    async def test_authenticate_with_google_database_error(
-        self, auth_service: AuthService, mock_google_user_info: GoogleUserInfo
-    ):
-        """Test authentication with database error causes rollback."""
-        # Mock the user repository to raise an exception
-        with (
-            patch.object(
-                auth_service.user_repository,
-                "get_by_email",
-                side_effect=Exception("DB Error"),
-            ),
-            pytest.raises(AuthenticationError, match="Authentication failed: DB Error"),
-        ):
-            await auth_service.authenticate_with_google(mock_google_user_info)
-
-    async def test_authenticate_with_google_jwt_error(
+    async def test_authenticate_with_verified_google_token_existing_user(
         self,
         auth_service: AuthService,
-        test_user: User,  # noqa: ARG002
-        mock_google_user_info: GoogleUserInfo,
+        session: AsyncSession,  # noqa: ARG002
+        user_repository: UserRepository,
+        mock_google_verifier: GoogleTokenVerifier,
+        sample_google_token_info: GoogleTokenInfo,
     ):
-        """Test authentication with JWT creation error."""
-        # Mock JWT manager to raise an exception
-        with (
-            patch.object(
-                auth_service.jwt_manager,
-                "create_token_pair",
-                side_effect=Exception("JWT Error"),
-            ),
-            pytest.raises(
-                AuthenticationError, match="Authentication failed: JWT Error"
-            ),
-        ):
-            await auth_service.authenticate_with_google(mock_google_user_info)
+        """Test authentication with verified token for existing user."""
+        # Arrange
+        access_token = "valid_google_token"
+        mock_google_verifier.verify_access_token.return_value = sample_google_token_info
 
-
-class TestAuthServiceTokenManagement:
-    """Test token management in AuthService."""
-
-    async def test_refresh_user_token_success(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test successful token refresh."""
-        # Extract user attributes early
-        user_id = test_user.id
-
-        # Act
-        tokens = await auth_service.refresh_user_token(user_id)
-
-        # Assert
-        assert isinstance(tokens, TokenPair)
-        assert tokens.access_token is not None
-        assert tokens.refresh_token is not None
-
-    async def test_refresh_user_token_user_not_found(self, auth_service: AuthService):
-        """Test token refresh for non-existent user."""
-        # Act & Assert
-        with pytest.raises(NotFoundError, match="User not found"):
-            await auth_service.refresh_user_token(999)
-
-    async def test_refresh_user_token_inactive_user(
-        self, auth_service: AuthService, inactive_user: User
-    ):
-        """Test token refresh for inactive user."""
-        # Extract user ID early
-        user_id = inactive_user.id
-
-        # Act & Assert
-        with pytest.raises(AuthenticationError, match="User account is inactive"):
-            await auth_service.refresh_user_token(user_id)
-
-    async def test_refresh_user_token_jwt_error(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test token refresh with JWT creation error."""
-        # Extract user ID early
-        user_id = test_user.id
-
-        # Mock JWT manager to raise an exception
-        with (
-            patch.object(
-                auth_service.jwt_manager,
-                "create_token_pair",
-                side_effect=Exception("JWT Error"),
-            ),
-            pytest.raises(AuthenticationError, match="Token refresh failed"),
-        ):
-            await auth_service.refresh_user_token(user_id)
-
-
-class TestAuthServiceUserManagement:
-    """Test user management operations in AuthService."""
-
-    async def test_deactivate_user_success(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test successful user deactivation."""
-        # Extract user ID early
-        user_id = test_user.id
-
-        # Act
-        result = await auth_service.deactivate_user(user_id)
-
-        # Assert
-        assert result is True
-
-    async def test_deactivate_user_not_found(self, auth_service: AuthService):
-        """Test user deactivation for non-existent user."""
-        # Act & Assert
-        with pytest.raises(NotFoundError, match="User not found"):
-            await auth_service.deactivate_user(999)
-
-    async def test_deactivate_user_database_error(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test user deactivation with database error causes rollback."""
-        # Extract user ID early
-        user_id = test_user.id
-
-        # Mock repository to raise an exception
-        with (
-            patch.object(
-                auth_service.user_repository,
-                "soft_delete",
-                side_effect=Exception("DB Error"),
-            ),
-            pytest.raises(AuthenticationError, match="Failed to deactivate user"),
-        ):
-            await auth_service.deactivate_user(user_id)
-
-    async def test_get_user_profile_success(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test successful user profile retrieval."""
-        # Extract user attributes early
-        user_id = test_user.id
-        user_email = test_user.email_address
-        user_name = test_user.name
-
-        # Act
-        user = await auth_service.get_user_profile(user_id)
-
-        # Assert
-        assert user.id == user_id
-        assert user.email_address == user_email
-        assert user.name == user_name
-
-    async def test_get_user_profile_not_found(self, auth_service: AuthService):
-        """Test user profile retrieval for non-existent user."""
-        # Act & Assert
-        with pytest.raises(NotFoundError, match="User not found"):
-            await auth_service.get_user_profile(999)
-
-    async def test_get_user_profile_database_error(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test user profile retrieval with database error."""
-        # Extract user ID early
-        user_id = test_user.id
-
-        # Mock repository to raise an exception
-        with (
-            patch.object(
-                auth_service.user_repository,
-                "get_by_id",
-                side_effect=Exception("DB Error"),
-            ),
-            pytest.raises(AuthenticationError, match="Failed to get user profile"),
-        ):
-            await auth_service.get_user_profile(user_id)
-
-    async def test_update_user_profile_success(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test successful user profile update."""
-        # Extract user attributes early
-        user_id = test_user.id
-        user_email = test_user.email_address
-
-        # Prepare update data
-        update_data = {
-            "name": "Updated Name",
-            "profile_image_url": "https://example.com/new_avatar.jpg",
-            "email_address": "should_not_update@example.com",  # Should be filtered out
+        # Create existing user with different data that should be updated
+        existing_user_data = {
+            "email_address": "test@example.com",
+            "google_id": "old_google_id",  # Different from token
+            "name": "Existing User",  # Different from token
+            "profile_image_url": "https://example.com/old_avatar.jpg",  # Different from token
+            "is_active": True,
+            "is_admin": False,
         }
+        existing_user = await user_repository.create(existing_user_data)
+        existing_user_id = existing_user.id
 
         # Act
-        updated_user = await auth_service.update_user_profile(user_id, update_data)
+        (
+            user,
+            session_token,
+        ) = await auth_service.authenticate_with_verified_google_token(access_token)
 
         # Assert
-        assert updated_user is not None
-        # Extract attributes immediately after the service call
-        updated_user_email = updated_user.email_address
-        assert updated_user_email == user_email  # Should not change
-        # Note: We avoid accessing lazy-loaded attributes after transaction boundaries
+        assert user is not None
+        assert user.id == existing_user_id
+        assert user.email_address == "test@example.com"
+        assert user.google_id == "google_123"  # Updated from token
+        assert user.name == "Test User"  # Updated from token
+        assert (
+            user.profile_image_url == "https://example.com/avatar.jpg"
+        )  # Updated from token
+        assert user.is_active is True
+        assert user.is_admin is False
+        assert isinstance(session_token, str)
+        assert len(session_token) > 0
 
-    async def test_update_user_profile_not_found(self, auth_service: AuthService):
-        """Test user profile update for non-existent user."""
-        # Prepare update data
-        update_data = {"name": "New Name"}
+        # Verify Google verifier was called
+        mock_google_verifier.verify_access_token.assert_called_once_with(access_token)
+
+        # Verify user was updated in database
+        updated_user = await user_repository.get_by_email("test@example.com")
+        assert updated_user is not None
+        assert updated_user.id == existing_user_id
+        assert updated_user.google_id == "google_123"
+        assert updated_user.name == "Test User"
+        assert updated_user.profile_image_url == "https://example.com/avatar.jpg"
+
+    async def test_authenticate_with_verified_google_token_no_verifier(
+        self,
+        session: AsyncSession,
+        jwt_manager: JWTManager,
+        user_repository: UserRepository,
+    ):
+        """Test authentication fails when Google verifier is not configured."""
+        # Arrange
+        auth_service = AuthService(
+            session=session,
+            jwt_manager=jwt_manager,
+            user_repository=user_repository,
+            google_verifier=None,  # No verifier
+        )
 
         # Act & Assert
-        with pytest.raises(NotFoundError, match="User not found"):
-            await auth_service.update_user_profile(999, update_data)
+        with pytest.raises(
+            AuthenticationError, match="Google token verification not configured"
+        ):
+            await auth_service.authenticate_with_verified_google_token("token")
 
-    async def test_update_user_profile_database_error(
-        self, auth_service: AuthService, test_user: User
+    async def test_authenticate_with_verified_google_token_verification_fails(
+        self,
+        auth_service: AuthService,
+        mock_google_verifier: GoogleTokenVerifier,
     ):
-        """Test user profile update with database error causes rollback."""
-        # Extract user ID early
-        user_id = test_user.id
+        """Test authentication fails when Google token verification fails."""
+        # Arrange
+        access_token = "invalid_google_token"
+        mock_google_verifier.verify_access_token.side_effect = AuthenticationError(
+            "Invalid token"
+        )
 
-        # Prepare update data
-        update_data = {"name": "New Name"}
+        # Act & Assert
+        with pytest.raises(AuthenticationError, match="Invalid token"):
+            await auth_service.authenticate_with_verified_google_token(access_token)
 
-        # Mock repository to raise an exception
+    async def test_authenticate_with_verified_google_token_unexpected_error(
+        self,
+        auth_service: AuthService,
+        user_repository: UserRepository,
+        mock_google_verifier: GoogleTokenVerifier,
+        sample_google_token_info: GoogleTokenInfo,
+    ):
+        """Test authentication handles unexpected errors gracefully."""
+        # Arrange
+        access_token = "valid_google_token"
+        mock_google_verifier.verify_access_token.return_value = sample_google_token_info
+
+        # Patch the repository to raise an exception
         with (
             patch.object(
-                auth_service.user_repository,
-                "update",
-                side_effect=Exception("DB Error"),
-            ),
-            pytest.raises(AuthenticationError, match="Failed to update user profile"),
-        ):
-            await auth_service.update_user_profile(user_id, update_data)
-
-    async def test_validate_user_access_active_user(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test access validation for active user."""
-        # Extract user ID early
-        user_id = test_user.id
-
-        # Act
-        result = await auth_service.validate_user_access(user_id)
-
-        # Assert
-        assert result is True
-
-    async def test_validate_user_access_inactive_user(
-        self, auth_service: AuthService, inactive_user: User
-    ):
-        """Test access validation for inactive user."""
-        # Extract user ID early
-        user_id = inactive_user.id
-
-        # Act
-        result = await auth_service.validate_user_access(user_id)
-
-        # Assert
-        assert result is False
-
-    async def test_validate_user_access_user_not_found(self, auth_service: AuthService):
-        """Test access validation for non-existent user."""
-        # Act
-        result = await auth_service.validate_user_access(999)
-
-        # Assert
-        assert result is False
-
-    async def test_validate_user_access_database_error(
-        self, auth_service: AuthService, test_user: User
-    ):
-        """Test access validation with database error."""
-        # Extract user ID early
-        user_id = test_user.id
-
-        # Mock repository to raise an exception
-        with patch.object(
-            auth_service.user_repository, "get_by_id", side_effect=Exception("DB Error")
-        ):
-            # Act
-            result = await auth_service.validate_user_access(user_id)
-
-            # Assert - Should return False on error
-            assert result is False
-
-
-class TestAuthServicePrivateMethods:
-    """Test private methods of AuthService."""
-
-    async def test_create_user_from_google_success(self, auth_service: AuthService):
-        """Test successful user creation from Google info."""
-        # Create Google user info
-        google_info = GoogleUserInfo(
-            email="newuser@example.com",
-            name="New User",
-            picture="https://example.com/new_user_avatar.jpg",
-            email_verified=True,
-            google_id="new_google_user_999",
-        )
-
-        # Act
-        user = await auth_service._create_user_from_google(google_info)
-
-        # Assert - Extract all attributes immediately to avoid lazy loading
-        user_id = user.id
-        user_email = user.email_address
-        user_name = user.name
-        user_google_id = user.google_id
-        user_profile_image_url = str(user.profile_image_url)
-        user_is_active = user.is_active
-        user_is_admin = user.is_admin
-
-        assert user_id is not None
-        assert user_email == "newuser@example.com"
-        assert user_name == "New User"
-        assert user_google_id == "new_google_user_999"
-        assert user_profile_image_url == "https://example.com/new_user_avatar.jpg"
-        assert user_is_active is True
-        assert user_is_admin is False
-
-    async def test_create_user_from_google_no_name(self, auth_service: AuthService):
-        """Test user creation from Google info without name (uses email prefix)."""
-        # Create Google user info without name
-        google_info = GoogleUserInfo(
-            email="noname@example.com",
-            email_verified=True,
-            google_id="no_name_user_888",
-        )
-
-        # Act
-        user = await auth_service._create_user_from_google(google_info)
-
-        # Assert - Extract attributes immediately to avoid lazy loading
-        user_name = user.name
-        assert user_name == "noname"  # Should use email prefix
-
-    async def test_create_user_from_google_database_error(
-        self, auth_service: AuthService
-    ):
-        """Test user creation with database error causes rollback."""
-        # Create Google user info
-        google_info = GoogleUserInfo(
-            email="error@example.com",
-            name="Error User",
-            email_verified=True,
-            google_id="error_user_777",
-        )
-
-        # Mock repository to raise an exception
-        with (
-            patch.object(
-                auth_service.user_repository,
-                "create",
-                side_effect=Exception("DB Error"),
+                user_repository, "get_by_email", side_effect=Exception("Database error")
             ),
             pytest.raises(
-                DuplicateError, match="User already exists or creation failed"
+                AuthenticationError, match="Verified Google authentication failed"
             ),
         ):
-            await auth_service._create_user_from_google(google_info)
+            await auth_service.authenticate_with_verified_google_token(access_token)
 
-    async def test_update_user_from_google_with_changes(
-        self, auth_service: AuthService, test_user: User
+
+class TestAuthServiceUserCreation:
+    """Test user creation from Google token."""
+
+    async def test_create_user_from_verified_google_success(
+        self,
+        auth_service: AuthService,
+        session: AsyncSession,  # noqa: ARG002
+        user_repository: UserRepository,
+        sample_google_token_info: GoogleTokenInfo,
     ):
-        """Test updating user from Google info with changes."""
-        # Extract user attributes early
-        user_id = test_user.id
-        user_email = test_user.email_address
-
-        # Create Google user info with updates
-        google_info = GoogleUserInfo(
-            email="test@example.com",
-            name="Updated Name",
-            picture="https://example.com/updated_avatar.jpg",
-            email_verified=True,
-            google_id="google_user_123",
-        )
+        """Test successful user creation from verified Google token."""
+        # Arrange - verify no existing user
+        existing_user = await user_repository.get_by_email("test@example.com")
+        assert existing_user is None
 
         # Act
-        updated_user = await auth_service._update_user_from_google(
-            test_user, google_info
+        result = await auth_service._create_user_from_verified_google(
+            sample_google_token_info
         )
 
         # Assert
-        assert updated_user.id == user_id
-        assert updated_user.email_address == user_email
-        assert updated_user.name == "Updated Name"
-        assert (
-            str(updated_user.profile_image_url)
-            == "https://example.com/updated_avatar.jpg"
-        )
+        assert result is not None
+        assert result.email_address == "test@example.com"
+        assert result.google_id == "google_123"
+        assert result.name == "Test User"
+        assert result.profile_image_url == "https://example.com/avatar.jpg"
+        assert result.is_active is True
+        assert result.is_admin is False
+        assert result.id is not None
 
-    async def test_update_user_from_google_no_changes(
-        self, auth_service: AuthService, test_user: User
+        # Verify user was created in database
+        created_user = await user_repository.get_by_email("test@example.com")
+        assert created_user is not None
+        assert created_user.id == result.id
+        assert created_user.google_id == "google_123"
+
+    async def test_create_user_from_verified_google_no_name(
+        self,
+        auth_service: AuthService,
+        session: AsyncSession,  # noqa: ARG002
+        user_repository: UserRepository,
     ):
-        """Test updating user from Google info with no changes."""
-        # Extract user attributes early
-        user_id = test_user.id
-        user_name = test_user.name
-
-        # Create Google user info with same data
-        google_info = GoogleUserInfo(
+        """Test user creation when Google token has no name."""
+        # Arrange
+        token_info = GoogleTokenInfo(
             email="test@example.com",
-            name=user_name,  # Same name
-            picture=str(test_user.profile_image_url),  # Same picture
+            name=None,  # No name provided
+            picture="https://example.com/avatar.jpg",
+            user_id="google_123",
             email_verified=True,
-            google_id="google_user_123",
+            audience="test_client_id",
+            expires_in=3600,
         )
+
+        # Verify no existing user
+        existing_user = await user_repository.get_by_email("test@example.com")
+        assert existing_user is None
 
         # Act
-        updated_user = await auth_service._update_user_from_google(
-            test_user, google_info
-        )
-
-        # Assert - Should return same user without database changes
-        assert updated_user.id == user_id
-        assert updated_user.name == user_name
-
-    async def test_update_user_from_google_activate_user(
-        self, auth_service: AuthService, inactive_user: User
-    ):
-        """Test updating inactive user from Google info activates them."""
-        # Extract user attributes early
-        user_id = inactive_user.id
-
-        # Create Google user info
-        google_info = GoogleUserInfo(
-            email="inactive@example.com",
-            name="Inactive User",
-            email_verified=True,
-            google_id="google_inactive_789",
-        )
-
-        # Act
-        updated_user = await auth_service._update_user_from_google(
-            inactive_user, google_info
-        )
+        result = await auth_service._create_user_from_verified_google(token_info)
 
         # Assert
-        assert updated_user.id == user_id
-        assert updated_user.is_active is True  # Should be activated
+        assert result is not None
+        assert result.email_address == "test@example.com"
+        assert result.google_id == "google_123"
+        assert result.name == "test"  # Derived from email prefix
+        assert result.profile_image_url == "https://example.com/avatar.jpg"
+        assert result.is_active is True
+        assert result.is_admin is False
+        assert result.id is not None
 
-    async def test_update_user_from_google_database_error(
-        self, auth_service: AuthService, test_user: User
+        # Verify user was created in database
+        created_user = await user_repository.get_by_email("test@example.com")
+        assert created_user is not None
+        assert created_user.id == result.id
+        assert created_user.name == "test"
+
+    async def test_create_user_from_verified_google_repository_error(
+        self,
+        auth_service: AuthService,
+        user_repository: UserRepository,
+        sample_google_token_info: GoogleTokenInfo,
     ):
-        """Test updating user from Google info with database error causes rollback."""
-        # Create Google user info with updates
-        google_info = GoogleUserInfo(
-            email="test@example.com",
-            name="Updated Name",
-            email_verified=True,
-            google_id="google_user_123",
-        )
-
-        # Mock session commit to raise an exception
+        """Test user creation handles repository errors."""
+        # Arrange - patch the repository create method to raise an exception
         with (
             patch.object(
-                auth_service.session, "commit", side_effect=Exception("DB Error")
+                user_repository, "create", side_effect=Exception("Database error")
+            ),
+            pytest.raises(AuthenticationError, match="Failed to create user account"),
+        ):
+            await auth_service._create_user_from_verified_google(
+                sample_google_token_info
+            )
+
+
+class TestAuthServiceUserUpdate:
+    """Test user update from Google token."""
+
+    async def test_update_user_from_verified_google_with_changes(
+        self,
+        auth_service: AuthService,
+        session: AsyncSession,  # noqa: ARG002
+        user_repository: UserRepository,
+        sample_google_token_info: GoogleTokenInfo,
+    ):
+        """Test user update when there are changes to apply."""
+        # Arrange - create existing user with different data than token
+        existing_user_data = {
+            "email_address": "test@example.com",
+            "google_id": "old_google_id",  # Different from token
+            "name": "Old Name",  # Different from token
+            "profile_image_url": "https://example.com/old.jpg",  # Different from token
+            "is_active": True,
+            "is_admin": False,
+        }
+        existing_user = await user_repository.create(existing_user_data)
+        existing_user_id = existing_user.id
+
+        # Act
+        result = await auth_service._update_user_from_verified_google(
+            existing_user, sample_google_token_info
+        )
+
+        # Assert
+        assert result is not None
+        assert result.id == existing_user_id
+        assert result.email_address == "test@example.com"
+        assert result.google_id == "google_123"  # Updated
+        assert result.name == "Test User"  # Updated
+        assert result.profile_image_url == "https://example.com/avatar.jpg"  # Updated
+        assert result.is_active is True
+        assert result.is_admin is False
+
+        # Verify user was updated in database
+        updated_user = await user_repository.get_by_id(existing_user_id)
+        assert updated_user is not None
+        assert updated_user.google_id == "google_123"
+        assert updated_user.name == "Test User"
+        assert updated_user.profile_image_url == "https://example.com/avatar.jpg"
+
+    async def test_update_user_from_verified_google_no_changes(
+        self,
+        auth_service: AuthService,
+        session: AsyncSession,  # noqa: ARG002
+        user_repository: UserRepository,
+        sample_google_token_info: GoogleTokenInfo,
+    ):
+        """Test user update when no changes are needed."""
+        # Arrange - create user with same data as token
+        existing_user_data = {
+            "email_address": "test@example.com",
+            "google_id": "google_123",  # Same as token
+            "name": "Test User",  # Same as token
+            "profile_image_url": "https://example.com/avatar.jpg",  # Same as token
+            "is_active": True,
+            "is_admin": False,
+        }
+        existing_user = await user_repository.create(existing_user_data)
+        existing_user_id = existing_user.id
+        original_updated_at = existing_user.updated_at
+
+        # Act
+        result = await auth_service._update_user_from_verified_google(
+            existing_user, sample_google_token_info
+        )
+
+        # Assert
+        assert result is not None
+        assert result.id == existing_user_id
+        assert result.email_address == "test@example.com"
+        assert result.google_id == "google_123"
+        assert result.name == "Test User"
+        assert result.profile_image_url == "https://example.com/avatar.jpg"
+
+        # Verify no changes in database (updated_at should be the same)
+        unchanged_user = await user_repository.get_by_id(existing_user_id)
+        assert unchanged_user.updated_at == original_updated_at
+
+    async def test_update_user_from_verified_google_partial_changes(
+        self,
+        auth_service: AuthService,
+        session: AsyncSession,  # noqa: ARG002
+        user_repository: UserRepository,
+    ):
+        """Test user update with only some fields changed."""
+        # Arrange
+        token_info = GoogleTokenInfo(
+            email="test@example.com",
+            name="New Name",  # Different
+            picture="https://example.com/avatar.jpg",  # Same
+            user_id="google_123",  # Same
+            email_verified=True,
+            audience="test_client_id",
+            expires_in=3600,
+        )
+
+        # Create existing user with some same and some different data
+        existing_user_data = {
+            "email_address": "test@example.com",
+            "google_id": "google_123",  # Same as token
+            "name": "Old Name",  # Different from token
+            "profile_image_url": "https://example.com/avatar.jpg",  # Same as token
+            "is_active": True,
+            "is_admin": False,
+        }
+        existing_user = await user_repository.create(existing_user_data)
+        existing_user_id = existing_user.id
+
+        # Act
+        result = await auth_service._update_user_from_verified_google(
+            existing_user, token_info
+        )
+
+        # Assert
+        assert result is not None
+        assert result.id == existing_user_id
+        assert result.email_address == "test@example.com"
+        assert result.google_id == "google_123"  # Same
+        assert result.name == "New Name"  # Updated
+        assert result.profile_image_url == "https://example.com/avatar.jpg"  # Same
+        assert result.is_active is True
+        assert result.is_admin is False
+
+        # Verify only name was updated in database
+        updated_user = await user_repository.get_by_id(existing_user_id)
+        assert updated_user is not None
+        assert updated_user.name == "New Name"
+        assert updated_user.google_id == "google_123"  # Unchanged
+        assert (
+            updated_user.profile_image_url == "https://example.com/avatar.jpg"
+        )  # Unchanged
+
+    async def test_update_user_from_verified_google_repository_error(
+        self,
+        auth_service: AuthService,
+        user_repository: UserRepository,
+        sample_google_token_info: GoogleTokenInfo,
+    ):
+        """Test user update handles repository errors."""
+        # Arrange - create existing user that needs updates
+        existing_user_data = {
+            "email_address": "test@example.com",
+            "google_id": "old_google_id",
+            "name": "Old Name",  # Different from token
+            "is_active": True,
+            "is_admin": False,
+        }
+        existing_user = await user_repository.create(existing_user_data)
+
+        # Patch the repository update method to raise an exception
+        with (
+            patch.object(
+                user_repository, "update", side_effect=Exception("Database error")
             ),
             pytest.raises(
                 AuthenticationError, match="Failed to update user information"
             ),
         ):
-            await auth_service._update_user_from_google(test_user, google_info)
-
-
-class TestAuthServiceExceptionHandling:
-    """Test exception handling and logging in AuthService."""
-
-    async def test_exception_chaining_authentication_error(
-        self, auth_service: AuthService, mock_google_user_info: GoogleUserInfo
-    ):
-        """Test that exceptions are properly chained with 'from e'."""
-        # Mock to raise a specific exception
-        original_exception = Exception("Original error")
-        with patch.object(
-            auth_service.user_repository,
-            "get_by_email",
-            side_effect=original_exception,
-        ):
-            # Act & Assert
-            with pytest.raises(AuthenticationError) as exc_info:
-                await auth_service.authenticate_with_google(mock_google_user_info)
-
-            # Verify exception chaining
-            assert exc_info.value.__cause__ is original_exception
-
-    async def test_logging_on_errors(
-        self, auth_service: AuthService, mock_google_user_info: GoogleUserInfo
-    ):
-        """Test that errors are properly logged."""
-        with (
-            patch("workout_api.auth.service.logger") as mock_logger,
-            patch.object(
-                auth_service.user_repository,
-                "get_by_email",
-                side_effect=Exception("Test error"),
-            ),
-        ):
-            # Act
-            with pytest.raises(AuthenticationError):
-                await auth_service.authenticate_with_google(mock_google_user_info)
-
-            # Assert
-            mock_logger.error.assert_called_once()
-
-    async def test_session_rollback_on_errors(
-        self, auth_service: AuthService, mock_google_user_info: GoogleUserInfo
-    ):
-        """Test that session rollback is called on errors."""
-        with (
-            patch.object(auth_service.session, "rollback") as mock_rollback,
-            patch.object(
-                auth_service.user_repository,
-                "get_by_email",
-                side_effect=Exception("Test error"),
-            ),
-        ):
-            # Act
-            with pytest.raises(AuthenticationError):
-                await auth_service.authenticate_with_google(mock_google_user_info)
-
-            # Assert
-            mock_rollback.assert_called_once()
-
-
-class TestAuthServiceDevelopmentLogin:
-    """Test development login flows in AuthService."""
-
-    async def test_authenticate_with_dev_login_new_user(
-        self, auth_service: AuthService
-    ):
-        """Test development login creates new user with dev: prefix."""
-        # Act
-        user, tokens = await auth_service.authenticate_with_dev_login(
-            "newuser@example.com"
-        )
-
-        # Assert
-        assert user.id is not None
-        assert user.email_address == "dev:newuser@example.com"
-        assert user.name == "Dev User (newuser@example.com)"
-        assert user.google_id == "dev:newuser@example.com"
-        assert user.profile_image_url is None
-        assert user.is_active is True
-        assert user.is_admin is False
-        assert isinstance(tokens, TokenPair)
-        assert tokens.access_token is not None
-        assert tokens.refresh_token is not None
-
-    async def test_authenticate_with_dev_login_existing_user(
-        self, auth_service: AuthService, session: AsyncSession
-    ):
-        """Test development login with existing dev user."""
-        # Arrange - Create existing dev user
-        existing_user = User(
-            email_address="dev:existing@example.com",
-            google_id="dev:existing@example.com",
-            name="Dev User (existing@example.com)",
-            is_active=True,
-            is_admin=False,
-        )
-        session.add(existing_user)
-        await session.flush()
-        await session.refresh(existing_user)
-
-        # Extract attributes early
-        user_id = existing_user.id
-        user_email = existing_user.email_address
-        user_name = existing_user.name
-
-        # Act
-        user, tokens = await auth_service.authenticate_with_dev_login(
-            "existing@example.com"
-        )
-
-        # Assert
-        assert user.id == user_id
-        assert user.email_address == user_email
-        assert user.name == user_name
-        assert isinstance(tokens, TokenPair)
-        assert tokens.access_token is not None
-        assert tokens.refresh_token is not None
-
-    async def test_authenticate_with_dev_login_database_error(
-        self, auth_service: AuthService
-    ):
-        """Test development login with database error causes rollback."""
-        # Mock the user repository to raise an exception
-        with (
-            patch.object(
-                auth_service.user_repository,
-                "get_by_email",
-                side_effect=Exception("DB Error"),
-            ),
-            pytest.raises(
-                AuthenticationError, match="Development authentication failed: DB Error"
-            ),
-        ):
-            await auth_service.authenticate_with_dev_login("error@example.com")
-
-    async def test_authenticate_with_dev_login_create_user_error(
-        self, auth_service: AuthService
-    ):
-        """Test development login with user creation error."""
-        # Mock repository methods to simulate creation failure
-        with (
-            patch.object(
-                auth_service.user_repository,
-                "get_by_email",
-                return_value=None,  # User doesn't exist
-            ),
-            patch.object(
-                auth_service.user_repository,
-                "create",
-                side_effect=Exception("Create Error"),
-            ),
-            pytest.raises(
-                AuthenticationError,
-                match="Development authentication failed: Dev user already exists or creation failed",
-            ),
-        ):
-            await auth_service.authenticate_with_dev_login("createerror@example.com")
-
-    async def test_create_dev_user_success(self, auth_service: AuthService):
-        """Test _create_dev_user private method."""
-        # Act
-        user = await auth_service._create_dev_user(
-            "test@example.com", "dev:test@example.com"
-        )
-
-        # Assert
-        assert user.id is not None
-        assert user.email_address == "dev:test@example.com"
-        assert user.name == "Dev User (test@example.com)"
-        assert user.google_id == "dev:test@example.com"
-        assert user.profile_image_url is None
-        assert user.is_active is True
-        assert user.is_admin is False
-
-    async def test_create_dev_user_duplicate_error(self, auth_service: AuthService):
-        """Test _create_dev_user with duplicate user error."""
-        # Mock repository to raise DuplicateError
-        with (
-            patch.object(
-                auth_service.user_repository,
-                "create",
-                side_effect=DuplicateError("User already exists"),
-            ),
-            pytest.raises(DuplicateError, match="User already exists"),
-        ):
-            await auth_service._create_dev_user(
-                "dup@example.com", "dev:dup@example.com"
+            await auth_service._update_user_from_verified_google(
+                existing_user, sample_google_token_info
             )
 
-    async def test_create_dev_user_database_error(self, auth_service: AuthService):
-        """Test _create_dev_user with database error."""
-        # Mock repository to raise generic exception
-        with (
-            patch.object(
-                auth_service.user_repository,
-                "create",
-                side_effect=Exception("DB Error"),
-            ),
-            pytest.raises(
-                DuplicateError, match="Dev user already exists or creation failed"
-            ),
-        ):
-            await auth_service._create_dev_user(
-                "error@example.com", "dev:error@example.com"
-            )
-
-    async def test_authenticate_with_dev_login_jwt_error(
-        self, auth_service: AuthService, session: AsyncSession
+    async def test_update_user_from_verified_google_not_found_error(
+        self,
+        auth_service: AuthService,
+        user_repository: UserRepository,
+        sample_google_token_info: GoogleTokenInfo,
     ):
-        """Test development login with JWT creation error."""
-        # Arrange - Create existing dev user
-        existing_user = User(
-            email_address="dev:jwt@example.com",
-            google_id="dev:jwt@example.com",
-            name="Dev User (jwt@example.com)",
-            is_active=True,
-            is_admin=False,
-        )
-        session.add(existing_user)
-        await session.flush()
-        await session.refresh(existing_user)
+        """Test user update handles NotFoundError properly."""
+        # Arrange - create existing user that needs updates
+        existing_user_data = {
+            "email_address": "test@example.com",
+            "google_id": "old_google_id",
+            "name": "Old Name",  # Different from token
+            "is_active": True,
+            "is_admin": False,
+        }
+        existing_user = await user_repository.create(existing_user_data)
 
-        # Mock JWT manager to raise an exception
+        # Patch the repository update method to raise NotFoundError
         with (
             patch.object(
-                auth_service.jwt_manager,
-                "create_token_pair",
-                side_effect=Exception("JWT Error"),
+                user_repository, "update", side_effect=NotFoundError("User not found")
             ),
-            pytest.raises(
-                AuthenticationError,
-                match="Development authentication failed: JWT Error",
-            ),
+            pytest.raises(NotFoundError, match="User not found"),
         ):
-            await auth_service.authenticate_with_dev_login("jwt@example.com")
+            await auth_service._update_user_from_verified_google(
+                existing_user, sample_google_token_info
+            )

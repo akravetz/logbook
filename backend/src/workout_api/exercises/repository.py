@@ -1,17 +1,13 @@
 """Exercise repository for database operations."""
 
 import logging
-from typing import TYPE_CHECKING
 
 from rapidfuzz import fuzz, process
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Exercise, ExerciseModality
-from .schemas import ExerciseFilters, Pagination
-
-if TYPE_CHECKING:
-    from .schemas import Page
+from .schemas import ExerciseFilters, Page, Pagination
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +104,6 @@ class ExerciseRepository:
         count_result = await self.session.execute(count_stmt)
         total = count_result.scalar()
 
-        from .schemas import Page
-
         return Page.create(
             items=list(exercises),
             total=total,
@@ -158,8 +152,6 @@ class ExerciseRepository:
 
         # Step 2: Apply fuzzy filtering using rapidfuzz.process for efficiency
         if not all_candidates:
-            from .schemas import Page
-
             return Page.create(
                 items=[],
                 total=0,
@@ -188,8 +180,6 @@ class ExerciseRepository:
         start_idx = pagination.offset
         end_idx = start_idx + pagination.size
         paginated_exercises = fuzzy_matches[start_idx:end_idx]
-
-        from .schemas import Page
 
         return Page.create(
             items=paginated_exercises,

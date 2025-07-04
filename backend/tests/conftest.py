@@ -5,16 +5,18 @@ from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
+from workout_api.auth.dependencies import get_current_user_from_token
 from workout_api.auth.jwt import JWTManager, TokenPair
-from workout_api.auth.schemas import GoogleUserInfo
 from workout_api.core.config import Settings
 from workout_api.core.database import get_session
 from workout_api.core.main import app
 from workout_api.shared.base_model import Base
 from workout_api.users.models import User
+from workout_api.users.repository import UserRepository
 
 # Mark all tests in this session as anyio tests
 pytestmark = pytest.mark.anyio
@@ -236,18 +238,6 @@ async def inactive_user(session: AsyncSession) -> User:
 
 
 @pytest.fixture
-def mock_google_user_info() -> GoogleUserInfo:
-    """Create mock Google user info for OAuth testing - shared across modules."""
-    return GoogleUserInfo(
-        email="test@example.com",
-        name="Test User",
-        picture="https://example.com/avatar.jpg",
-        email_verified=True,
-        google_id="google_user_123",
-    )
-
-
-@pytest.fixture
 def valid_token_pair(
     test_user_data: dict[str, Any], jwt_manager: JWTManager
 ) -> TokenPair:
@@ -267,10 +257,6 @@ async def authenticated_client(
     client: AsyncClient, test_user: User, session: AsyncSession
 ) -> AsyncClient:
     """Create authenticated HTTP client for standard user - shared across modules."""
-    from sqlalchemy import select
-
-    from workout_api.auth.dependencies import get_current_user_from_token
-
     # Extract user_id early to avoid lazy loading issues
     user_id = test_user.id
 
@@ -296,10 +282,6 @@ async def admin_authenticated_client(
     client: AsyncClient, test_admin_user: User, session: AsyncSession
 ) -> AsyncClient:
     """Create authenticated HTTP client for admin user - shared across modules."""
-    from sqlalchemy import select
-
-    from workout_api.auth.dependencies import get_current_user_from_token
-
     # Extract user_id early to avoid lazy loading issues
     user_id = test_admin_user.id
 
@@ -328,7 +310,6 @@ async def admin_authenticated_client(
 @pytest.fixture
 async def user_repository(session: AsyncSession):
     """Create UserRepository instance with injected session - shared across modules."""
-    from workout_api.users.repository import UserRepository
 
     return UserRepository(session)
 
@@ -338,10 +319,6 @@ async def another_authenticated_client(
     client: AsyncClient, another_user: User, session: AsyncSession
 ) -> AsyncClient:
     """Create authenticated HTTP client for second user - shared across modules."""
-    from sqlalchemy import select
-
-    from workout_api.auth.dependencies import get_current_user_from_token
-
     # Extract user_id early to avoid lazy loading issues
     user_id = another_user.id
 

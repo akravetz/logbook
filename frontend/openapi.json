@@ -115,51 +115,6 @@
         }
       }
     },
-    "/api/v1/auth/refresh": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Refresh access token",
-        "description": "Use refresh token to get new access token",
-        "operationId": "refresh_token_api_v1_auth_refresh_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TokenRefreshRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TokenRefreshResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid refresh token"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/auth/logout": {
       "post": {
         "tags": [
@@ -241,19 +196,19 @@
         ]
       }
     },
-    "/api/v1/auth/verify-google-user": {
+    "/api/v1/auth/verify-token": {
       "post": {
         "tags": [
           "Authentication"
         ],
-        "summary": "Verify Google user for NextAuth",
-        "description": "Create or update user from Google OAuth data via NextAuth.js",
-        "operationId": "verify_google_user_api_v1_auth_verify_google_user_post",
+        "summary": "Verify Auth.js Google token",
+        "description": "Securely verify Google OAuth token from Auth.js and return session token",
+        "operationId": "verify_auth_token_api_v1_auth_verify_token_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NextAuthGoogleUserRequest"
+                "$ref": "#/components/schemas/AuthTokenRequest"
               }
             }
           },
@@ -265,54 +220,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NextAuthVerificationResponse"
+                  "$ref": "#/components/schemas/AuthTokenResponse"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed"
-          },
-          "422": {
-            "description": "Validation Error"
-          }
-        }
-      }
-    },
-    "/api/v1/auth/dev-login": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Development login",
-        "description": "Login with any email in development environment only",
-        "operationId": "dev_login_api_v1_auth_dev_login_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DevLoginRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DevLoginResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication failed"
-          },
-          "403": {
-            "description": "Not available in production"
+            "description": "Invalid or expired Google token"
           },
           "422": {
             "description": "Validation Error"
@@ -1989,6 +1903,41 @@
   },
   "components": {
     "schemas": {
+      "AuthTokenRequest": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "Google OAuth access token from Auth.js"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token"
+        ],
+        "title": "AuthTokenRequest",
+        "description": "Auth.js token verification request."
+      },
+      "AuthTokenResponse": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/NextAuthUserResponse",
+            "description": "User information"
+          },
+          "session_token": {
+            "type": "string",
+            "title": "Session Token",
+            "description": "Backend session token for API access"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "session_token"
+        ],
+        "title": "AuthTokenResponse",
+        "description": "Auth.js token verification response."
+      },
       "DatabaseHealthResponse": {
         "properties": {
           "status": {
@@ -2052,47 +2001,6 @@
         ],
         "title": "DatabaseHealthResponse",
         "description": "Database health check response."
-      },
-      "DevLoginRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "title": "Email",
-            "description": "Email address for development login"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "title": "DevLoginRequest",
-        "description": "Development login request - email only."
-      },
-      "DevLoginResponse": {
-        "properties": {
-          "user": {
-            "$ref": "#/components/schemas/NextAuthUserResponse",
-            "description": "User information"
-          },
-          "tokens": {
-            "$ref": "#/components/schemas/NextAuthTokenResponse",
-            "description": "JWT token pair"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message",
-            "description": "Success message",
-            "default": "Development login successful"
-          }
-        },
-        "type": "object",
-        "required": [
-          "user",
-          "tokens"
-        ],
-        "title": "DevLoginResponse",
-        "description": "Development login response."
       },
       "ExerciseCreate": {
         "properties": {
@@ -2529,98 +2437,21 @@
           "message": {
             "type": "string",
             "title": "Message",
-            "description": "Logout message",
-            "default": "Successfully logged out"
+            "description": "Success message"
           },
           "logged_out": {
             "type": "boolean",
             "title": "Logged Out",
-            "description": "Logout status",
-            "default": true
+            "description": "Whether logout was successful"
           }
         },
         "type": "object",
+        "required": [
+          "message",
+          "logged_out"
+        ],
         "title": "LogoutResponse",
         "description": "Logout response."
-      },
-      "NextAuthGoogleUserRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "title": "Email",
-            "description": "User's email address from Google"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name",
-            "description": "User's display name"
-          },
-          "image": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image",
-            "description": "URL to user's profile image"
-          },
-          "email_verified": {
-            "type": "boolean",
-            "title": "Email Verified",
-            "description": "Whether email is verified by Google",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "title": "NextAuthGoogleUserRequest",
-        "description": "NextAuth.js Google user verification request."
-      },
-      "NextAuthTokenResponse": {
-        "properties": {
-          "access_token": {
-            "type": "string",
-            "title": "Access Token",
-            "description": "JWT access token"
-          },
-          "refresh_token": {
-            "type": "string",
-            "title": "Refresh Token",
-            "description": "JWT refresh token"
-          },
-          "expires_in": {
-            "type": "integer",
-            "title": "Expires In",
-            "description": "Access token expiration in seconds"
-          },
-          "expires_at": {
-            "type": "string",
-            "title": "Expires At",
-            "description": "Access token expiration timestamp in ISO format"
-          }
-        },
-        "type": "object",
-        "required": [
-          "access_token",
-          "refresh_token",
-          "expires_in",
-          "expires_at"
-        ],
-        "title": "NextAuthTokenResponse",
-        "description": "JWT tokens in NextAuth.js expected format."
       },
       "NextAuthUserResponse": {
         "properties": {
@@ -2635,7 +2466,14 @@
             "description": "User email address"
           },
           "name": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name",
             "description": "User display name"
           },
@@ -2655,31 +2493,10 @@
         "type": "object",
         "required": [
           "id",
-          "email",
-          "name",
-          "image"
+          "email"
         ],
         "title": "NextAuthUserResponse",
-        "description": "User data in NextAuth.js expected format."
-      },
-      "NextAuthVerificationResponse": {
-        "properties": {
-          "user": {
-            "$ref": "#/components/schemas/NextAuthUserResponse",
-            "description": "User information"
-          },
-          "tokens": {
-            "$ref": "#/components/schemas/NextAuthTokenResponse",
-            "description": "JWT token pair"
-          }
-        },
-        "type": "object",
-        "required": [
-          "user",
-          "tokens"
-        ],
-        "title": "NextAuthVerificationResponse",
-        "description": "Complete NextAuth.js verification response."
+        "description": "User response in NextAuth.js format."
       },
       "Page_ExerciseResponse_": {
         "properties": {
@@ -3106,60 +2923,6 @@
         "title": "SystemInfoResponse",
         "description": "System configuration information."
       },
-      "TokenRefreshRequest": {
-        "properties": {
-          "refresh_token": {
-            "type": "string",
-            "title": "Refresh Token",
-            "description": "Valid refresh token"
-          }
-        },
-        "type": "object",
-        "required": [
-          "refresh_token"
-        ],
-        "title": "TokenRefreshRequest",
-        "description": "Token refresh request."
-      },
-      "TokenRefreshResponse": {
-        "properties": {
-          "access_token": {
-            "type": "string",
-            "title": "Access Token",
-            "description": "New JWT access token"
-          },
-          "refresh_token": {
-            "type": "string",
-            "title": "Refresh Token",
-            "description": "New JWT refresh token"
-          },
-          "token_type": {
-            "type": "string",
-            "title": "Token Type",
-            "description": "Token type",
-            "default": "Bearer"
-          },
-          "expires_in": {
-            "type": "integer",
-            "title": "Expires In",
-            "description": "Access token expiration in seconds"
-          },
-          "expires_at": {
-            "type": "string",
-            "title": "Expires At",
-            "description": "Access token expiration timestamp in ISO format"
-          }
-        },
-        "type": "object",
-        "required": [
-          "access_token",
-          "refresh_token",
-          "expires_in",
-          "expires_at"
-        ],
-        "title": "TokenRefreshResponse",
-        "description": "Token refresh response."
-      },
       "TokenValidationResponse": {
         "properties": {
           "valid": {
@@ -3230,18 +2993,20 @@
             "title": "Id",
             "description": "User ID"
           },
-          "email_address": {
+          "email": {
             "type": "string",
-            "title": "Email Address",
+            "title": "Email",
             "description": "User email address"
           },
-          "google_id": {
-            "type": "string",
-            "title": "Google Id",
-            "description": "Google OAuth user ID"
-          },
           "name": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name",
             "description": "User display name"
           },
@@ -3260,23 +3025,14 @@
           "is_active": {
             "type": "boolean",
             "title": "Is Active",
-            "description": "Whether the user account is active"
-          },
-          "is_admin": {
-            "type": "boolean",
-            "title": "Is Admin",
-            "description": "Whether the user has admin privileges"
+            "description": "Whether user account is active"
           }
         },
         "type": "object",
         "required": [
           "id",
-          "email_address",
-          "google_id",
-          "name",
-          "profile_image_url",
-          "is_active",
-          "is_admin"
+          "email",
+          "is_active"
         ],
         "title": "UserProfileResponse",
         "description": "User profile response."

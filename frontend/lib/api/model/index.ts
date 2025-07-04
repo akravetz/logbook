@@ -106,3 +106,5 @@ export * from "./workoutFrequency";
 export * from "./workoutFrequencyMonthlyCounts";
 export * from "./workoutResponse";
 export * from "./workoutResponseFinishedAt";
+export * from "./authTokenRequest";
+export * from "./authTokenResponse";

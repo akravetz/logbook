@@ -1,73 +1,23 @@
 """Authentication router with JWT endpoints for NextAuth.js integration."""
 
 import logging
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, status
 
-from ..core.config import Settings, get_settings
-from ..core.database import get_session
 from ..shared.exceptions import AuthenticationError
-from .dependencies import AuthServiceDep, CurrentUser, JWTManagerDep, TokenOnly
+from .dependencies import AuthServiceDep, CurrentUser, TokenOnly
 from .schemas import (
-    DevLoginRequest,
-    DevLoginResponse,
+    AuthTokenRequest,
+    AuthTokenResponse,
     LogoutResponse,
-    NextAuthGoogleUserRequest,
-    NextAuthTokenResponse,
     NextAuthUserResponse,
-    NextAuthVerificationResponse,
     SessionInfoResponse,
-    TokenRefreshRequest,
-    TokenRefreshResponse,
     TokenValidationResponse,
+    UserProfileResponse,
 )
 
 logger = logging.getLogger("workout_api.auth.router")
 router = APIRouter()
-
-
-@router.post(
-    "/refresh",
-    response_model=TokenRefreshResponse,
-    summary="Refresh access token",
-    description="Use refresh token to get new access token",
-    responses={
-        401: {"description": "Invalid refresh token"},
-    },
-)
-async def refresh_token(
-    refresh_request: TokenRefreshRequest,
-    jwt_manager: JWTManagerDep,
-) -> TokenRefreshResponse:
-    """Refresh JWT access token using refresh token."""
-    try:
-        # Get new token pair (implements token rotation)
-        token_pair = jwt_manager.refresh_token_pair(refresh_request.refresh_token)
-
-        logger.info("Token pair refreshed successfully")
-
-        return TokenRefreshResponse(
-            access_token=token_pair.access_token,
-            refresh_token=token_pair.refresh_token,
-            token_type=token_pair.token_type,
-            expires_in=token_pair.expires_in,
-            expires_at=token_pair.expires_at,
-        )
-
-    except AuthenticationError as e:
-        logger.warning(f"Token refresh failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(f"Token refresh error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Token refresh failed",
-        ) from e
 
 
 @router.post(
@@ -98,16 +48,12 @@ async def get_session_info(
     token_data: TokenOnly,
 ) -> SessionInfoResponse:
     """Get current authenticated session information."""
-    from .schemas import UserProfileResponse
-
     user_profile = UserProfileResponse(
         id=current_user.id,
-        email_address=current_user.email_address,
-        google_id=current_user.google_id,
+        email=current_user.email_address,
         name=current_user.name,
         profile_image_url=current_user.profile_image_url,
         is_active=current_user.is_active,
-        is_admin=current_user.is_admin,
     )
 
     # Determine permissions
@@ -142,127 +88,53 @@ async def validate_token(
     )
 
 
-# NextAuth.js Integration Endpoints
+# Auth.js Secure Integration Endpoints
 
 
 @router.post(
-    "/verify-google-user",
-    response_model=NextAuthVerificationResponse,
-    summary="Verify Google user for NextAuth",
-    description="Create or update user from Google OAuth data via NextAuth.js",
+    "/verify-token",
+    response_model=AuthTokenResponse,
+    summary="Verify Auth.js Google token",
+    description="Securely verify Google OAuth token from Auth.js and return session token",
     responses={
-        401: {"description": "Authentication failed"},
+        401: {"description": "Invalid or expired Google token"},
         422: {"description": "Validation Error"},
     },
 )
-async def verify_google_user(
-    request: NextAuthGoogleUserRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
-    jwt_manager: JWTManagerDep,
-) -> NextAuthVerificationResponse:
-    """Verify and create/update user from Google OAuth data via NextAuth.js."""
-    try:
-        from .schemas import NextAuthTokenResponse, NextAuthUserResponse
-        from .service import get_auth_service
-
-        # Convert NextAuth request to internal format
-        google_user_info = request.to_google_user_info()
-
-        # Use existing authentication service
-        auth_service = get_auth_service(session, jwt_manager)
-        user, jwt_tokens = await auth_service.authenticate_with_google(google_user_info)
-
-        # Return properly typed response
-        return NextAuthVerificationResponse(
-            user=NextAuthUserResponse(
-                id=user.id,
-                email=user.email_address,
-                name=user.name,
-                image=user.profile_image_url,
-            ),
-            tokens=NextAuthTokenResponse(
-                access_token=jwt_tokens.access_token,
-                refresh_token=jwt_tokens.refresh_token,
-                expires_in=jwt_tokens.expires_in,
-                expires_at=jwt_tokens.expires_at,
-            ),
-        )
-
-    except AuthenticationError as e:
-        logger.warning(f"Google user verification failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(f"Google user verification error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="User verification failed",
-        ) from e
-
-
-# Development Login Endpoint
-
-
-@router.post(
-    "/dev-login",
-    response_model=DevLoginResponse,
-    summary="Development login",
-    description="Login with any email in development environment only",
-    responses={
-        401: {"description": "Authentication failed"},
-        403: {"description": "Not available in production"},
-        422: {"description": "Validation Error"},
-    },
-)
-async def dev_login(
-    request: DevLoginRequest,
+async def verify_auth_token(
+    request: AuthTokenRequest,
     auth_service: AuthServiceDep,
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> DevLoginResponse:
-    """Development login endpoint - only available in development environment."""
+) -> AuthTokenResponse:
+    """Securely verify Google OAuth token from Auth.js using Google's tokeninfo API."""
     try:
-        # Check if development environment
-        if not settings.is_development:
-            logger.warning("Development login attempted in non-development environment")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Development login not available in production",
-            )
+        # Use secure Google token verification
+        (
+            user,
+            session_token,
+        ) = await auth_service.authenticate_with_verified_google_token(
+            request.access_token
+        )
 
-        # Use auth service dependency
-        user, jwt_tokens = await auth_service.authenticate_with_dev_login(request.email)
-
-        # Return properly typed response
-        return DevLoginResponse(
+        # Return user info and session token
+        return AuthTokenResponse(
             user=NextAuthUserResponse(
                 id=user.id,
                 email=user.email_address,
                 name=user.name,
                 image=user.profile_image_url,
             ),
-            tokens=NextAuthTokenResponse(
-                access_token=jwt_tokens.access_token,
-                refresh_token=jwt_tokens.refresh_token,
-                expires_in=jwt_tokens.expires_in,
-                expires_at=jwt_tokens.expires_at,
-            ),
-            message="Development login successful",
+            session_token=session_token,
         )
 
     except AuthenticationError as e:
-        logger.warning(f"Development login failed: {e}")
+        logger.warning(f"Google token verification failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         ) from e
-    except HTTPException:
-        # Re-raise HTTP exceptions without wrapping
-        raise
     except Exception as e:
-        logger.error(f"Development login error: {e}")
+        logger.error(f"Google token verification error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Development login failed",
+            detail="Token verification failed",
         ) from e

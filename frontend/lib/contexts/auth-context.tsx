@@ -2,22 +2,15 @@
 
 import { SessionProvider } from "next-auth/react"
 import { ReactNode } from "react"
-import { useAuthErrorHandler } from "@/lib/hooks/useAuthErrorHandler"
 
 interface AuthProviderProps {
   children: ReactNode
 }
 
-// Component that uses the auth error handler hook
-function AuthErrorHandler({ children }: { children: ReactNode }) {
-  useAuthErrorHandler()
-  return <>{children}</>
-}
-
 export function AuthProvider({ children }: AuthProviderProps) {
   return (
     <SessionProvider>
-      <AuthErrorHandler>{children}</AuthErrorHandler>
+      {children}
     </SessionProvider>
   )
 }

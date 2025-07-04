@@ -1000,31 +1000,11 @@ async def get_current_user(session: AsyncSession) -> User:
 ```
 
 **TYPE_CHECKING Usage (Advanced Pattern):**
-```python
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from some_module import TypeOnlyClass  # Only used in type hints
-
-# ✅ CORRECT: TYPE_CHECKING for type-only imports
-def process_data(data: TypeOnlyClass) -> None:  # Type hint only
-    pass  # TypeOnlyClass not used at runtime
-
-# ❌ WRONG: Runtime objects in TYPE_CHECKING
-if TYPE_CHECKING:
-    from .schemas import Page  # Page.create() used at runtime!
-
-# ✅ CORRECT: Runtime imports at module level
-from .schemas import Page
-
-def get_results() -> Page[Item]:
-    return Page.create(items, total, page, size)  # Runtime usage
-```
+DO NOT USE TYPE_CHECKING
 
 **Import Organization Rules:**
 - **Module-level only** - All imports at the top of files
 - **Never inside functions** - PEP 8 violation and poor performance
-- **TYPE_CHECKING for types only** - Only for classes used solely in type annotations
 - **Runtime imports are regular** - Objects used at runtime get normal imports
 - **Avoid `if TYPE_CHECKING: pass`** - Serves no purpose and should never exist
 

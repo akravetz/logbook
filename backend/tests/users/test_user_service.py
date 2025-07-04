@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from workout_api.shared.exceptions import NotFoundError, ValidationError
@@ -105,8 +106,6 @@ class TestUserService:
     ):
         """Test user profile update with empty name."""
         # Act & Assert - Pydantic validation should catch this
-        from pydantic import ValidationError as PydanticValidationError
-
         with pytest.raises(PydanticValidationError):
             UserProfileUpdate(name="")
 
