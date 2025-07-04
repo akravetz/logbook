@@ -22,6 +22,7 @@ from ..shared.exceptions import (
     WorkoutAPIException,
 )
 from ..users.router import router as users_router
+from ..voice.router import router as voice_router
 from ..workouts.router import router as workouts_router
 from .config import get_settings
 from .database import db_manager
@@ -263,6 +264,7 @@ app.include_router(
 # Additional routers
 app.include_router(users_router, prefix=f"{settings.api_v1_prefix}")
 app.include_router(exercises_router, prefix=f"{settings.api_v1_prefix}")
+app.include_router(voice_router, prefix=f"{settings.api_v1_prefix}")
 app.include_router(workouts_router, prefix=f"{settings.api_v1_prefix}")
 
 

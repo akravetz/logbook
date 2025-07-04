@@ -18,6 +18,7 @@ import type {
 import type {
   AuthTokenRequest,
   AuthTokenResponse,
+  BodyTranscribeAudioApiV1VoiceTranscribePost,
   DatabaseHealthResponse,
   ExerciseCreate,
   ExerciseExecutionRequest,
@@ -46,6 +47,7 @@ import type {
   SimpleHealthResponse,
   SystemInfoResponse,
   TokenValidationResponse,
+  TranscriptionResponse,
   UserProfileUpdate,
   UserResponse,
   UserStatsResponse,
@@ -2279,6 +2281,96 @@ export const useDeleteExerciseApiV1ExercisesExerciseIdDelete = <
 > => {
   const mutationOptions =
     getDeleteExerciseApiV1ExercisesExerciseIdDeleteMutationOptions(options);
+
+  return useMutation(mutationOptions);
+};
+
+/**
+ * Upload an audio file and get the transcribed text
+ * @summary Transcribe audio to text
+ */
+export const transcribeAudioApiV1VoiceTranscribePost = (
+  bodyTranscribeAudioApiV1VoiceTranscribePost: BodyTranscribeAudioApiV1VoiceTranscribePost,
+  options?: SecondParameter<typeof customInstance>,
+) => {
+  const formData = new FormData();
+  formData.append(
+    "audio_file",
+    bodyTranscribeAudioApiV1VoiceTranscribePost.audio_file,
+  );
+
+  return customInstance<TranscriptionResponse>(
+    {
+      url: `/api/v1/voice/transcribe`,
+      method: "POST",
+      headers: { "Content-Type": "multipart/form-data" },
+      data: formData,
+    },
+    options,
+  );
+};
+
+export const getTranscribeAudioApiV1VoiceTranscribePostMutationOptions = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transcribeAudioApiV1VoiceTranscribePost>>,
+    TError,
+    { data: BodyTranscribeAudioApiV1VoiceTranscribePost },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof transcribeAudioApiV1VoiceTranscribePost>>,
+  TError,
+  { data: BodyTranscribeAudioApiV1VoiceTranscribePost },
+  TContext
+> => {
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof transcribeAudioApiV1VoiceTranscribePost>>,
+    { data: BodyTranscribeAudioApiV1VoiceTranscribePost }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return transcribeAudioApiV1VoiceTranscribePost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TranscribeAudioApiV1VoiceTranscribePostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof transcribeAudioApiV1VoiceTranscribePost>>
+>;
+export type TranscribeAudioApiV1VoiceTranscribePostMutationBody =
+  BodyTranscribeAudioApiV1VoiceTranscribePost;
+export type TranscribeAudioApiV1VoiceTranscribePostMutationError =
+  HTTPValidationError;
+
+/**
+ * @summary Transcribe audio to text
+ */
+export const useTranscribeAudioApiV1VoiceTranscribePost = <
+  TError = HTTPValidationError,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof transcribeAudioApiV1VoiceTranscribePost>>,
+    TError,
+    { data: BodyTranscribeAudioApiV1VoiceTranscribePost },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof transcribeAudioApiV1VoiceTranscribePost>>,
+  TError,
+  { data: BodyTranscribeAudioApiV1VoiceTranscribePost },
+  TContext
+> => {
+  const mutationOptions =
+    getTranscribeAudioApiV1VoiceTranscribePostMutationOptions(options);
 
   return useMutation(mutationOptions);
 };

@@ -9,6 +9,7 @@ import { SelectExerciseModal } from "@/components/modals/select-exercise-modal"
 import { AddExerciseModal } from "@/components/modals/add-exercise-modal"
 import { AddSetModal } from "@/components/modals/add-set-modal"
 import { EditSetModal } from "@/components/modals/edit-set-modal"
+import { VoiceNoteModal } from "@/components/modals/voice-note-modal"
 import { useWorkoutStore } from "@/lib/stores/workout-store"
 import { useTaggedGetWorkout } from "@/lib/hooks/use-tagged-queries"
 
@@ -117,6 +118,7 @@ export default function WorkoutPage({ params }: WorkoutPageProps) {
       <AddExerciseModal />
       <AddSetModal />
       <EditSetModal />
+      <VoiceNoteModal />
     </>
   )
 }

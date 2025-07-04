@@ -42,6 +42,7 @@ interface SortableExerciseCardProps {
   onDeleteSet: (exerciseId: number, setId: number) => void
   onOpenEditSetModal: (exerciseId: number, setId: number, currentData: any) => void
   onOpenAddSetModal: (exerciseId: number, exerciseData: any) => void
+  onOpenVoiceNoteModal: (exerciseId: number, exerciseName: string) => void
 }
 
 function SortableExerciseCard({
@@ -51,6 +52,7 @@ function SortableExerciseCard({
   onDeleteSet,
   onOpenEditSetModal,
   onOpenAddSetModal,
+  onOpenVoiceNoteModal,
 }: SortableExerciseCardProps) {
   const {
     attributes,
@@ -94,11 +96,19 @@ function SortableExerciseCard({
                 <span className="exercise-badge">{execution.exercise_body_part}</span>
                 <span className="exercise-badge">{execution.exercise_modality.toLowerCase()}</span>
               </div>
+              {execution.note_text && (
+                <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-700 font-medium">Note: {execution.note_text}</p>
+                </div>
+              )}
             </div>
           </div>
           {!isWorkoutFinished && (
             <div className="flex items-center gap-2">
-              <button className="p-2">
+              <button
+                className="p-2 hover:bg-gray-100 rounded transition-colors"
+                onClick={() => onOpenVoiceNoteModal(execution.exercise_id, execution.exercise_name)}
+              >
                 <Mic className="w-5 h-5 text-gray-400" />
               </button>
               <button className="p-2">
@@ -180,7 +190,7 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
     reorderExercises,
   } = useWorkoutStore()
 
-  const { openSelectExerciseModal, openAddSetModal, openEditSetModal } = useUIStore()
+  const { openSelectExerciseModal, openAddSetModal, openEditSetModal, openVoiceNoteModal } = useUIStore()
 
   const [deletingSetId, setDeletingSetId] = useState<number | null>(null)
   const [isReordering, setIsReordering] = useState(false)
@@ -398,6 +408,7 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
                     onDeleteSet={handleDeleteSet}
                     onOpenEditSetModal={openEditSetModal}
                     onOpenAddSetModal={openAddSetModal}
+                    onOpenVoiceNoteModal={openVoiceNoteModal}
                   />
                 ))}
               </div>

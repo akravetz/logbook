@@ -325,9 +325,7 @@ class TestErrorHandling:
             access_token_expire_minutes=30,
             refresh_token_expire_days=7,
             database_url="postgresql://test:test@localhost/test",
-            google_client_id="test",
-            google_client_secret="test",
-            google_redirect_uri="http://test",
+            google_client_id="fooba",
         )
 
         jwt_manager_wrong = JWTManager(wrong_settings, mock_time_provider)
