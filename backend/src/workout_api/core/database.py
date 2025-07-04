@@ -28,7 +28,7 @@ class DatabaseManager:
             pool_size=self.settings.database_pool_size,
             max_overflow=self.settings.database_max_overflow,
             pool_timeout=self.settings.database_pool_timeout,
-            echo=self.settings.debug and self.settings.is_development,
+            echo=False,
             future=True,
         )
 

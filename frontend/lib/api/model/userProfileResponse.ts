@@ -5,6 +5,7 @@
  * A workout tracking API built with FastAPI
  * OpenAPI spec version: 1.0.0
  */
+import type { UserProfileResponseName } from "./userProfileResponseName";
 import type { UserProfileResponseProfileImageUrl } from "./userProfileResponseProfileImageUrl";
 
 /**
@@ -12,17 +13,13 @@ import type { UserProfileResponseProfileImageUrl } from "./userProfileResponsePr
  */
 export interface UserProfileResponse {
   /** User email address */
-  email_address: string;
-  /** Google OAuth user ID */
-  google_id: string;
+  email: string;
   /** User ID */
   id: number;
-  /** Whether the user account is active */
+  /** Whether user account is active */
   is_active: boolean;
-  /** Whether the user has admin privileges */
-  is_admin: boolean;
   /** User display name */
-  name: string;
+  name?: UserProfileResponseName;
   /** URL to user's profile image */
-  profile_image_url: UserProfileResponseProfileImageUrl;
+  profile_image_url?: UserProfileResponseProfileImageUrl;
 }

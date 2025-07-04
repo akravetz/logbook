@@ -8,6 +8,8 @@
 
 export * from "./authErrorResponse";
 export * from "./authErrorResponseErrorCode";
+export * from "./authTokenRequest";
+export * from "./authTokenResponse";
 export * from "./authenticationResponse";
 export * from "./databaseHealthResponse";
 export * from "./databaseHealthResponseDatabase";
@@ -106,5 +108,5 @@ export * from "./workoutFrequency";
 export * from "./workoutFrequencyMonthlyCounts";
 export * from "./workoutResponse";
 export * from "./workoutResponseFinishedAt";
-export * from "./authTokenRequest";
-export * from "./authTokenResponse";
+export * from "./nextAuthUserResponseName";
+export * from "./userProfileResponseName";

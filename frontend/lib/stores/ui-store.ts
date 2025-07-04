@@ -10,7 +10,8 @@ interface Exercise {
 interface UIState {
   // Modal states
   modals: {
-    addExercise: boolean
+    selectExercise: boolean
+    addNewExercise: boolean
     addSet: { open: boolean; exerciseId: number | null }
     editSet: { open: boolean; exerciseId: number | null; setId: number | null; currentData?: any }
   }
@@ -19,7 +20,8 @@ interface UIState {
   selectedExerciseForSet: Exercise | null
 
   // Modal actions
-  openAddExerciseModal: () => void
+  openSelectExerciseModal: () => void
+  openAddNewExerciseModal: () => void
   openAddSetModal: (exerciseId: number, exercise: Exercise) => void
   openEditSetModal: (exerciseId: number, setId: number, currentData: any) => void
   closeAllModals: () => void
@@ -31,22 +33,29 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   // Initial state
   modals: {
-    addExercise: false,
+    selectExercise: false,
+    addNewExercise: false,
     addSet: { open: false, exerciseId: null },
     editSet: { open: false, exerciseId: null, setId: null, currentData: null },
   },
   selectedExerciseForSet: null,
 
   // Actions
-  openAddExerciseModal: () =>
+  openSelectExerciseModal: () =>
     set((state) => ({
-      modals: { ...state.modals, addExercise: true },
+      modals: { ...state.modals, selectExercise: true },
+    })),
+
+  openAddNewExerciseModal: () =>
+    set((state) => ({
+      modals: { ...state.modals, addNewExercise: true },
     })),
 
   openAddSetModal: (exerciseId: number, exercise: Exercise) =>
     set({
       modals: {
-        addExercise: false,
+        selectExercise: false,
+        addNewExercise: false,
         addSet: { open: true, exerciseId },
         editSet: { open: false, exerciseId: null, setId: null },
       },
@@ -56,7 +65,8 @@ export const useUIStore = create<UIState>((set) => ({
   openEditSetModal: (exerciseId: number, setId: number, currentData: any) =>
     set({
       modals: {
-        addExercise: false,
+        selectExercise: false,
+        addNewExercise: false,
         addSet: { open: false, exerciseId: null },
         editSet: { open: true, exerciseId, setId, currentData },
       },
@@ -65,7 +75,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeAllModals: () =>
     set({
       modals: {
-        addExercise: false,
+        selectExercise: false,
+        addNewExercise: false,
         addSet: { open: false, exerciseId: null },
         editSet: { open: false, exerciseId: null, setId: null },
       },

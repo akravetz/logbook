@@ -6,9 +6,10 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { NextAuthUserResponseImage } from "./nextAuthUserResponseImage";
+import type { NextAuthUserResponseName } from "./nextAuthUserResponseName";
 
 /**
- * User data in NextAuth.js expected format.
+ * User response in NextAuth.js format.
  */
 export interface NextAuthUserResponse {
   /** User email address */
@@ -16,7 +17,7 @@ export interface NextAuthUserResponse {
   /** User ID */
   id: number;
   /** URL to user's profile image */
-  image: NextAuthUserResponseImage;
+  image?: NextAuthUserResponseImage;
   /** User display name */
-  name: string;
+  name?: NextAuthUserResponseName;
 }

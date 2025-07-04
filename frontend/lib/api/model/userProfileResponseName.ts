@@ -7,11 +7,6 @@
  */
 
 /**
- * Logout response.
+ * User display name
  */
-export interface LogoutResponse {
-  /** Whether logout was successful */
-  logged_out: boolean;
-  /** Success message */
-  message: string;
-}
+export type UserProfileResponseName = string | null;

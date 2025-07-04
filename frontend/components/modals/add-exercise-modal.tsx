@@ -107,10 +107,10 @@ export function AddExerciseModal() {
   }
 
   return (
-    <Dialog open={modals.addExercise} onOpenChange={handleClose}>
+    <Dialog open={modals.addNewExercise} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Exercise</DialogTitle>
+          <DialogTitle>Create New Exercise</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

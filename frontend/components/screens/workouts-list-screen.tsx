@@ -4,16 +4,19 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { useListWorkoutsApiV1WorkoutsGet, useCreateWorkoutApiV1WorkoutsPost } from '@/lib/api/generated'
+import { useCreateWorkoutApiV1WorkoutsPost } from '@/lib/api/generated'
+import { useTaggedListWorkouts } from '@/lib/hooks/use-tagged-queries'
+import { useCacheUtils } from '@/lib/cache-tags'
 import { useWorkoutStore } from '@/lib/stores/workout-store'
 
 export function WorkoutsListScreen() {
   const router = useRouter()
   const { data: session } = useSession()
   const { setActiveWorkout, startTimer } = useWorkoutStore()
+  const { invalidateWorkoutData } = useCacheUtils()
 
-  // Fetch workouts
-  const { data: workoutsData, isLoading } = useListWorkoutsApiV1WorkoutsGet({
+  // Fetch workouts with cache tags
+  const { data: workoutsData, isLoading } = useTaggedListWorkouts({
     page: 1,
     size: 20,
   })
@@ -24,9 +27,13 @@ export function WorkoutsListScreen() {
   const handleNewWorkout = async () => {
     try {
       const result = await createWorkoutMutation.mutateAsync()
+
+      // Invalidate workout data using cache tags
+      await invalidateWorkoutData()
+
       setActiveWorkout(result)
       startTimer()
-      router.push('/workout')
+      router.push(`/workout/${result.id}`)
     } catch (error) {
       // Log error for debugging in development
       if (process.env.NODE_ENV === 'development') {
