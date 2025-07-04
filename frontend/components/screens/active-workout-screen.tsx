@@ -42,7 +42,10 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
       resetTimer()
       router.push('/')
     } catch (error) {
-      console.error('Failed to finish workout:', error)
+      // Log error for debugging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to finish workout:', error)
+      }
     }
   }
 

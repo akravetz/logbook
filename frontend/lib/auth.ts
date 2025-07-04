@@ -27,7 +27,10 @@ export const authOptions: NextAuthOptions = {
           )
 
           if (!response.ok) {
-            console.error("Backend token verification failed:", response.status, response.statusText)
+            // Log error for debugging in development
+            if (process.env.NODE_ENV === 'development') {
+              console.error("Backend token verification failed:", response.status, response.statusText)
+            }
             return false
           }
 
@@ -39,7 +42,10 @@ export const authOptions: NextAuthOptions = {
 
           return true
         } catch (error) {
-          console.error("Error verifying Google token with backend:", error)
+          // Log error for debugging in development
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Error verifying Google token with backend:", error)
+          }
           return false
         }
       }

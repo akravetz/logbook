@@ -83,7 +83,10 @@ export function EditSetModal() {
       reset()
       closeAllModals()
     } catch (error) {
-      console.error('Failed to update set:', error)
+      // Log error for debugging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to update set:', error)
+      }
     } finally {
       setIsSubmitting(false)
     }
