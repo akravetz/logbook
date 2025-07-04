@@ -64,6 +64,82 @@ src/
 
 ## Core Patterns
 
+### Database Seeding Pattern
+Extensible system for initializing database content across all environments:
+
+```python
+# Base seeder pattern
+class BaseSeeder(ABC):
+    def __init__(self, session: AsyncSession, dry_run: bool = False, force: bool = False):
+        self.session = session
+        self.dry_run = dry_run
+        self.force = force
+
+    @abstractmethod
+    async def seed(self, **kwargs) -> SeedResult:
+        """Execute the seeding operation."""
+        pass
+
+    @abstractmethod
+    def get_name(self) -> str:
+        """Get the seeder name."""
+        pass
+
+# Registry pattern for auto-discovery
+@register_seeder("exercises")
+class ExerciseSeeder(BaseSeeder):
+    async def seed(self, csv_file: str = None) -> SeedResult:
+        # Load CSV data
+        exercises = await self._load_exercises_from_csv(csv_file)
+
+        # Track progress
+        result = SeedResult(
+            seeder_name=self.get_name(),
+            total_items=len(exercises),
+            created_items=0,
+            skipped_items=0,
+            errors=[],
+            success=True
+        )
+
+        # Process each exercise
+        for exercise_data in exercises:
+            try:
+                existing = await self.repository.get_by_name(exercise_data.name)
+
+                if existing and not self.force:
+                    result.skipped_items += 1
+                    continue
+
+                if not self.dry_run:
+                    await self.repository.create(exercise_data)
+
+                result.created_items += 1
+
+            except Exception as e:
+                result.add_error(f"Failed to process {exercise_data.name}: {e}")
+
+        return result
+```
+
+**Key Seeding Patterns:**
+- **Registry Pattern**: Automatic seeder discovery via `@register_seeder` decorator
+- **Dry Run Support**: Preview operations without making database changes
+- **Force Mode**: Override existing item checks for re-seeding scenarios
+- **Progress Tracking**: Detailed result reporting with success/failure counts
+- **Production Safety**: Mandatory confirmation for production environments
+- **Environment Flexibility**: Database URL override for multi-environment seeding
+
+**CLI Integration Pattern:**
+```python
+# Task automation with flexible arguments
+task seed                    # All seeders
+task seed:exercises         # Specific seeder
+task seed:list              # Show available seeders
+task seed:prod              # Production seeding with confirmation
+task seed -- --dry-run     # Pass-through arguments
+```
+
 ### Repository Pattern
 Encapsulate all database operations and enforce strict data access boundaries:
 
