@@ -14,6 +14,7 @@ interface UIState {
     addNewExercise: boolean
     addSet: { open: boolean; exerciseId: number | null }
     editSet: { open: boolean; exerciseId: number | null; setId: number | null; currentData?: any }
+    voiceNote: { open: boolean; exerciseId: number | null; exerciseName: string | null }
   }
 
   // UI states
@@ -24,6 +25,7 @@ interface UIState {
   openAddNewExerciseModal: () => void
   openAddSetModal: (exerciseId: number, exercise: Exercise) => void
   openEditSetModal: (exerciseId: number, setId: number, currentData: any) => void
+  openVoiceNoteModal: (exerciseId: number, exerciseName: string) => void
   closeAllModals: () => void
 
   // UI actions
@@ -37,6 +39,7 @@ export const useUIStore = create<UIState>((set) => ({
     addNewExercise: false,
     addSet: { open: false, exerciseId: null },
     editSet: { open: false, exerciseId: null, setId: null, currentData: null },
+    voiceNote: { open: false, exerciseId: null, exerciseName: null },
   },
   selectedExerciseForSet: null,
 
@@ -58,6 +61,7 @@ export const useUIStore = create<UIState>((set) => ({
         addNewExercise: false,
         addSet: { open: true, exerciseId },
         editSet: { open: false, exerciseId: null, setId: null },
+        voiceNote: { open: false, exerciseId: null, exerciseName: null },
       },
       selectedExerciseForSet: exercise,
     }),
@@ -69,6 +73,18 @@ export const useUIStore = create<UIState>((set) => ({
         addNewExercise: false,
         addSet: { open: false, exerciseId: null },
         editSet: { open: true, exerciseId, setId, currentData },
+        voiceNote: { open: false, exerciseId: null, exerciseName: null },
+      },
+    }),
+
+  openVoiceNoteModal: (exerciseId: number, exerciseName: string) =>
+    set({
+      modals: {
+        selectExercise: false,
+        addNewExercise: false,
+        addSet: { open: false, exerciseId: null },
+        editSet: { open: false, exerciseId: null, setId: null },
+        voiceNote: { open: true, exerciseId, exerciseName },
       },
     }),
 
@@ -79,6 +95,7 @@ export const useUIStore = create<UIState>((set) => ({
         addNewExercise: false,
         addSet: { open: false, exerciseId: null },
         editSet: { open: false, exerciseId: null, setId: null },
+        voiceNote: { open: false, exerciseId: null, exerciseName: null },
       },
       selectedExerciseForSet: null,
     }),

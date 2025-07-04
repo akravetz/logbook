@@ -80,14 +80,10 @@ class Settings(BaseSettings):
 
     # Google OAuth
     google_client_id: str = Field(description="Google OAuth client ID")
-    google_client_secret: str = Field(description="Google OAuth client secret")
-    google_redirect_uri: str = Field(
-        default="http://localhost:8080/api/v1/auth/google/callback",
-        description="Google OAuth redirect URI",
-    )
-    google_discovery_url: str = Field(
-        default="https://accounts.google.com/.well-known/openid_configuration",
-        description="Google OAuth discovery URL",
+
+    # Voice Transcription
+    deepgram_api_key: str = Field(
+        default="", description="DeepGram API key for voice transcription"
     )
 
     # CORS

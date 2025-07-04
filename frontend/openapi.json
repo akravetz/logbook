@@ -1140,6 +1140,48 @@
         }
       }
     },
+    "/api/v1/voice/transcribe": {
+      "post": {
+        "tags": [
+          "voice"
+        ],
+        "summary": "Transcribe audio to text",
+        "description": "Upload an audio file and get the transcribed text",
+        "operationId": "transcribe_audio_api_v1_voice_transcribe_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_transcribe_audio_api_v1_voice_transcribe_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workouts/": {
       "get": {
         "tags": [
@@ -1937,6 +1979,21 @@
         ],
         "title": "AuthTokenResponse",
         "description": "Auth.js token verification response."
+      },
+      "Body_transcribe_audio_api_v1_voice_transcribe_post": {
+        "properties": {
+          "audio_file": {
+            "type": "string",
+            "format": "binary",
+            "title": "Audio File",
+            "description": "Audio file to transcribe"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audio_file"
+        ],
+        "title": "Body_transcribe_audio_api_v1_voice_transcribe_post"
       },
       "DatabaseHealthResponse": {
         "properties": {
@@ -2995,6 +3052,48 @@
         ],
         "title": "TokenValidationResponse",
         "description": "Token validation response."
+      },
+      "TranscriptionResponse": {
+        "properties": {
+          "transcribed_text": {
+            "type": "string",
+            "title": "Transcribed Text",
+            "description": "The transcribed text from the audio"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "Confidence score of the transcription (0.0 to 1.0)"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds",
+            "description": "Duration of the audio in seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transcribed_text"
+        ],
+        "title": "TranscriptionResponse",
+        "description": "Schema for voice transcription response."
       },
       "UserProfileResponse": {
         "properties": {

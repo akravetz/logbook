@@ -113,9 +113,7 @@ def test_settings() -> Settings:
         refresh_token_expire_days=7,
         database_url="postgresql://test:test@localhost/test",
         google_client_id="test_client_id",
-        google_client_secret="test_client_secret",
-        google_redirect_uri="http://localhost:8080/api/v1/auth/google/callback",
-        google_discovery_url="https://accounts.google.com/.well-known/openid_configuration",
+        deepgram_api_key="test_deepgram_key",  # gitleaks:allow
     )
 
 

@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.30.0",
     "atlas-provider-sqlalchemy>=0.3.2",
+    "deepgram-sdk>=4.5.0",
     "fastapi>=0.115.13",
     "httpx>=0.28.1",
     "hypercorn>=0.17.3",
