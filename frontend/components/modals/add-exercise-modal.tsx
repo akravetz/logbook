@@ -92,7 +92,10 @@ export function AddExerciseModal() {
       reset()
       closeAllModals()
     } catch (error) {
-      console.error('Failed to create exercise:', error)
+      // Log error for debugging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to create exercise:', error)
+      }
     } finally {
       setIsSubmitting(false)
     }

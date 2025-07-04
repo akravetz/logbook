@@ -28,7 +28,10 @@ export function WorkoutsListScreen() {
       startTimer()
       router.push('/workout')
     } catch (error) {
-      console.error('Failed to create workout:', error)
+      // Log error for debugging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to create workout:', error)
+      }
     }
   }
 
@@ -138,7 +141,7 @@ export function WorkoutsListScreen() {
             {(!workoutsData?.items || workoutsData.items.length === 0) && (
               <div className="text-center py-12 text-gray-500">
                 <p className="mb-2">No workouts yet</p>
-                <p className="text-sm">Tap "New Workout" to get started!</p>
+                <p className="text-sm">Tap &quot;New Workout&quot; to get started!</p>
               </div>
             )}
           </div>

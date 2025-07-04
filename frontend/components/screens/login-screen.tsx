@@ -25,7 +25,10 @@ export function LoginScreen() {
       }
 
     } catch (error) {
-      console.error("Unexpected error:", error)
+      // Log error for debugging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Unexpected error:", error)
+      }
       setError("An unexpected error occurred. Please try again.")
       setIsLoading(false)
     }
@@ -58,7 +61,7 @@ export function LoginScreen() {
             >
               {isLoading ? (
                 <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                   Signing in...
                 </div>
               ) : (

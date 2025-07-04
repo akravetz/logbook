@@ -27,7 +27,10 @@ AXIOS_INSTANCE.interceptors.response.use(
   async (error: AxiosError) => {
     // If we get a 401, the session has expired - force sign out
     if (error.response?.status === 401) {
-      console.error("Session expired, forcing sign out")
+      // Log error for debugging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Session expired, forcing sign out")
+      }
       await signOut({ callbackUrl: "/" })
     }
 

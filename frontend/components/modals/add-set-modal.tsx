@@ -77,7 +77,10 @@ export function AddSetModal() {
       reset()
       closeAllModals()
     } catch (error) {
-      console.error('Failed to create set:', error)
+      // Log error for debugging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to create set:', error)
+      }
     } finally {
       setIsSubmitting(false)
     }
