@@ -109,6 +109,15 @@ task db:status   # Check migration status
 task db:diff     # Generate new migration
 task db:reset    # Reset database
 
+# Database Seeding (Production-Ready)
+task seed                    # Run all seeders
+task seed:exercises         # Seed exercises only
+task seed:list              # List available seeders
+task seed:prod              # Seed production database (requires DATABASE_URL)
+task seed -- --dry-run     # Preview seeding operations
+task seed -- --force       # Force re-seeding of existing items
+task seed -- --verbose     # Detailed progress logging
+
 # OpenAPI Generation (Optimized)
 task generate-openapi    # Generate OpenAPI spec directly to frontend/openapi.json
 ```
@@ -145,6 +154,44 @@ NODE_ENV=development npm run dev
 # Option 2: Use Google OAuth (requires credentials)
 # Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local
 npm run dev
+```
+
+### Database Seeding Workflow (Production-Ready)
+**Comprehensive seeding system for all environments:**
+```bash
+# Development seeding
+task seed:exercises              # Seed exercises from CSV
+task seed:exercises -- --dry-run # Preview what would be seeded
+task seed:exercises -- --force   # Re-seed existing exercises
+
+# Production seeding (requires confirmation)
+task seed:prod -- --database-url $DATABASE_URL
+
+# Multi-environment seeding
+task seed -- --database-url postgresql://user:pass@host:5432/db
+```
+
+**Key Features:**
+- ✅ **Production Safety**: Mandatory confirmation for production environments
+- ✅ **Dry Run Mode**: Preview operations without making database changes
+- ✅ **Force Mode**: Override existing item checks for re-seeding scenarios
+- ✅ **Progress Tracking**: Real-time progress updates and detailed reporting
+- ✅ **Error Handling**: Graceful failure handling with comprehensive error reporting
+- ✅ **Extensible**: Registry pattern for adding new seeder types
+
+**Seeding Architecture:**
+```mermaid
+graph TD
+    A[CLI Script] --> B[Parse Arguments]
+    B --> C[Initialize Database]
+    C --> D[Load Seeders]
+    D --> E{Dry Run?}
+    E -->|Yes| F[Preview Operations]
+    E -->|No| G[Execute Seeding]
+    F --> H[Report Results]
+    G --> I[Track Progress]
+    I --> H
+    H --> J[Summary Output]
 ```
 
 ### OpenAPI Workflow (Optimized)

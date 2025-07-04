@@ -3,6 +3,7 @@ version: '3'
 vars:
   PYTHON: uv run python
   SRC_DIR: src
+  SCRIPTS_DIR: scripts
   TEST_DIR: tests
   PROJECT_NAME: workout_api
 
@@ -50,14 +51,14 @@ tasks:
   lint:
     desc: Check code style and linting
     cmds:
-      - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}}
-      - uv run ruff format --check {{.SRC_DIR}} {{.TEST_DIR}}
+      - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}} {{.SCRIPTS_DIR}}
+      - uv run ruff format --check {{.SRC_DIR}} {{.TEST_DIR}} {{.SCRIPTS_DIR}}
 
   lint-fix:
     desc: Fix linting issues and format code
     cmds:
-      - uv run ruff format {{.SRC_DIR}} {{.TEST_DIR}}
-      - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}} --fix
+      - uv run ruff format {{.SRC_DIR}} {{.TEST_DIR}} {{.SCRIPTS_DIR}}
+      - uv run ruff check {{.SRC_DIR}} {{.TEST_DIR}} {{.SCRIPTS_DIR}} --fix
 
   # OpenAPI Generation Tasks
   generate-openapi:
@@ -128,3 +129,24 @@ tasks:
     desc: Run pre-commit hooks
     cmds:
       - pre-commit run --all-files
+
+  # Database Seeding Tasks
+  seed:
+    desc: Seed database with default data
+    cmds:
+      - uv run python scripts/seed_database.py {{.CLI_ARGS}}
+
+  seed:exercises:
+    desc: Seed exercises only
+    cmds:
+      - uv run python scripts/seed_database.py --seeders exercises --clean {{.CLI_ARGS}}
+
+  seed:list:
+    desc: List available seeders
+    cmds:
+      - uv run python scripts/seed_database.py --list
+
+  seed:prod:
+    desc: Seed production database (requires DATABASE_URL)
+    cmds:
+      - uv run python scripts/seed_database.py --database-url $DATABASE_URL {{.CLI_ARGS}}

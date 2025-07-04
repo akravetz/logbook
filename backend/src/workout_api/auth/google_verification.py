@@ -67,11 +67,6 @@ class GoogleTokenVerifier:
                 )
                 raise AuthenticationError("Token not issued for this application")
 
-            # Validate that email is verified
-            if not token_data.get("email_verified", False):
-                logger.warning("Google account email not verified")
-                raise AuthenticationError("Google account email not verified")
-
             # Create validated token info
             try:
                 token_info = GoogleTokenInfo.model_validate(token_data)
