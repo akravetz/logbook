@@ -31,7 +31,7 @@ export function BottomNav() {
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.path ||
-            (item.path === '/' && pathname === '/workout')
+            (item.path === '/' && pathname.startsWith('/workout'))
           const Icon = item.icon
 
           return (

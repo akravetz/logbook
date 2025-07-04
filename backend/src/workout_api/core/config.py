@@ -96,7 +96,7 @@ class Settings(BaseSettings):
         description="Allowed CORS origins",
     )
     allowed_methods: list[str] = Field(
-        default=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        default=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         description="Allowed HTTP methods",
     )
     allowed_headers: list[str] = Field(

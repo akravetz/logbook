@@ -26,7 +26,7 @@ export function WorkoutsListScreen() {
       const result = await createWorkoutMutation.mutateAsync()
       setActiveWorkout(result)
       startTimer()
-      router.push('/workout')
+      router.push(`/workout/${result.id}`)
     } catch (error) {
       // Log error for debugging in development
       if (process.env.NODE_ENV === 'development') {
