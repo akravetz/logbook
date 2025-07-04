@@ -67,23 +67,10 @@ async def transcribe_audio(
         audio_buffer = BytesIO(audio_content)
 
         # Transcribe audio
-        result = await service.transcribe_audio(
-            audio_buffer, filename=audio_file.filename or "audio.webm"
-        )
+        result = await service.transcribe_audio(audio_buffer)
 
         return result
 
-    except NotImplementedError as e:
-        raise HTTPException(
-            status_code=501,
-            detail={
-                "error": "transcription_not_implemented",
-                "message": str(e),
-                "details": {
-                    "suggestion": "Set IS_DEVELOPMENT=true to use mock transcription"
-                },
-            },
-        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,

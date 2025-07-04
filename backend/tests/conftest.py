@@ -113,6 +113,7 @@ def test_settings() -> Settings:
         refresh_token_expire_days=7,
         database_url="postgresql://test:test@localhost/test",
         google_client_id="test_client_id",
+        deepgram_api_key="test_deepgram_key",  # gitleaks:allow
     )
 
 

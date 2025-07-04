@@ -4,6 +4,8 @@ import asyncio
 from pathlib import Path
 from typing import BinaryIO
 
+from deepgram import DeepgramClient, PrerecordedOptions
+
 from ..core.config import Settings
 from .schemas import TranscriptionResponse
 
@@ -16,15 +18,12 @@ class VoiceTranscriptionService:
         self.deepgram_api_key = settings.deepgram_api_key
         self.use_mock = settings.is_development or not self.deepgram_api_key
 
-    async def transcribe_audio(
-        self, audio_file: BinaryIO, filename: str = "audio.webm"
-    ) -> TranscriptionResponse:
+    async def transcribe_audio(self, audio_file: BinaryIO) -> TranscriptionResponse:
         """
         Transcribe audio file to text.
 
         Args:
             audio_file: Binary audio file data
-            filename: Original filename (used for format detection)
 
         Returns:
             TranscriptionResponse with transcribed text
@@ -33,14 +32,13 @@ class VoiceTranscriptionService:
             Exception: If transcription fails
         """
         if self.use_mock:
-            return await self._mock_transcription(audio_file, filename)
+            return await self._mock_transcription(audio_file)
         else:
-            return await self._deepgram_transcription(audio_file, filename)
+            return await self._deepgram_transcription(audio_file)
 
     async def _mock_transcription(
         self,
         audio_file: BinaryIO,
-        filename: str,  # noqa: ARG002
     ) -> TranscriptionResponse:
         """Mock transcription for development/testing."""
         # Simulate processing time
@@ -73,48 +71,39 @@ class VoiceTranscriptionService:
 
     async def _deepgram_transcription(
         self,
-        audio_file: BinaryIO,  # noqa: ARG002
-        filename: str,  # noqa: ARG002
+        audio_file: BinaryIO,
     ) -> TranscriptionResponse:
         """Transcribe using DeepGram API."""
         try:
-            # Import DeepGram SDK (will be installed later)
-            # from deepgram import Deepgram
+            # Initialize DeepGram client
+            deepgram = DeepgramClient(self.deepgram_api_key)
 
-            # For now, return a placeholder since DeepGram SDK isn't installed yet
-            raise NotImplementedError(
-                "DeepGram transcription not yet implemented. "
-                "Please set IS_DEVELOPMENT=true to use mock transcription."
+            # Configure transcription options
+            options = PrerecordedOptions(
+                model="nova-2",
+                language="en-US",
+                punctuate=True,
+                smart_format=True,
             )
 
-            # TODO: Implement actual DeepGram transcription
-            # dg_client = Deepgram(self.deepgram_api_key)
-            #
-            # # Save audio to temporary file
-            # with tempfile.NamedTemporaryFile(suffix=Path(filename).suffix) as temp_file:
-            #     temp_file.write(audio_file.read())
-            #     temp_file.flush()
-            #
-            #     # Configure transcription options
-            #     options = {
-            #         "punctuate": True,
-            #         "model": "nova-2",
-            #         "language": "en-US",
-            #     }
-            #
-            #     # Transcribe audio
-            #     with open(temp_file.name, "rb") as audio:
-            #         source = {"buffer": audio, "mimetype": self._get_mimetype(filename)}
-            #         response = await dg_client.transcription.prerecorded(source, options)
-            #
-            #     # Extract transcription result
-            #     transcript = response["results"]["channels"][0]["alternatives"][0]
-            #
-            #     return TranscriptionResponse(
-            #         transcribed_text=transcript["transcript"],
-            #         confidence=transcript.get("confidence"),
-            #         duration_seconds=response["results"]["channels"][0].get("duration"),
-            #     )
+            # Reset file pointer to beginning and transcribe directly
+            audio_file.seek(0)
+            payload = {"buffer": audio_file}
+            response = await deepgram.listen.asyncprerecorded.v("1").transcribe_file(
+                payload, options
+            )
+
+            # Extract transcription result
+            results = response["results"]
+            channels = results["channels"]
+            alternatives = channels[0]["alternatives"]
+            transcript = alternatives[0]
+
+            return TranscriptionResponse(
+                transcribed_text=transcript["transcript"],
+                confidence=transcript.get("confidence", 0.0),
+                duration_seconds=results.get("duration", 0.0),
+            )
 
         except Exception as e:
             raise Exception(f"DeepGram transcription failed: {str(e)}") from e
