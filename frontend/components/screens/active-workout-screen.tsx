@@ -222,7 +222,7 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
     if (!activeWorkout?.id) return
 
     try {
-      await finishWorkoutMutation.mutateAsync({ workoutId: activeWorkout.id })
+      const result = await finishWorkoutMutation.mutateAsync({ workoutId: activeWorkout.id })
 
       // Invalidate workout data using cache tags
       await invalidateWorkoutData()
@@ -230,6 +230,16 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
       stopTimer()
       resetTimer()
       setActiveWorkout(null)
+
+      // Show appropriate feedback based on whether workout was deleted or finished
+      if (result.deleted) {
+        // Empty workout was deleted - user feedback could be added here
+        console.log('Empty workout deleted')
+      } else {
+        // Workout was finished normally - user feedback could be added here
+        console.log('Workout completed!')
+      }
+
       router.push('/')
     } catch (error) {
       // Log error for debugging in development

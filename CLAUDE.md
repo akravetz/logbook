@@ -42,7 +42,7 @@ npm run lint           # ESLint checks
 
 ### Backend Structure
 - **Domain-driven design** with Repository → Service → Router pattern
-- **Core modules:** auth, users, exercises, workouts, health
+- **Core modules:** auth, users, exercises, workouts, health, voice
 - **Base path:** `/api/v1/` with comprehensive OpenAPI documentation
 - **Entry point:** `backend/src/workout_api/core/main.py`
 

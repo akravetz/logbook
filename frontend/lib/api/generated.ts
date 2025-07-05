@@ -51,6 +51,7 @@ import type {
   UserProfileUpdate,
   UserResponse,
   UserStatsResponse,
+  WorkoutFinishResponse,
   WorkoutResponse,
 } from "./model";
 import { customInstance } from "./mutator";
@@ -2719,14 +2720,14 @@ export const useDeleteWorkoutApiV1WorkoutsWorkoutIdDelete = <
 };
 
 /**
- * Finish a workout session.
+ * Finish a workout session. Returns deleted=True if empty workout was deleted, deleted=False with workout data if finished.
  * @summary Finish Workout
  */
 export const finishWorkoutApiV1WorkoutsWorkoutIdFinishPatch = (
   workoutId: number,
   options?: SecondParameter<typeof customInstance>,
 ) => {
-  return customInstance<WorkoutResponse>(
+  return customInstance<WorkoutFinishResponse>(
     { url: `/api/v1/workouts/${workoutId}/finish`, method: "PATCH" },
     options,
   );

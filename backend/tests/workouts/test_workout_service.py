@@ -506,10 +506,14 @@ class TestWorkoutService:
             await workout_service.get_workout(workout_id, another_user_id)
 
     async def test_finish_workout_success(
-        self, workout_service: WorkoutService, test_user: User
+        self,
+        workout_service: WorkoutService,
+        test_user: User,
+        sample_exercise: Exercise,
     ):
-        """Test successfully finishing a workout."""
+        """Test successfully finishing a workout with exercises."""
         user_id = test_user.id
+        exercise_id = sample_exercise.id
 
         # Create workout
         workout = await workout_service.create_workout(user_id)
@@ -518,9 +522,18 @@ class TestWorkoutService:
         # Verify workout is not finished initially
         assert workout.finished_at is None
 
+        # Add exercise to make workout non-empty (so it gets finished, not deleted)
+        execution_data = ExerciseExecutionRequest(
+            exercise_order=1, note_text="Test exercise", sets=[]
+        )
+        await workout_service.upsert_exercise_execution(
+            workout_id, exercise_id, execution_data, user_id
+        )
+
         # Finish the workout
         finished_workout = await workout_service.finish_workout(workout_id, user_id)
 
+        assert finished_workout is not None  # Not deleted since it has exercises
         assert finished_workout.id == workout_id
         assert finished_workout.finished_at is not None
         assert finished_workout.created_by_user_id == user_id
@@ -548,6 +561,64 @@ class TestWorkoutService:
         # Try to finish with different user
         with pytest.raises(NotFoundError):
             await workout_service.finish_workout(workout_id, another_user_id)
+
+    async def test_finish_empty_workout_deletes_it(
+        self, workout_service: WorkoutService, test_user: User
+    ):
+        """Test finishing empty workout (no exercises) deletes it instead of finishing."""
+        user_id = test_user.id
+
+        # Create empty workout
+        workout = await workout_service.create_workout(user_id)
+        workout_id = workout.id
+
+        # Verify workout exists and is empty
+        assert workout.exercise_executions == []
+        assert workout.finished_at is None
+
+        # Finish the empty workout - should return None (deleted)
+        result = await workout_service.finish_workout(workout_id, user_id)
+        assert result is None
+
+        # Verify workout no longer exists
+        with pytest.raises(NotFoundError):
+            await workout_service.get_workout(workout_id, user_id)
+
+    async def test_finish_non_empty_workout_finishes_normally(
+        self,
+        workout_service: WorkoutService,
+        test_user: User,
+        sample_exercise: Exercise,
+    ):
+        """Test finishing non-empty workout (with exercises) finishes it normally."""
+        user_id = test_user.id
+        exercise_id = sample_exercise.id
+
+        # Create workout and add exercise
+        workout = await workout_service.create_workout(user_id)
+        workout_id = workout.id
+
+        # Add exercise execution to make workout non-empty
+        execution_data = ExerciseExecutionRequest(
+            exercise_order=1,
+            note_text="Test exercise",
+            sets=[],  # Empty sets still counts as non-empty workout
+        )
+        await workout_service.upsert_exercise_execution(
+            workout_id, exercise_id, execution_data, user_id
+        )
+
+        # Finish the non-empty workout - should return WorkoutResponse (finished)
+        result = await workout_service.finish_workout(workout_id, user_id)
+
+        assert result is not None
+        assert isinstance(result, WorkoutResponse)
+        assert result.finished_at is not None
+        assert result.id == workout_id
+
+        # Verify workout still exists and is finished
+        finished_workout = await workout_service.get_workout(workout_id, user_id)
+        assert finished_workout.finished_at is not None
 
     async def test_delete_workout_success(
         self, workout_service: WorkoutService, test_user: User
