@@ -1,4 +1,4 @@
-import { getSession } from "next-auth/react";
+import { getSession, signOut } from "next-auth/react";
 import { createApiLogger } from '../logger';
 import { config } from '../config';
 
@@ -66,6 +66,23 @@ export const mutator = (url: string, options: RequestInit = {}) => {
 
       // Log errors with more detail
       if (!response.ok) {
+        // Handle 401 Unauthorized - sign out user
+        if (response.status === 401) {
+          requestLogger.warn({
+            event: 'api_request_unauthorized',
+            method: options.method || 'GET',
+            url: url.replace(/\/\d+/g, '/:id'),
+            statusCode: response.status,
+            duration,
+            hasAuth: !!session?.sessionToken,
+            userId: session?.userId
+          }, 'API request returned 401 - signing out user');
+
+          // Sign out the user automatically
+          await signOut({ callbackUrl: '/auth/login' });
+          return response; // Return early to prevent further processing
+        }
+
         let errorBody = '';
         try {
           const clonedResponse = response.clone();
