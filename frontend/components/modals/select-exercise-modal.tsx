@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from 'react'
-import { Search, Plus, X } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -112,14 +112,8 @@ export function SelectExerciseModal() {
   return (
     <Dialog open={modals.selectExercise} onOpenChange={handleClose}>
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
-        <DialogHeader className="flex flex-row items-center justify-between">
+        <DialogHeader>
           <DialogTitle>Select Exercise</DialogTitle>
-          <button
-            onClick={handleClose}
-            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </DialogHeader>
 
         {/* Search Bar */}
