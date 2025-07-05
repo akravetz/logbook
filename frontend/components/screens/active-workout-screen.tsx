@@ -108,6 +108,7 @@ function SortableExerciseCard({
               <button
                 className="p-2 hover:bg-gray-100 rounded transition-colors"
                 onClick={() => onOpenVoiceNoteModal(execution.exercise_id, execution.exercise_name)}
+                aria-label={`Add voice note for ${execution.exercise_name}`}
               >
                 <Mic className="w-5 h-5 text-gray-400" />
               </button>
@@ -139,6 +140,7 @@ function SortableExerciseCard({
                         onClick={() => onOpenEditSetModal(execution.exercise_id, set.id, set)}
                         className="text-blue-600 font-medium"
                         disabled={deletingSetId === set.id}
+                        aria-label={`Edit set ${index + 1} for ${execution.exercise_name}`}
                       >
                         Edit
                       </button>
@@ -146,6 +148,7 @@ function SortableExerciseCard({
                         onClick={() => onDeleteSet(execution.exercise_id, set.id)}
                         disabled={deletingSetId === set.id}
                         className="p-1 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-50 rounded transition-colors"
+                        aria-label={`Delete set ${index + 1} for ${execution.exercise_name}`}
                       >
                         <Trash2 className={`w-4 h-4 ${deletingSetId === set.id ? 'text-red-400 animate-pulse' : 'text-gray-400 hover:text-red-600'}`} />
                       </button>
@@ -166,6 +169,7 @@ function SortableExerciseCard({
               modality: execution.exercise_modality,
             })}
             className="w-full mt-4 py-3 border border-gray-300 rounded-lg font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            aria-label={`Add set to ${execution.exercise_name}`}
           >
             <Plus className="w-4 h-4" />
             Add Set
@@ -431,6 +435,7 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
           <button
             onClick={openSelectExerciseModal}
             className="w-full mt-4 py-4 border border-gray-300 rounded-lg font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            aria-label="Add exercise to workout"
           >
             <Plus className="w-5 h-5" />
             Add Exercise

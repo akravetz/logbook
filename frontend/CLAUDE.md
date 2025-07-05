@@ -700,3 +700,164 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 - **Consistent design system** with variants
 
 This architecture provides a robust foundation for mobile-first workout tracking with excellent developer experience, type safety, and performance optimization for gym environments.
+
+## Frontend Testing Best Practices
+
+### Test Organization & Structure
+- **Co-locate tests** with components: `component-name.tsx` + `component-name.test.tsx` in same directory
+- **Use modern Jest patterns** with co-located tests, not `__tests__/` directories
+- **Organize tests by user flows**, not implementation details
+
+### Test File Structure
+```tsx
+// component-name.test.tsx
+describe('ComponentName', () => {
+  describe('User Flow Name', () => {
+    it('should do something when user performs action', () => {
+      // Test implementation
+    })
+  })
+})
+```
+
+### Mocking Strategy - Layered Approach
+- **API Layer**: Mock generated hooks (`useFinishWorkout...`, `useCreateWorkout...`)
+- **Store Layer**: Mock Zustand stores (`useWorkoutStore`, `useUIStore`)
+- **Auth Layer**: Mock NextAuth (`useSession`)
+- **Navigation**: Mock Next.js router (`useRouter`)
+- **Cache Layer**: Mock cache utilities (`useCacheUtils`)
+
+### Test Utilities & Factories
+- **Create test factories** in `lib/test-factories.ts` for consistent mock data
+- **Create setup utilities** in `lib/test-utils.ts` for DRY test configuration
+- **Use factory pattern** for predictable test scenarios
+```tsx
+// lib/test-factories.ts
+export const createMockWorkout = (overrides = {}) => ({
+  id: 1,
+  finished_at: null,
+  exercise_executions: [],
+  ...overrides,
+})
+```
+
+### Semantic Testing - Accessibility First
+- **Prefer `getByRole`** over `getByText` for better maintainability
+- **Add `aria-label` attributes** to interactive elements in components
+- **Use semantic queries** that match user intent
+
+```tsx
+// ❌ Brittle - breaks if text changes
+const button = screen.getByText('Delete')
+
+// ✅ Robust - semantic and accessible
+const button = screen.getByRole('button', { name: /delete set 1/i })
+```
+
+### Component Accessibility Patterns
+```tsx
+// Add meaningful aria-labels to icon buttons
+<button
+  onClick={handleDelete}
+  aria-label={`Delete set ${index + 1} for ${exerciseName}`}
+>
+  <TrashIcon />
+</button>
+
+// Add aria-labels to context-specific buttons
+<button
+  onClick={handleAddSet}
+  aria-label={`Add set to ${exerciseName}`}
+>
+  Add Set
+</button>
+```
+
+### Test Query Hierarchy (Best to Worst)
+1. **`getByRole`** - Most semantic, matches user experience
+2. **`getByLabelText`** - Good for form elements
+3. **`getByTestId`** - Use sparingly for complex cases
+4. **`getByText`** - Avoid, brittle to content changes
+
+### Mock Setup Patterns
+```tsx
+// Centralized mock setup
+export const setupComponentTest = (options = {}) => {
+  const mockStore = { ...defaultMocks, ...options.storeState }
+  const mockAPI = { ...defaultAPIMocks, ...options.apiMocks }
+
+  // Setup all mocks
+  (useStore as jest.Mock).mockReturnValue(mockStore)
+  (useAPI as jest.Mock).mockReturnValue(mockAPI)
+
+  return { mockStore, mockAPI }
+}
+```
+
+### Testing User Flows
+- **Focus on user journeys**, not implementation details
+- **Test complete workflows**: "User creates workout → adds exercise → logs sets → finishes"
+- **Include error states** and edge cases
+- **Test accessibility interactions** (keyboard navigation, screen readers)
+
+### Error Handling Tests
+```tsx
+it('handles API errors gracefully', async () => {
+  const { mockAPI } = setupTest()
+  mockAPI.mutateAsync.mockRejectedValue(new Error('API Error'))
+
+  // Perform user action
+  await user.click(screen.getByRole('button', { name: /save/i }))
+
+  // Verify error handling (no navigation, proper state)
+  expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
+})
+```
+
+### Performance Testing Considerations
+- **Mock expensive operations** (API calls, complex calculations)
+- **Use `waitFor`** for async operations with appropriate timeouts
+- **Batch test setup** when testing multiple scenarios
+- **Clear mocks** between tests to prevent pollution
+
+### Maintenance Guidelines
+- **Update tests when adding accessibility features** to components
+- **Prefer semantic queries** that survive UI text changes
+- **Keep test data realistic** but minimal for the scenario
+- **Document complex test scenarios** with clear descriptions
+
+### Example: Complete User Flow Test
+```tsx
+describe('ActiveWorkoutScreen', () => {
+  describe('Finish Workout Flow', () => {
+    it('successfully finishes workout and navigates home', async () => {
+      const { mockAPI, mockStore } = setupActiveWorkoutTest({
+        workoutState: { activeWorkout: createMockWorkout() }
+      })
+
+      render(<ActiveWorkoutScreen workoutId={1} />)
+
+      await user.click(screen.getByRole('button', { name: /finish/i }))
+
+      await waitFor(() => {
+        expect(mockAPI.finishWorkout).toHaveBeenCalledWith({ workoutId: 1 })
+        expect(mockStore.setActiveWorkout).toHaveBeenCalledWith(null)
+      })
+    })
+  })
+})
+```
+
+### Jest Configuration
+- **Co-located test files**: Use `**/*.{test,spec}.{js,jsx,ts,tsx}` pattern
+- **Setup file**: Configure global mocks in `jest.setup.ts`
+- **Test environment**: Use `jsdom` for DOM testing
+- **Coverage collection**: Exclude test files and build artifacts
+
+### Key Testing Commands
+```bash
+npm test                    # Run all tests
+npm test -- --watch        # Run tests in watch mode
+npm test -- --coverage     # Run tests with coverage report
+npm test -- --testPathPattern=component-name.test.tsx  # Run specific test file
+```
