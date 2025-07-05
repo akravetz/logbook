@@ -39,10 +39,10 @@ export function LoginScreen() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to Workout Tracker
+            Sign in to Get Swole
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Track your workouts and monitor your progress
+            Build for lifters. Powered by AI.
           </p>
         </div>
 

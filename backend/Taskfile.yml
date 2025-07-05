@@ -147,6 +147,6 @@ tasks:
       - uv run python scripts/seed_database.py --list
 
   seed:prod:
-    desc: Seed production database (requires DATABASE_URL)
+    desc: Seed production database (requires PROD_DATABASE_URL)
     cmds:
-      - uv run python scripts/seed_database.py --database-url $DATABASE_URL {{.CLI_ARGS}}
+      - uv run python scripts/seed_database.py --database-url $PROD_DATABASE_URL {{.CLI_ARGS}}
