@@ -1,5 +1,7 @@
 import { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
+import { verifyAuthTokenApiV1AuthVerifyTokenPost } from "@/lib/api/generated"
+import type { AuthTokenRequest, AuthTokenResponse } from "@/lib/api/model"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,32 +15,15 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "google" && account.access_token) {
         try {
           // Send Google's access_token to backend for secure verification
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/auth/verify-token`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                access_token: account.access_token,
-              }),
-            }
-          )
-
-          if (!response.ok) {
-            // Log error for debugging in development
-            if (process.env.NODE_ENV === 'development') {
-              console.error("Backend token verification failed:", response.status, response.statusText)
-            }
-            return false
+          const authTokenRequest: AuthTokenRequest = {
+            access_token: account.access_token,
           }
 
-          const data = await response.json()
+          const response = await verifyAuthTokenApiV1AuthVerifyTokenPost(authTokenRequest)
 
           // Store the backend session token for API access
-          user.sessionToken = data.session_token
-          user.id = data.user.id.toString()
+          user.sessionToken = response.session_token
+          user.id = response.user.id.toString()
 
           return true
         } catch (error) {

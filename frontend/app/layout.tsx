@@ -1,4 +1,4 @@
-import { type Metadata } from "next"
+import { type Metadata, type Viewport } from "next"
 import { Geist } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -15,7 +15,13 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "LogBK - Workout Tracker",
   description: "Your personal workout tracking companion",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 }
 
 export default function RootLayout({
