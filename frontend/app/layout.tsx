@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/contexts/auth-context"
 import { WorkoutProvider } from "@/lib/contexts/workout-context"
 import { ReactQueryProvider } from "@/lib/react-query"
 import { MobileLayout } from "@/components/layout/mobile-layout"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,17 +27,19 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} font-sans`}>
-        <ReactQueryProvider>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
-            <AuthProvider>
-              <WorkoutProvider>
-                <MobileLayout>
-                  {children}
-                </MobileLayout>
-              </WorkoutProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </ReactQueryProvider>
+        <ErrorBoundary>
+          <ReactQueryProvider>
+            <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+              <AuthProvider>
+                <WorkoutProvider>
+                  <MobileLayout>
+                    {children}
+                  </MobileLayout>
+                </WorkoutProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </ReactQueryProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

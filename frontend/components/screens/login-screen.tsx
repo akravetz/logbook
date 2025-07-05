@@ -2,14 +2,25 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
+import { createOAuthLogger } from "@/lib/logger"
 
 export function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleGoogleLogin = async () => {
+    const requestId = crypto.randomUUID()
+    const logger = createOAuthLogger('google', requestId)
+
     setError(null)
     setIsLoading(true)
+
+    logger.info({
+      event: 'login_button_clicked',
+      requestId,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString()
+    }, 'User clicked Google login button')
 
     try {
       const result = await signIn('google', {
@@ -17,18 +28,45 @@ export function LoginScreen() {
         redirect: false,
       })
 
+      logger.info({
+        event: 'signin_result',
+        requestId,
+        hasError: !!result?.error,
+        hasUrl: !!result?.url,
+        ok: result?.ok,
+        status: result?.status,
+        url: result?.url
+      }, 'Sign-in result received')
+
       if (result?.error) {
+        logger.error({
+          event: 'signin_error',
+          requestId,
+          error: result.error,
+          status: result.status
+        }, 'Sign-in returned error')
         setError("Authentication failed. Please try again.")
         setIsLoading(false)
       } else if (result?.url) {
+        logger.info({
+          event: 'signin_redirect',
+          requestId,
+          redirectUrl: result.url
+        }, 'Redirecting after successful sign-in')
         window.location.href = result.url
       }
 
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error("Unexpected error:", error)
-      }
+      logger.error({
+        event: 'signin_exception',
+        requestId,
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        } : String(error)
+      }, 'Exception during sign-in')
+
       setError("An unexpected error occurred. Please try again.")
       setIsLoading(false)
     }
