@@ -2,9 +2,9 @@
 
 from typing import BinaryIO, Protocol
 
-from deepgram import DeepgramClient, PrerecordedOptions
+from deepgram import DeepgramClient, FileSource, PrerecordedOptions
 
-from .schemas import TranscriptionResponse
+from .schemas import DeepgramResponse, TranscriptionResponse
 
 
 class DeepGramClientProtocol(Protocol):
@@ -25,36 +25,39 @@ class ProductionDeepGramClient:
 
     async def transcribe_audio(self, audio_file: BinaryIO) -> TranscriptionResponse:
         """Transcribe using DeepGram API."""
-        try:
-            # Configure transcription options
-            options = PrerecordedOptions(
-                model="nova-2",
-                language="en-US",
-                punctuate=True,
-                smart_format=True,
-            )
+        # Configure transcription options
+        options = PrerecordedOptions(
+            model="nova-2",
+            language="en-US",
+            punctuate=True,
+            smart_format=True,
+        )
 
-            # Reset file pointer to beginning and transcribe directly
-            audio_file.seek(0)
-            payload = {"buffer": audio_file}
-            response = await self._client.listen.asyncrest.v("1").transcribe_file(
-                payload, options
-            )
+        # Reset file pointer to beginning and read the file data
+        audio_file.seek(0)
+        audio_data = audio_file.read()
 
-            # Extract transcription result
-            results = response["results"]
-            channels = results["channels"]
-            alternatives = channels[0]["alternatives"]
-            transcript = alternatives[0]
+        # Create FileSource for the audio data
+        payload: FileSource = {
+            "buffer": audio_data,
+        }
 
-            return TranscriptionResponse(
-                transcribed_text=transcript["transcript"],
-                confidence=transcript.get("confidence", 0.0),
-                duration_seconds=results.get("duration", 0.0),
-            )
+        # Use the correct v3+ SDK method for async transcription
+        raw_response = await self._client.listen.asyncrest.v("1").transcribe_file(
+            payload, options
+        )
 
-        except Exception as e:
-            raise Exception(f"DeepGram transcription failed: {str(e)}") from e
+        # Parse response using Pydantic schema for type safety
+        response = DeepgramResponse.model_validate_json(raw_response.to_json())
+
+        # Extract transcription data from structured response
+        primary_alternative = response.results.channels[0].alternatives[0]
+
+        return TranscriptionResponse(
+            transcribed_text=primary_alternative.transcript,
+            confidence=primary_alternative.confidence,
+            duration_seconds=response.metadata.duration,
+        )
 
 
 class MockDeepGramClient:
