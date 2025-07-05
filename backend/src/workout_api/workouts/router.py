@@ -22,6 +22,7 @@ from .schemas import (
     SetResponse,
     SetUpdate,
     WorkoutFilters,
+    WorkoutFinishResponse,
     WorkoutResponse,
 )
 
@@ -120,17 +121,23 @@ async def create_workout(
         ) from e
 
 
-@router.patch("/{workout_id}/finish", response_model=WorkoutResponse)
+@router.patch("/{workout_id}/finish", response_model=WorkoutFinishResponse)
 async def finish_workout(
     workout_id: int,
     current_user: CurrentUser,
     service: WorkoutServiceDep,
-) -> WorkoutResponse:
-    """Finish a workout session."""
+) -> WorkoutFinishResponse:
+    """Finish a workout session. Returns deleted=True if empty workout was deleted, deleted=False with workout data if finished."""
     user_id = current_user.id
 
     try:
-        return await service.finish_workout(workout_id, user_id)
+        result = await service.finish_workout(workout_id, user_id)
+        if result is None:
+            # Empty workout was deleted
+            return WorkoutFinishResponse(deleted=True, workout=None)
+        else:
+            # Workout was finished normally
+            return WorkoutFinishResponse(deleted=False, workout=result)
     except Exception as e:
         logger.error(f"Error finishing workout {workout_id} for user {user_id}: {e}")
         if "not found" in str(e).lower():

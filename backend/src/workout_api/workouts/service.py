@@ -74,17 +74,50 @@ class WorkoutService:
 
         return response
 
-    async def finish_workout(self, workout_id: int, user_id: int) -> WorkoutResponse:
-        """Finish a workout session."""
-        workout = await self.repository.finish_workout(workout_id, user_id)
+    async def finish_workout(
+        self, workout_id: int, user_id: int
+    ) -> WorkoutResponse | None:
+        """Finish a workout session. Returns None if empty workout was deleted."""
+        # First get the workout to check its state
+        workout = await self.repository.get_by_id(workout_id, user_id)
         if not workout:
             raise NotFoundError(f"Workout with ID {workout_id} not found")
 
-        # Convert to Pydantic model BEFORE commit to avoid lazy loading issues
-        response = await self._workout_to_response(workout)
-        await self.session.commit()
+        # Check if workout is already finished - if so, let repository handle the error
+        if workout.finished_at is not None:
+            # Let the repository handle this case and raise the appropriate error
+            finished_workout = await self.repository.finish_workout(workout_id, user_id)
+            if not finished_workout:
+                raise NotFoundError(f"Workout with ID {workout_id} not found")
+            response = await self._workout_to_response(finished_workout)
+            await self.session.commit()
+            return response
 
-        return response
+        # Check if workout is empty (no exercise executions)
+        # Query for exercise executions to determine if workout is empty
+        execution_stmt = select(ExerciseExecution).where(
+            ExerciseExecution.workout_id == workout_id
+        )
+        execution_result = await self.session.execute(execution_stmt)
+        executions = execution_result.scalars().all()
+
+        if len(executions) == 0:
+            # Empty workout - delete it instead of finishing
+            success = await self.repository.delete(workout_id, user_id)
+            if not success:
+                raise NotFoundError(f"Workout with ID {workout_id} not found")
+            await self.session.commit()
+            return None
+        else:
+            # Non-empty workout - finish it normally
+            finished_workout = await self.repository.finish_workout(workout_id, user_id)
+            if not finished_workout:
+                raise NotFoundError(f"Workout with ID {workout_id} not found")
+
+            # Convert to Pydantic model BEFORE commit to avoid lazy loading issues
+            response = await self._workout_to_response(finished_workout)
+            await self.session.commit()
+            return response
 
     async def delete_workout(self, workout_id: int, user_id: int) -> bool:
         """Delete a workout."""

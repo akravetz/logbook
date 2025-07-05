@@ -38,6 +38,18 @@ class WorkoutResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class WorkoutFinishResponse(BaseModel):
+    """Schema for finish workout responses."""
+
+    deleted: bool = Field(
+        ...,
+        description="True if empty workout was deleted, False if workout was finished",
+    )
+    workout: WorkoutResponse | None = Field(
+        None, description="Workout data if finished, None if deleted"
+    )
+
+
 class SetCreate(BaseModel):
     """Schema for creating a new set."""
 

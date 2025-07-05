@@ -1407,7 +1407,7 @@
           "workouts"
         ],
         "summary": "Finish Workout",
-        "description": "Finish a workout session.",
+        "description": "Finish a workout session. Returns deleted=True if empty workout was deleted, deleted=False with workout data if finished.",
         "operationId": "finish_workout_api_v1_workouts__workout_id__finish_patch",
         "security": [
           {
@@ -1431,7 +1431,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkoutResponse"
+                  "$ref": "#/components/schemas/WorkoutFinishResponse"
                 }
               }
             }
@@ -3405,6 +3405,32 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkoutFinishResponse": {
+        "properties": {
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted",
+            "description": "True if empty workout was deleted, False if workout was finished"
+          },
+          "workout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkoutResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Workout data if finished, None if deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "WorkoutFinishResponse",
+        "description": "Schema for finish workout responses."
       },
       "WorkoutFrequency": {
         "properties": {

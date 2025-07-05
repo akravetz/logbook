@@ -42,7 +42,7 @@ npm run lint           # ESLint checks
 
 ### Backend Structure
 - **Domain-driven design** with Repository → Service → Router pattern
-- **Core modules:** auth, users, exercises, workouts, health
+- **Core modules:** auth, users, exercises, workouts, health, voice
 - **Base path:** `/api/v1/` with comprehensive OpenAPI documentation
 - **Entry point:** `backend/src/workout_api/core/main.py`
 
@@ -76,3 +76,7 @@ npm run lint           # ESLint checks
 - **Service layer:** Business logic isolated from API endpoints
 - **Transaction isolation:** Each test runs independently
 - **Type safety:** Full TypeScript coverage on frontend, Pydantic models on backend
+
+Reference @docs/frontend.md when doing frontend development for design patterns and best practices
+Reference @docs/backend.md when doing backend development for design patterns and best practices
+Reference @docs/testing.md when doing backend test development for design patterns and best practices

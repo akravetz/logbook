@@ -687,11 +687,11 @@ class TestWorkoutRouter:
     async def test_finish_workout_success(
         self,
         authenticated_client: AsyncClient,
-        sample_workout: Workout,
+        workout_with_exercises: Workout,
         test_user: User,  # noqa: ARG002
     ):
-        """Test successfully finishing an active workout."""
-        workout_id = sample_workout.id
+        """Test successfully finishing an active workout with exercises."""
+        workout_id = workout_with_exercises.id
 
         response = await authenticated_client.patch(
             f"/api/v1/workouts/{workout_id}/finish"
@@ -700,10 +700,15 @@ class TestWorkoutRouter:
         assert response.status_code == 200
         data = response.json()
 
-        assert data["id"] == workout_id
-        assert data["finished_at"] is not None
+        # New response format: WorkoutFinishResponse
+        assert "deleted" in data
+        assert "workout" in data
+        assert data["deleted"] is False  # Workout was finished, not deleted
+        assert data["workout"] is not None
+        assert data["workout"]["id"] == workout_id
+        assert data["workout"]["finished_at"] is not None
         # Verify timestamp format
-        assert isinstance(data["finished_at"], str)
+        assert isinstance(data["workout"]["finished_at"], str)
 
     async def test_finish_workout_not_found(
         self,
@@ -759,6 +764,88 @@ class TestWorkoutRouter:
         response = await client.patch(f"/api/v1/workouts/{workout_id}/finish")
 
         assert response.status_code == 403
+
+    async def test_finish_empty_workout_deletes_it(
+        self,
+        authenticated_client: AsyncClient,
+        test_user: User,  # noqa: ARG002
+    ):
+        """Test finishing empty workout (no exercises) deletes it instead of finishing."""
+        # Create empty workout
+        create_response = await authenticated_client.post("/api/v1/workouts/")
+        assert create_response.status_code == 201
+        workout_data = create_response.json()
+        workout_id = workout_data["id"]
+
+        # Verify workout is empty
+        assert workout_data["exercise_executions"] == []
+
+        # Finish the empty workout
+        response = await authenticated_client.patch(
+            f"/api/v1/workouts/{workout_id}/finish"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify workout was deleted
+        assert "deleted" in data
+        assert "workout" in data
+        assert data["deleted"] is True  # Workout was deleted
+        assert data["workout"] is None  # No workout data returned
+
+        # Verify workout no longer exists
+        get_response = await authenticated_client.get(f"/api/v1/workouts/{workout_id}")
+        assert get_response.status_code == 404
+
+    async def test_finish_non_empty_workout_finishes_normally(
+        self,
+        authenticated_client: AsyncClient,
+        test_user: User,  # noqa: ARG002
+        sample_exercise: Exercise,
+    ):
+        """Test finishing non-empty workout (with exercises) finishes it normally."""
+        exercise_id = sample_exercise.id
+
+        # Create workout
+        create_response = await authenticated_client.post("/api/v1/workouts/")
+        assert create_response.status_code == 201
+        workout_data = create_response.json()
+        workout_id = workout_data["id"]
+
+        # Add exercise to make workout non-empty
+        exercise_data = {
+            "exercise_order": 1,
+            "note_text": "Test exercise",
+            "sets": [],  # Empty sets still counts as non-empty workout
+        }
+        upsert_response = await authenticated_client.put(
+            f"/api/v1/workouts/{workout_id}/exercise-executions/{exercise_id}",
+            json=exercise_data,
+        )
+        assert upsert_response.status_code == 200
+
+        # Finish the non-empty workout
+        response = await authenticated_client.patch(
+            f"/api/v1/workouts/{workout_id}/finish"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify workout was finished, not deleted
+        assert "deleted" in data
+        assert "workout" in data
+        assert data["deleted"] is False  # Workout was finished, not deleted
+        assert data["workout"] is not None
+        assert data["workout"]["id"] == workout_id
+        assert data["workout"]["finished_at"] is not None
+
+        # Verify workout still exists and is finished
+        get_response = await authenticated_client.get(f"/api/v1/workouts/{workout_id}")
+        assert get_response.status_code == 200
+        finished_workout = get_response.json()
+        assert finished_workout["finished_at"] is not None
 
     # =====================
     # delete_workout tests
