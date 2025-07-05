@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from hypercorn.config import Config
 from starlette.middleware.sessions import SessionMiddleware
 
 from ..auth.router import router as auth_router
@@ -33,51 +32,6 @@ setup_logging()
 logger = logging.getLogger("workout_api.main")
 
 settings = get_settings()
-
-
-def get_hypercorn_config() -> Config:
-    """Get hypercorn configuration."""
-    config = Config()
-
-    # Basic server settings
-    config.bind = [f"{settings.host}:{settings.port}"]
-    config.use_reloader = settings.reload and settings.is_development
-    config.loglevel = settings.log_level.lower()
-    config.access_log_format = (
-        '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
-    )
-
-    # Enable HTTP/2 support
-    config.h2 = settings.enable_http2
-    config.alpn_protocols = (
-        ["h2", "http/1.1"] if settings.enable_http2 else ["http/1.1"]
-    )
-
-    # Performance settings
-    config.workers = settings.workers if settings.is_production else 1
-    config.keep_alive_timeout = settings.keep_alive_timeout
-    config.max_requests = settings.max_requests
-    config.max_requests_jitter = settings.max_requests_jitter
-    config.h2_max_concurrent_streams = settings.h2_max_concurrent_streams
-
-    # Server identification
-    config.server_names = ["localhost", "127.0.0.1"] if settings.is_development else []
-
-    # Environment-specific settings
-    if settings.is_development:
-        config.debug = True
-        config.access_log = True
-        config.reload = True
-        config.include_server_header = True
-    else:
-        config.debug = False
-        config.access_log = True
-        config.reload = False
-        config.include_server_header = False
-        config.graceful_timeout = 30
-        config.shutdown_timeout = 30
-
-    return config
 
 
 def get_server_config() -> dict[str, str | int | bool]:
@@ -269,4 +223,4 @@ app.include_router(workouts_router, prefix=f"{settings.api_v1_prefix}")
 
 
 # Export server configuration and app
-__all__ = ["app", "get_hypercorn_config", "get_server_config", "settings"]
+__all__ = ["app", "get_server_config", "settings"]

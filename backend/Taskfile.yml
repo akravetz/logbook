@@ -21,7 +21,7 @@ tasks:
   run:
     desc: Run the development server with hypercorn
     cmds:
-      - uv run hypercorn {{.PROJECT_NAME}}.core.main:app --bind 0.0.0.0:8080 --reload
+      - uv run hypercorn {{.PROJECT_NAME}}.core.main:app --bind 0.0.0.0:8080 --reload --access-logfile -
 
   dev:
     desc: Run development server (alias for run)
