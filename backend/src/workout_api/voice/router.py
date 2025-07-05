@@ -2,11 +2,10 @@
 
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from .dependencies import get_voice_transcription_service
+from .dependencies import VoiceTranscriptionServiceDep
 from .schemas import TranscriptionResponse
-from .service import VoiceTranscriptionService
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -18,8 +17,8 @@ router = APIRouter(prefix="/voice", tags=["voice"])
     description="Upload an audio file and get the transcribed text",
 )
 async def transcribe_audio(
+    service: VoiceTranscriptionServiceDep,
     audio_file: UploadFile = File(..., description="Audio file to transcribe"),
-    service: VoiceTranscriptionService = Depends(get_voice_transcription_service),
 ) -> TranscriptionResponse:
     """
     Transcribe uploaded audio file to text.
