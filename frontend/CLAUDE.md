@@ -1031,7 +1031,155 @@ export const setupComponentTest = (options = {}) => {
 - **Include error states** and edge cases
 - **Test accessibility interactions** (keyboard navigation, screen readers)
 
+### NextAuth Testing Patterns
+
+**Critical Authentication Mock Setup**:
+```tsx
+// Mock NextAuth module at the top of test files
+jest.mock('next-auth/react')
+
+// Import useSession for mocking
+import { useSession } from 'next-auth/react'
+
+// Mock session structure - userId must be at top level
+;(useSession as jest.Mock).mockReturnValue({
+  data: {
+    userId: '1',                    // ⚠️ CRITICAL: userId at top level
+    sessionToken: 'test-token',
+    user: {
+      name: 'Test User',
+      email: 'test@example.com'
+    }
+  },
+  status: 'authenticated'
+})
+```
+
+**Session Structure Requirements**:
+- `userId` must be at the **top level** of session data (not nested under `user`)
+- Session structure should match the custom NextAuth types defined in `types/next-auth.d.ts`
+- `status` should be `'authenticated'` for most test scenarios
+
+### React Query Provider Testing Pattern
+
+**Custom Render Wrapper**:
+```tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+// Create test-specific QueryClient
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },      // Disable retries in tests
+    mutations: { retry: false },
+  },
+})
+
+// Custom render function with providers
+const renderWithProviders = (ui: React.ReactElement) => {
+  const testQueryClient = createTestQueryClient()
+
+  return render(
+    <QueryClientProvider client={testQueryClient}>
+      {ui}
+    </QueryClientProvider>
+  )
+}
+```
+
+**Why This Pattern**:
+- Components using TanStack Query hooks (like `useTaggedSearchExercises`) require `QueryClientProvider`
+- Test-specific QueryClient prevents interference between tests
+- Disabling retries makes tests more predictable
+
+### Comprehensive Mock Strategy
+
+**Complete Dependency Mocking Pattern**:
+```tsx
+// Mock all external dependencies at module level
+jest.mock('next-auth/react')
+jest.mock('@/lib/stores/workout-store')
+jest.mock('@/lib/stores/ui-store')
+jest.mock('@/lib/cache-tags')
+jest.mock('@/lib/api/generated')
+jest.mock('@/lib/hooks/use-tagged-queries')
+jest.mock('@/lib/search/exercise-data-cache')
+jest.mock('sonner')
+
+// Import all mocked functions
+import { useSession } from 'next-auth/react'
+import { useWorkoutStore } from '@/lib/stores/workout-store'
+import { useExerciseDataCache } from '@/lib/search/exercise-data-cache'
+// ... other imports
+
+// Setup mocks in beforeEach
+beforeEach(() => {
+  jest.clearAllMocks()
+
+  // Mock each dependency with appropriate return values
+  ;(useSession as jest.Mock).mockReturnValue(mockSession)
+  ;(useWorkoutStore as jest.Mock).mockReturnValue(mockWorkoutStore)
+  ;(useExerciseDataCache as jest.Mock).mockReturnValue(mockExerciseData)
+})
+```
+
+**Mock Scenarios for Different Test Cases**:
+```tsx
+// Loading state test
+;(useExerciseDataCache as jest.Mock).mockReturnValue({
+  data: null,
+  isLoading: true,
+  error: null,
+  refetch: jest.fn()
+})
+
+// Empty data test
+;(useExerciseDataCache as jest.Mock).mockReturnValue({
+  data: [],
+  isLoading: false,
+  error: null,
+  refetch: jest.fn()
+})
+
+// Success state test
+;(useExerciseDataCache as jest.Mock).mockReturnValue({
+  data: [mockExercise1, mockExercise2],
+  isLoading: false,
+  error: null,
+  refetch: jest.fn()
+})
+```
+
+### Systematic Test Debugging Approach
+
+**When Tests Fail After Refactoring**:
+1. **Identify the error pattern** - Look for specific error messages (e.g., "useSession must be wrapped in SessionProvider")
+2. **Compare with working tests** - Find similar components with passing tests to identify missing patterns
+3. **Trace dependency chains** - Follow the component's hooks and imports to identify all required mocks
+4. **Layer the fixes** - Address errors one by one, starting with the most fundamental (auth, providers, then business logic)
+
+**Common Error Patterns & Solutions**:
+```tsx
+// Error: "useSession must be wrapped in SessionProvider"
+// Solution: Mock next-auth/react and set up session data
+
+// Error: "No QueryClient set, use QueryClientProvider"
+// Solution: Wrap component in QueryClientProvider for tests
+
+// Error: Component showing loading state instead of data
+// Solution: Mock data-fetching hooks to return appropriate test data
+
+// Error: "Cannot read property 'userId' of undefined"
+// Solution: Ensure session mock has userId at correct level
+```
+
+**Debug Strategy**:
+1. **Start broad** - Mock the main external dependencies first
+2. **Follow the error chain** - Each error points to the next missing mock
+3. **Check existing patterns** - Look at other test files for similar mock setups
+4. **Validate assumptions** - Read the actual component code to understand what data structures it expects
+
 ### Error Handling Tests
+
 ```tsx
 it('handles API errors gracefully', async () => {
   const { mockAPI } = setupTest()

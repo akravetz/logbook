@@ -110,7 +110,7 @@ export function EditSetModal() {
 
   return (
     <Dialog open={modals.editSet.open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" keyboardAware>
         <DialogHeader>
           <DialogTitle>Edit Set</DialogTitle>
         </DialogHeader>

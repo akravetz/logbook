@@ -93,6 +93,8 @@
     @apply fixed inset-0 bg-black/50 z-50;
   }
 
+
+
   /* Card with shadow for mobile */
   .card-mobile {
     @apply bg-white rounded-lg shadow-sm border border-gray-100;
