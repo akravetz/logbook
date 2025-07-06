@@ -5,9 +5,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import insert, select, text
 
-from ..exercises.models import ExerciseModality
+from ..exercises.models import Exercise, ExerciseModality
 from ..exercises.repository import ExerciseRepository
 from .base import BaseSeeder, CleanResult, SeedResult
 from .seeder_registry import register_seeder
@@ -181,17 +181,92 @@ class ExerciseSeeder(BaseSeeder):
         self.logger.info(f"Successfully parsed {len(exercises)} exercises from CSV")
         return exercises
 
-    async def _exercise_exists(self, name: str) -> bool:
-        """Check if an exercise with the given name already exists.
+    async def _bulk_insert_exercises(self, exercises_data: list[dict[str, Any]]) -> int:
+        """Insert exercises using bulk operation.
 
         Args:
-            name: Exercise name to check
+            exercises_data: List of exercise dictionaries to insert
 
         Returns:
-            True if exercise exists
+            Number of exercises inserted
         """
-        existing = await self.repository.get_by_name(name)
-        return existing is not None
+        if not exercises_data:
+            return 0
+
+        if self.dry_run:
+            self.logger.info(
+                f"[DRY RUN] Would bulk insert {len(exercises_data)} exercises"
+            )
+            return len(exercises_data)
+
+        stmt = insert(Exercise).values(exercises_data)
+        await self.session.execute(stmt)
+        self.logger.debug(f"Bulk inserted {len(exercises_data)} exercises")
+        return len(exercises_data)
+
+    async def _process_exercises_in_batches(
+        self, exercises_data: list[dict[str, Any]], batch_size: int = 100
+    ) -> tuple[int, int]:
+        """Process exercises in batches for memory efficiency.
+
+        Args:
+            exercises_data: List of exercise dictionaries to process
+            batch_size: Number of exercises to process per batch
+
+        Returns:
+            Tuple of (created_count, skipped_count)
+        """
+        if not exercises_data:
+            return 0, 0
+
+        # Get existing exercise names once
+        existing_names = await self._get_existing_exercise_names()
+        self.logger.info(f"Found {len(existing_names)} existing exercises")
+
+        # Filter out existing exercises unless in force mode
+        new_exercises = []
+        skipped_count = 0
+
+        for exercise_data in exercises_data:
+            exercise_name = exercise_data["name"].lower()
+            if not self.force and exercise_name in existing_names:
+                self.logger.debug(
+                    f"Skipping existing exercise: {exercise_data['name']}"
+                )
+                skipped_count += 1
+                continue
+            new_exercises.append(exercise_data)
+
+        if not new_exercises:
+            self.logger.info("No new exercises to insert")
+            return 0, skipped_count
+
+        self.logger.info(
+            f"Processing {len(new_exercises)} new exercises in batches of {batch_size}"
+        )
+
+        # Process in batches
+        created_count = 0
+        for i in range(0, len(new_exercises), batch_size):
+            batch = new_exercises[i : i + batch_size]
+            batch_created = await self._bulk_insert_exercises(batch)
+            created_count += batch_created
+
+            # Log progress
+            processed = min(i + batch_size, len(new_exercises))
+            await self.log_progress(processed, len(new_exercises), "exercise")
+
+        return created_count, skipped_count
+
+    async def _get_existing_exercise_names(self) -> set[str]:
+        """Get all existing system exercise names in a single query.
+
+        Returns:
+            Set of existing exercise names (lowercase for case-insensitive comparison)
+        """
+        stmt = select(Exercise.name).where(~Exercise.is_user_created)
+        result = await self.session.execute(stmt)
+        return {name.lower() for name in result.scalars().all()}
 
     async def seed(self, csv_file_path: str | None = None) -> SeedResult:
         """Seed exercises from CSV file.
@@ -219,41 +294,24 @@ class ExerciseSeeder(BaseSeeder):
 
             self.logger.info(f"Processing {len(exercises_data)} exercises...")
 
-            # Process each exercise
-            for i, exercise_data in enumerate(exercises_data, 1):
-                try:
-                    exercise_name = exercise_data["name"]
+            # Process exercises in batches for optimal performance
+            try:
+                created_count, skipped_count = await self._process_exercises_in_batches(
+                    exercises_data
+                )
 
-                    # Check if exercise already exists (unless force mode)
-                    if not self.force and await self._exercise_exists(exercise_name):
-                        self.logger.debug(
-                            f"Skipping existing exercise: {exercise_name}"
-                        )
-                        result.skipped_items += 1
-                        continue
+                result.created_items = created_count
+                result.skipped_items = skipped_count
 
-                    # Create exercise (unless dry run)
-                    if not self.dry_run:
-                        await self.repository.create(exercise_data)
-                        self.logger.debug(f"Created exercise: {exercise_name}")
-                    else:
-                        self.logger.debug(
-                            f"[DRY RUN] Would create exercise: {exercise_name}"
-                        )
+                # Final progress log
+                await self.log_progress(
+                    result.total_items, result.total_items, "exercise"
+                )
 
-                    result.created_items += 1
-
-                    # Log progress every 10 items
-                    if i % 10 == 0:
-                        await self.log_progress(i, result.total_items, "exercise")
-
-                except Exception as e:
-                    error_msg = f"Failed to create exercise '{exercise_data.get('name', 'unknown')}': {e}"
-                    self.logger.error(error_msg)
-                    result.add_error(error_msg)
-
-            # Final progress log
-            await self.log_progress(result.total_items, result.total_items, "exercise")
+            except Exception as e:
+                error_msg = f"Failed to process exercises in batches: {e}"
+                self.logger.error(error_msg)
+                result.add_error(error_msg)
 
             # Commit transaction if not dry run and no errors
             if not self.dry_run and result.success:

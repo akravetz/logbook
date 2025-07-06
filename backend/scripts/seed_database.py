@@ -12,7 +12,7 @@ from pathlib import Path
 # Add the src directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from workout_api.core.config import Settings
+from workout_api.core.config import Settings, get_settings
 from workout_api.core.database import DatabaseManager
 from workout_api.exercises.models import Exercise  # noqa: F401
 from workout_api.seeding import SeederRegistry
@@ -129,6 +129,9 @@ async def initialize_database(
     if database_url_override:
         os.environ["DATABASE_URL"] = database_url_override
         logger.info(f"Using database URL override: {database_url_override}")
+
+        # Clear the settings cache to force re-reading of environment variables
+        get_settings.cache_clear()
 
     # Initialize settings and database
     try:

@@ -17,7 +17,7 @@ A FastAPI-based workout tracking API built with modern Python patterns.
    ```bash
    # Install uv
    curl -LsSf https://astral.sh/uv/install.sh | sh
-   
+
    # Install Task (macOS)
    brew install go-task/tap/go-task
    # For other platforms: https://taskfile.dev/installation/
@@ -47,7 +47,7 @@ A FastAPI-based workout tracking API built with modern Python patterns.
 # Available commands
 task                      # List all available tasks
 
-# Development workflow  
+# Development workflow
 task run                  # Start development server
 task test                 # Run tests
 task lint                 # Check code quality
@@ -111,7 +111,7 @@ Copy `.env.example` to `.env` and configure:
 # Database
 DATABASE_URL=postgresql://workout_user:workout_pass@localhost:5432/workout_db
 
-# Security  
+# Security
 SECRET_KEY=your-secret-key-here
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
@@ -167,8 +167,9 @@ TODO: Add deployment instructions once infrastructure is set up.
 ## Development Notes
 
 - Never edit `pyproject.toml` directly - use `uv add`/`uv remove`
-- Follow the Repository → Service → Router pattern for new features  
+- Follow the Repository → Service → Router pattern for new features
 - All database operations must be async
+- **Always use bulk/batch operations** instead of row-by-row operations when working with databases
 - Use the shared exception types for consistent error handling
 - Write tests for all new features
 
