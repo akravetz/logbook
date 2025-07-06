@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/modal'
 import { useUIStore } from '@/lib/stores/ui-store'
 import { useWorkoutStore } from '@/lib/stores/workout-store'
@@ -120,6 +121,9 @@ export function SelectExerciseModal() {
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col" keyboardAware>
         <DialogHeader>
           <DialogTitle>Select Exercise</DialogTitle>
+          <DialogDescription>
+            Search and select an exercise to add to your workout
+          </DialogDescription>
         </DialogHeader>
 
         {/* Search Bar */}

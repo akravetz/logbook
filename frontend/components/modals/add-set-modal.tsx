@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/modal'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useUIStore } from '@/lib/stores/ui-store'
@@ -17,6 +18,9 @@ import {
 } from '@/lib/api/generated'
 import type { SetCreate } from '@/lib/api/model'
 import { logger } from '@/lib/logger'
+import { toast } from 'sonner'
+import { isOptimisticId, createPendingOperation } from '@/lib/utils/optimistic'
+import { useCacheUtils } from '@/lib/cache-tags'
 
 interface FormData {
   weight: number
@@ -26,8 +30,15 @@ interface FormData {
 
 export function AddSetModal() {
   const { modals, closeAllModals, selectedExerciseForSet } = useUIStore()
-  const { activeWorkout, updateExerciseInWorkout } = useWorkoutStore()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const {
+    activeWorkout,
+    updateExerciseInWorkout,
+    addOptimisticSet,
+    reconcileSet,
+    cleanupFailedSetOperation,
+    addPendingOperation
+  } = useWorkoutStore()
+  const { invalidateWorkoutData } = useCacheUtils()
 
   const { register, handleSubmit, watch, setValue, reset } = useForm<FormData>({
     defaultValues: {
@@ -53,35 +64,66 @@ export function AddSetModal() {
   const onSubmit = async (data: FormData) => {
     if (!activeWorkout?.id || !modals.addSet.exerciseId) return
 
-    setIsSubmitting(true)
+    const setData = {
+      weight: data.weight,
+      clean_reps: data.clean_reps,
+      forced_reps: data.forced_reps,
+    }
 
-    try {
-      const setData: SetCreate = {
-        weight: data.weight,
-        clean_reps: data.clean_reps,
-        forced_reps: data.forced_reps,
-      }
+    const exerciseId = modals.addSet.exerciseId
 
-      await createSetMutation.mutateAsync({
+    // Find the exercise to check if it's optimistic
+    const targetExercise = activeWorkout.exercise_executions?.find(ex =>
+      ex.exercise_id === exerciseId || (ex as any).id === exerciseId
+    )
+
+    // 1. Add optimistic set immediately
+    const optimisticId = addOptimisticSet(exerciseId, setData)
+
+    // 2. Close modal immediately (no waiting)
+    reset()
+    closeAllModals()
+
+    // 3. Handle API call based on whether the exercise is optimistic or not
+    if (targetExercise && isOptimisticId((targetExercise as any).id)) {
+      // Exercise is still optimistic - queue the set creation
+      const pendingOperation = createPendingOperation(
+        'ADD_SET',
+        { exerciseId, setData, optimisticId },
+        async () => {
+          // This will execute once the exercise is reconciled
+          const realExerciseId = targetExercise.exercise_id
+          const serverResponse = await createSetMutation.mutateAsync({
+            workoutId: activeWorkout.id,
+            exerciseId: realExerciseId,
+            data: setData,
+          })
+          reconcileSet(optimisticId, serverResponse)
+          await invalidateWorkoutData()
+          toast.success('Set added successfully')
+        },
+        () => {
+          // Rollback on failure
+          cleanupFailedSetOperation(optimisticId)
+        },
+        (targetExercise as any).id // Depends on the optimistic exercise ID
+      )
+
+      addPendingOperation(pendingOperation)
+    } else {
+      // Exercise is real - make API call immediately
+      createSetMutation.mutateAsync({
         workoutId: activeWorkout.id,
-        exerciseId: modals.addSet.exerciseId,
+        exerciseId: exerciseId as number,
         data: setData,
+      }).then(async (serverResponse) => {
+        reconcileSet(optimisticId, serverResponse)
+        await invalidateWorkoutData()
+        toast.success('Set added successfully')
+      }).catch((error) => {
+        logger.error('Failed to create set:', error)
+        cleanupFailedSetOperation(optimisticId)
       })
-
-      // Refetch the exercise execution to update the UI
-      const { data: updatedExecution } = await refetchExecution()
-      if (updatedExecution) {
-        updateExerciseInWorkout(updatedExecution)
-      }
-
-      // Reset form and close modal
-      reset()
-      closeAllModals()
-    } catch (error) {
-      // Log error for debugging
-      logger.error('Failed to create set:', error)
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -107,6 +149,9 @@ export function AddSetModal() {
       <DialogContent className="max-w-md" keyboardAware>
         <DialogHeader>
           <DialogTitle>Add Set</DialogTitle>
+          <DialogDescription>
+            Enter the weight and number of reps for this set
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -176,16 +221,15 @@ export function AddSetModal() {
               type="button"
               onClick={handleClose}
               className="btn-secondary flex-1"
-              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="btn-primary flex-1"
-              disabled={isSubmitting || (weight === 0 && cleanReps === 0)}
+              disabled={weight === 0 && cleanReps === 0}
             >
-              {isSubmitting ? 'Adding...' : 'Add Set'}
+              Add Set
             </button>
           </div>
         </form>

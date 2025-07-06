@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/modal'
 import {
   Select,
@@ -110,6 +111,9 @@ export function AddExerciseModal() {
       <DialogContent className="max-w-md" keyboardAware>
         <DialogHeader>
           <DialogTitle>Create New Exercise</DialogTitle>
+          <DialogDescription>
+            Create a custom exercise to add to your workout
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

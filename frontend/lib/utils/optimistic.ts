@@ -45,6 +45,24 @@ export function createOptimisticExerciseExecution(
 }
 
 /**
+ * Creates optimistic set data
+ */
+export function createOptimisticSet(
+  setData: { weight: number; clean_reps: number; forced_reps: number; note_text?: string }
+): OptimisticSet {
+  return {
+    id: generateOptimisticId(),
+    weight: setData.weight,
+    clean_reps: setData.clean_reps,
+    forced_reps: setData.forced_reps,
+    note_text: setData.note_text || '',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    isOptimistic: true
+  }
+}
+
+/**
  * Extended exercise execution type with optimistic flag
  */
 export interface OptimisticExerciseExecution {
@@ -55,6 +73,20 @@ export interface OptimisticExerciseExecution {
   exercise_modality: string
   exercise_order: number
   sets: any[]
+  created_at: string
+  updated_at: string
+  isOptimistic: true
+}
+
+/**
+ * Extended set type with optimistic flag
+ */
+export interface OptimisticSet {
+  id: string // Optimistic ID
+  weight: number
+  clean_reps: number
+  forced_reps: number
+  note_text: string
   created_at: string
   updated_at: string
   isOptimistic: true

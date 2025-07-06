@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/modal'
 import { useUIStore } from '@/lib/stores/ui-store'
 import { useWorkoutStore } from '@/lib/stores/workout-store'
@@ -16,6 +17,7 @@ import {
 } from '@/lib/api/generated'
 import { useCacheUtils } from '@/lib/cache-tags'
 import { logger } from '@/lib/logger'
+import { toast } from 'sonner'
 
 // Utility function to detect supported audio MIME types
 function getSupportedAudioMimeType(): { mimeType: string; extension: string } {
@@ -73,6 +75,14 @@ export function VoiceNoteModal() {
       mediaRecorder.onstop = async () => {
         const format = audioFormatRef.current || getSupportedAudioMimeType()
         const audioBlob = new Blob(audioChunksRef.current, { type: format.mimeType })
+
+        // Close modal immediately after recording stops
+        closeAllModals()
+
+        // Add placeholder text immediately
+        addPlaceholderText()
+
+        // Handle transcription in background
         await handleAudioTranscription(audioBlob)
 
         // Stop all tracks to release microphone
@@ -90,7 +100,26 @@ export function VoiceNoteModal() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
-      setIsProcessing(true)
+      setIsProcessing(false) // Reset processing state since we're not blocking UI
+    }
+  }
+
+  const addPlaceholderText = () => {
+    if (!activeWorkout?.id || !modals.voiceNote.exerciseId) {
+      return
+    }
+
+    // Find and update the exercise in local state with placeholder
+    const currentExecution = activeWorkout.exercise_executions?.find(
+      (ex) => ex.exercise_id === modals.voiceNote.exerciseId
+    )
+
+    if (currentExecution) {
+      const updatedExecution = {
+        ...currentExecution,
+        note_text: 'Transcribing...'
+      }
+      updateExerciseInWorkout(updatedExecution)
     }
   }
 
@@ -136,11 +165,26 @@ export function VoiceNoteModal() {
         updateExerciseInWorkout(updatedExecution)
       }
 
-      setIsProcessing(false)
-      closeAllModals()
+      toast.success('Voice note transcribed successfully')
     } catch (error) {
       logger.error('Error transcribing audio:', error)
-      setIsProcessing(false)
+
+      // Replace placeholder with empty text on error
+      if (activeWorkout?.id && modals.voiceNote.exerciseId) {
+        const currentExecution = activeWorkout.exercise_executions?.find(
+          (ex) => ex.exercise_id === modals.voiceNote.exerciseId
+        )
+
+        if (currentExecution) {
+          const updatedExecution = {
+            ...currentExecution,
+            note_text: ''
+          }
+          updateExerciseInWorkout(updatedExecution)
+        }
+      }
+
+      toast.error('Failed to transcribe voice note')
     }
   }
 
@@ -175,6 +219,9 @@ export function VoiceNoteModal() {
               </span>
             )}
           </DialogTitle>
+          <DialogDescription>
+            Hold down the microphone button to record a voice note that will be transcribed automatically
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center py-8">
