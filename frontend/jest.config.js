@@ -13,6 +13,12 @@ const customJestConfig = {
     // Handle module aliases (this will be automatically configured for you based on your tsconfig.json paths)
     '^@/(.*)$': '<rootDir>/$1',
   },
+  // Configure Next.js to use test-specific TypeScript config
+  globals: {
+    'ts-jest': {
+      tsconfig: 'tsconfig.test.json'
+    }
+  },
   testMatch: [
     '<rootDir>/**/*.{test,spec}.{js,jsx,ts,tsx}',
   ],

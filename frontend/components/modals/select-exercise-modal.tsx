@@ -117,7 +117,7 @@ export function SelectExerciseModal() {
 
   return (
     <Dialog open={modals.selectExercise} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-md max-h-[80vh] flex flex-col" keyboardAware>
         <DialogHeader>
           <DialogTitle>Select Exercise</DialogTitle>
         </DialogHeader>

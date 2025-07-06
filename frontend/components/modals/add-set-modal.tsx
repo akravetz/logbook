@@ -104,7 +104,7 @@ export function AddSetModal() {
 
   return (
     <Dialog open={modals.addSet.open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" keyboardAware>
         <DialogHeader>
           <DialogTitle>Add Set</DialogTitle>
         </DialogHeader>
