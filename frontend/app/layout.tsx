@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/contexts/auth-context"
 import { WorkoutProvider } from "@/lib/contexts/workout-context"
 import { ReactQueryProvider } from "@/lib/react-query"
 import { MobileLayout } from "@/components/layout/mobile-layout"
+import { Toaster } from "sonner"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +40,7 @@ export default function RootLayout({
                 <MobileLayout>
                   {children}
                 </MobileLayout>
+                <Toaster position="bottom-right" />
               </WorkoutProvider>
             </AuthProvider>
           </ThemeProvider>

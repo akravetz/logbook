@@ -33,6 +33,10 @@ export interface MockWorkoutStore {
   updateWorkoutTimer: jest.Mock
   addExerciseToWorkout: jest.Mock
   removeExerciseFromWorkout: jest.Mock
+  addOptimisticExercise: jest.Mock
+  reconcileExerciseExecution: jest.Mock
+  removeOptimisticExercise: jest.Mock
+  cleanupFailedOperations: jest.Mock
 }
 
 export interface MockUIStore {
@@ -102,6 +106,10 @@ export const setupActiveWorkoutTest = (options: TestSetupOptions = {}) => {
     updateWorkoutTimer: jest.fn(),
     addExerciseToWorkout: jest.fn(),
     removeExerciseFromWorkout: jest.fn(),
+    addOptimisticExercise: jest.fn().mockReturnValue('temp-12345'),
+    reconcileExerciseExecution: jest.fn(),
+    removeOptimisticExercise: jest.fn(),
+    cleanupFailedOperations: jest.fn(),
     ...options.workoutState,
   }
 

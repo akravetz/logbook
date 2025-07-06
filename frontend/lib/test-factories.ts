@@ -2,7 +2,9 @@ import type {
   WorkoutResponse,
   ExerciseExecutionResponse,
   SetResponse,
-  ExerciseModality
+  ExerciseModality,
+  ExerciseResponse,
+  PageExerciseResponse
 } from '@/lib/api/model'
 
 export const createMockSet = (overrides: Partial<SetResponse> = {}): SetResponse => ({
@@ -82,3 +84,32 @@ export const createEmptyWorkout = (): WorkoutResponse =>
   createMockWorkout({
     exercise_executions: [],
   })
+
+export const createMockExercise = (
+  overrides: Partial<ExerciseResponse> = {}
+): ExerciseResponse => ({
+  id: 1,
+  name: 'Bench Press',
+  body_part: 'chest',
+  modality: 'BARBELL' as ExerciseModality,
+  created_by_user_id: null,
+  updated_by_user_id: null,
+  picture_url: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  ...overrides,
+})
+
+export const createMockExerciseSearchResults = (
+  exercises: ExerciseResponse[] = []
+): PageExerciseResponse => ({
+  items: exercises.length > 0 ? exercises : [
+    createMockExercise({ id: 1, name: 'Bench Press', body_part: 'chest' }),
+    createMockExercise({ id: 2, name: 'Squat', body_part: 'legs' }),
+    createMockExercise({ id: 3, name: 'Deadlift', body_part: 'back' }),
+  ],
+  total: exercises.length || 3,
+  page: 1,
+  size: 50,
+  pages: 1,
+})

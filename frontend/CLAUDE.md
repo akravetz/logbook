@@ -15,6 +15,7 @@ The frontend is built with **Next.js 15 App Router** and follows a **mobile-firs
 - **TanStack Query** for server state and caching
 - **NextAuth.js** for authentication
 - **Framer Motion** for animations
+- **Sonner** for toast notifications
 
 ### Architecture Principles
 - **Mobile-first design** optimized for gym usage
@@ -22,6 +23,8 @@ The frontend is built with **Next.js 15 App Router** and follows a **mobile-firs
 - **Semantic cache management** for optimal performance
 - **Touch-friendly interactions** with gesture support
 - **Real-time workout tracking** with timer and state persistence
+- **Optimistic updates** for zero-latency user interactions
+- **Non-blocking UI patterns** for responsive user experience
 
 ## Project Structure
 
@@ -44,7 +47,9 @@ frontend/
 │   ├── contexts/         # React contexts
 │   ├── hooks/            # Custom React hooks
 │   ├── stores/           # Zustand stores
-│   └── utils.ts          # Utility functions
+│   ├── utils/            # Utility functions including optimistic.ts
+│   ├── test-utils.ts     # Testing utilities and mock factories
+│   └── test-factories.ts # Mock data factories for tests
 └── types/                # TypeScript type definitions
 ```
 
@@ -248,6 +253,155 @@ interface UIState {
 - **Immutable updates** - Always create new objects for state changes
 - **Typed actions** - Full TypeScript support for actions and state
 - **Minimal state** - Only store what can't be derived
+
+## Optimistic Updates Architecture
+
+### Core Pattern for Zero-Latency UX
+
+**Optimistic updates** provide immediate UI feedback while background API calls complete, creating a responsive user experience critical for mobile workout tracking.
+
+### Optimistic ID Management
+
+**Location**: `lib/utils/optimistic.ts`
+
+```tsx
+// Generate stable temporary IDs for optimistic data
+export function generateOptimisticId(): string {
+  return `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+}
+
+// Check if ID is optimistic (temporary)
+export function isOptimisticId(id: string | number): boolean {
+  return typeof id === 'string' && id.startsWith('temp-')
+}
+
+// Create optimistic exercise execution
+export function createOptimisticExerciseExecution(
+  exercise: { id: number; name: string; body_part: string; modality: string },
+  exerciseOrder: number
+): OptimisticExerciseExecution {
+  return {
+    id: generateOptimisticId(),
+    exercise_id: exercise.id,
+    exercise_name: exercise.name,
+    exercise_body_part: exercise.body_part,
+    exercise_modality: exercise.modality,
+    exercise_order: exerciseOrder,
+    sets: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    isOptimistic: true
+  }
+}
+```
+
+### Store Integration Pattern
+
+**Zustand Store** with optimistic methods:
+
+```tsx
+interface WorkoutState {
+  // Standard state
+  activeWorkout: WorkoutResponse | null
+
+  // Optimistic update methods
+  addOptimisticExercise: (exercise: ExerciseData) => string
+  reconcileExerciseExecution: (optimisticId: string, serverData: ExerciseExecutionResponse) => void
+  removeOptimisticExercise: (optimisticId: string) => void
+  cleanupFailedOperations: (optimisticId: string) => void
+}
+
+// Implementation pattern
+addOptimisticExercise: (exercise) => {
+  const optimisticId = generateOptimisticId()
+  const optimisticExecution = createOptimisticExerciseExecution(exercise, exerciseOrder)
+
+  set((state) => ({
+    activeWorkout: state.activeWorkout ? {
+      ...state.activeWorkout,
+      exercise_executions: [...(state.activeWorkout.exercise_executions || []), optimisticExecution]
+    } : null,
+  }))
+
+  return optimisticId
+}
+```
+
+### Component Usage Pattern
+
+**Non-blocking UI interactions**:
+
+```tsx
+const handleSelectExercise = (exercise: ExerciseResponse) => {
+  if (!activeWorkout?.id) return
+
+  // 1. Immediate optimistic update
+  const optimisticId = addOptimisticExercise({
+    id: exercise.id,
+    name: exercise.name,
+    body_part: exercise.body_part,
+    modality: exercise.modality
+  })
+
+  // 2. Close modal immediately (no waiting)
+  closeAllModals()
+
+  // 3. Background API call with reconciliation
+  upsertExecutionMutation.mutate(executionData, {
+    onSuccess: (serverData) => {
+      // Reconcile optimistic data with server response
+      reconcileExerciseExecution(optimisticId, serverData)
+      await invalidateWorkoutData()
+    },
+    onError: (error) => {
+      // Silent failure handling
+      cleanupFailedOperations(optimisticId)
+      logger.error('Failed to add exercise:', error)
+    }
+  })
+}
+```
+
+### Benefits of This Pattern
+
+1. **Zero perceived latency** - Users can work at full speed
+2. **Stable references** - Optimistic IDs work everywhere until replaced
+3. **Fault tolerance** - Failures don't interrupt user workflow
+4. **Background reconciliation** - Data syncs transparently
+5. **Dependent operations** - Users can add sets to optimistic exercises immediately
+
+### Toast Notification Integration
+
+**Location**: `app/layout.tsx`
+
+```tsx
+import { Toaster } from "sonner"
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        {/* App providers */}
+        {children}
+        <Toaster position="bottom-right" />
+      </body>
+    </html>
+  )
+}
+```
+
+**Usage in components**:
+```tsx
+import { toast } from 'sonner'
+
+cleanupFailedOperations: (optimisticId) => {
+  get().removeOptimisticExercise(optimisticId)
+  toast.error('Exercise couldn\'t be added', {
+    duration: 3000,
+    position: 'bottom-right'
+  })
+}
+```
 
 ### Server State with TanStack Query
 
@@ -683,6 +837,58 @@ test('should invalidate workout data after mutation', async () => {
   })
 })
 ```
+
+### Testing Optimistic Updates
+
+**Focus on user workflows**, not implementation details:
+
+```tsx
+describe('Exercise Selection User Workflow', () => {
+  describe('Successful Exercise Addition', () => {
+    it('shows exercise immediately when selected and closes modal', async () => {
+      const user = userEvent.setup()
+      render(<SelectExerciseModal />)
+
+      // User selects exercise
+      await user.click(screen.getByRole('button', { name: /bench press/i }))
+
+      // Should immediately add optimistic exercise
+      expect(mockWorkoutStore.addOptimisticExercise).toHaveBeenCalledWith({
+        id: 1, name: 'Bench Press', body_part: 'chest', modality: 'BARBELL'
+      })
+
+      // Should close modal immediately (no waiting)
+      expect(mockUIStore.closeAllModals).toHaveBeenCalled()
+
+      // Should start background API call
+      expect(mockMutation.mutate).toHaveBeenCalled()
+    })
+  })
+
+  describe('Failed Exercise Addition', () => {
+    it('removes exercise and shows error when API fails', async () => {
+      const user = userEvent.setup()
+      render(<SelectExerciseModal />)
+
+      await user.click(screen.getByRole('button', { name: /bench press/i }))
+
+      // Simulate API failure
+      const onErrorCallback = mockMutation.mutate.mock.calls[0][1].onError
+      onErrorCallback(new Error('Network error'))
+
+      // Should clean up failed operation
+      expect(mockWorkoutStore.cleanupFailedOperations).toHaveBeenCalledWith('temp-12345')
+    })
+  })
+})
+```
+
+**Key Testing Principles for Optimistic Updates**:
+- **Mock API boundaries**, not optimistic utilities
+- **Test user experience**, not internal state changes
+- **Verify immediate UI response** and background reconciliation
+- **Test failure scenarios** with cleanup verification
+- **Assert on final UI state**, not intermediate steps
 
 ## Deployment Considerations
 

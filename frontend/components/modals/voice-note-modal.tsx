@@ -83,7 +83,6 @@ export function VoiceNoteModal() {
       setIsRecording(true)
     } catch (error) {
       logger.error('Error starting recording:', error)
-      alert('Could not access microphone. Please check permissions.')
     }
   }
 
@@ -141,7 +140,6 @@ export function VoiceNoteModal() {
       closeAllModals()
     } catch (error) {
       logger.error('Error transcribing audio:', error)
-      alert('Failed to transcribe audio. Please try again.')
       setIsProcessing(false)
     }
   }
