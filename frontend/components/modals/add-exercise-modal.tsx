@@ -107,7 +107,7 @@ export function AddExerciseModal() {
 
   return (
     <Dialog open={modals.addNewExercise} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" keyboardAware>
         <DialogHeader>
           <DialogTitle>Create New Exercise</DialogTitle>
         </DialogHeader>

@@ -8,8 +8,7 @@ import { useCacheUtils } from '@/lib/cache-tags'
 import {
   useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPut
 } from '@/lib/api/generated'
-import { useTaggedSearchExercises } from '@/lib/hooks/use-tagged-queries'
-import { useExerciseDataCache } from '@/lib/search/exercise-data-cache'
+import { useFuzzyExerciseSearch } from '@/lib/hooks/use-fuzzy-exercise-search'
 import { SelectExerciseModal } from './select-exercise-modal'
 import {
   createMockWorkout,
@@ -25,8 +24,7 @@ jest.mock('@/lib/stores/workout-store')
 jest.mock('@/lib/stores/ui-store')
 jest.mock('@/lib/cache-tags')
 jest.mock('@/lib/api/generated')
-jest.mock('@/lib/hooks/use-tagged-queries')
-jest.mock('@/lib/search/exercise-data-cache')
+jest.mock('@/lib/hooks/use-fuzzy-exercise-search')
 jest.mock('sonner', () => ({
   toast: {
     error: jest.fn(),
@@ -102,23 +100,23 @@ describe('Exercise Selection User Workflow', () => {
       status: 'authenticated'
     })
 
-    // Mock exercise data cache
-    ;(useExerciseDataCache as jest.Mock).mockReturnValue({
-      data: [
-        createMockExercise({ id: 1, name: 'Bench Press', body_part: 'chest' }),
-        createMockExercise({ id: 2, name: 'Squat', body_part: 'legs' }),
-      ],
-      isLoading: false,
-      error: null,
-      refetch: jest.fn()
-    })
+    // Exercise data is now handled by useFuzzyExerciseSearch mock below
 
     ;(useWorkoutStore as jest.Mock).mockReturnValue(mockWorkoutStore)
     ;(useUIStore as jest.Mock).mockReturnValue(mockUIStore)
     ;(useCacheUtils as jest.Mock).mockReturnValue(mockCacheUtils)
     ;(useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPut as jest.Mock).mockReturnValue(mockMutation)
-    ;(useTaggedSearchExercises as jest.Mock).mockReturnValue({
-      data: mockSearchResults,
+    ;(useFuzzyExerciseSearch as jest.Mock).mockReturnValue({
+      data: {
+        items: [
+          createMockExercise({ id: 1, name: 'Bench Press', body_part: 'chest' }),
+          createMockExercise({ id: 2, name: 'Squat', body_part: 'legs' }),
+        ],
+        total: 2,
+        page: 1,
+        size: 50,
+        pages: 1,
+      },
       isLoading: false,
     })
   })
@@ -260,15 +258,9 @@ describe('Exercise Selection User Workflow', () => {
     })
 
     it('shows loading state during search', () => {
-      ;(useTaggedSearchExercises as jest.Mock).mockReturnValue({
+      ;(useFuzzyExerciseSearch as jest.Mock).mockReturnValue({
         data: null,
         isLoading: true,
-      })
-      ;(useExerciseDataCache as jest.Mock).mockReturnValue({
-        data: null,
-        isLoading: true,
-        error: null,
-        refetch: jest.fn()
       })
 
       renderWithProviders(<SelectExerciseModal />)
@@ -283,15 +275,9 @@ describe('Exercise Selection User Workflow', () => {
     })
 
     it('handles empty search results', () => {
-      ;(useTaggedSearchExercises as jest.Mock).mockReturnValue({
+      ;(useFuzzyExerciseSearch as jest.Mock).mockReturnValue({
         data: { items: [], total: 0, page: 1, size: 50, pages: 0 },
         isLoading: false,
-      })
-      ;(useExerciseDataCache as jest.Mock).mockReturnValue({
-        data: [],
-        isLoading: false,
-        error: null,
-        refetch: jest.fn()
       })
 
       renderWithProviders(<SelectExerciseModal />)
@@ -326,14 +312,18 @@ describe('Exercise Selection User Workflow', () => {
     it('filters exercises based on search term', async () => {
       const user = userEvent.setup()
 
-      // Mock filtered results for search
-      ;(useExerciseDataCache as jest.Mock).mockReturnValue({
-        data: [
-          createMockExercise({ id: 1, name: 'Bench Press', body_part: 'chest' }),
-        ],
+      // Set up mock to return filtered results from the start
+      ;(useFuzzyExerciseSearch as jest.Mock).mockReturnValue({
+        data: {
+          items: [
+            createMockExercise({ id: 1, name: 'Bench Press', body_part: 'chest' }),
+          ],
+          total: 1,
+          page: 1,
+          size: 50,
+          pages: 1,
+        },
         isLoading: false,
-        error: null,
-        refetch: jest.fn()
       })
 
       renderWithProviders(<SelectExerciseModal />)
