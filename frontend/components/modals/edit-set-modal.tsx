@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/modal'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useUIStore } from '@/lib/stores/ui-store'
@@ -113,6 +114,9 @@ export function EditSetModal() {
       <DialogContent className="max-w-md" keyboardAware>
         <DialogHeader>
           <DialogTitle>Edit Set</DialogTitle>
+          <DialogDescription>
+            Modify the weight and number of reps for this set
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

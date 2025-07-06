@@ -99,7 +99,13 @@ function SortableExerciseCard({
               </div>
               {execution.note_text && (
                 <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-700 font-medium">Note: {execution.note_text}</p>
+                  <p className={`text-sm font-medium ${
+                    execution.note_text === 'Transcribing...'
+                      ? 'text-gray-400 italic'
+                      : 'text-gray-700'
+                  }`}>
+                    Note: {execution.note_text}
+                  </p>
                 </div>
               )}
             </div>

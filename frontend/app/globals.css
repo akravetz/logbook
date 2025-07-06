@@ -127,13 +127,7 @@
 
   /* Voice recording pulse animation */
   .recording-pulse {
-    animation: recordingPulse 10s ease-in-out infinite;
-  }
-
-  /* Enhanced pulse with waveform simulation */
-  .recording-pulse-waveform {
-    animation: recordingPulse 2.5s ease-in-out infinite,
-               waveformPulse 0.8s ease-in-out infinite alternate;
+    animation: recordingPulse 3.5s ease-in-out infinite;
   }
 
   @keyframes recordingPulse {
@@ -157,19 +151,7 @@
       transform: scale(1);
       box-shadow: 0 0 0 35px rgba(239, 68, 68, 0);
     }
-    }
-
-    @keyframes waveformPulse {
-      0% {
-        transform: scale(1);
-      }
-      50% {
-        transform: scale(1.02);
-      }
-      100% {
-        transform: scale(1.06);
-      }
-    }
+  }
 }
 
 @layer utilities {
