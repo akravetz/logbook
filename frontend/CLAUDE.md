@@ -348,7 +348,7 @@ const handleSelectExercise = (exercise: ExerciseResponse) => {
 
   // 3. Background API call with reconciliation
   upsertExecutionMutation.mutate(executionData, {
-    onSuccess: (serverData) => {
+    onSuccess: async (serverData) => {
       // Reconcile optimistic data with server response
       reconcileExerciseExecution(optimisticId, serverData)
       await invalidateWorkoutData()
