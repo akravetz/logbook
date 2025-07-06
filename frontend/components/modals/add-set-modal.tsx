@@ -20,7 +20,6 @@ import type { SetCreate } from '@/lib/api/model'
 import { logger } from '@/lib/logger'
 import { toast } from 'sonner'
 import { isOptimisticId, createPendingOperation } from '@/lib/utils/optimistic'
-import { useCacheUtils } from '@/lib/cache-tags'
 
 interface FormData {
   weight: number
@@ -38,7 +37,6 @@ export function AddSetModal() {
     cleanupFailedSetOperation,
     addPendingOperation
   } = useWorkoutStore()
-  const { invalidateWorkoutData } = useCacheUtils()
 
   const { register, handleSubmit, watch, setValue, reset } = useForm<FormData>({
     defaultValues: {
@@ -99,7 +97,6 @@ export function AddSetModal() {
             data: setData,
           })
           reconcileSet(optimisticId, serverResponse)
-          await invalidateWorkoutData()
           toast.success('Set added successfully')
         },
         () => {
@@ -118,7 +115,6 @@ export function AddSetModal() {
         data: setData,
       }).then(async (serverResponse) => {
         reconcileSet(optimisticId, serverResponse)
-        await invalidateWorkoutData()
         toast.success('Set added successfully')
       }).catch((error) => {
         logger.error('Failed to create set:', error)

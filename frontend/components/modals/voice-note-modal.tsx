@@ -15,7 +15,6 @@ import {
   useUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPatch,
   useTranscribeAudioApiV1VoiceTranscribePost
 } from '@/lib/api/generated'
-import { useCacheUtils } from '@/lib/cache-tags'
 import { logger } from '@/lib/logger'
 import { toast } from 'sonner'
 
@@ -44,7 +43,6 @@ function getSupportedAudioMimeType(): { mimeType: string; extension: string } {
 export function VoiceNoteModal() {
   const { modals, closeAllModals } = useUIStore()
   const { activeWorkout, updateExerciseInWorkout } = useWorkoutStore()
-  const { invalidateWorkoutData } = useCacheUtils()
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -149,9 +147,6 @@ export function VoiceNoteModal() {
         data: { note_text: transcriptionText }
       })
 
-      // Invalidate workout data to refresh the UI
-      await invalidateWorkoutData()
-
       // Find and update the exercise in local state
       const currentExecution = activeWorkout.exercise_executions?.find(
         (ex) => ex.exercise_id === modals.voiceNote.exerciseId
@@ -232,10 +227,10 @@ export function VoiceNoteModal() {
               onTouchStart={handleMouseDown}
               onTouchEnd={handleMouseUp}
               disabled={isProcessing}
-              className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-200 ${
+              className={`w-32 h-32 rounded-full flex items-center justify-center ${
                 isRecording
                   ? 'bg-red-500 recording-pulse'
-                  : 'bg-gray-800 hover:bg-gray-700'
+                  : 'bg-gray-800 hover:bg-gray-700 transition-all duration-200'
               } ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <Mic className={`${isRecording ? 'w-14 h-14' : 'w-12 h-12'} text-white transition-all duration-200`} />

@@ -1240,3 +1240,160 @@ npm test -- --watch        # Run tests in watch mode
 npm test -- --coverage     # Run tests with coverage report
 npm test -- --testPathPattern=component-name.test.tsx  # Run specific test file
 ```
+
+## Critical Lessons: Optimistic Updates & Responsiveness
+
+### Anti-Patterns to Avoid
+
+#### ❌ **Cache Invalidation in Optimistic Updates**
+**Problem**: Calling `invalidateWorkoutData()` after optimistic updates causes request cancellations and ERR_CANCELED errors.
+
+```tsx
+// ❌ BAD: Redundant cache invalidation
+const optimisticId = addOptimisticSet(exerciseId, setData)
+createSetMutation.mutateAsync(data).then(async (response) => {
+  reconcileSet(optimisticId, response)
+  await invalidateWorkoutData() // ❌ Causes request cancellations
+})
+```
+
+**Why It Fails**:
+- Optimistic updates already update local state directly
+- Cache invalidation triggers competing refetches
+- Rapid user actions cause React Query to cancel previous requests
+- Results in `ERR_CANCELED` errors in console
+
+```tsx
+// ✅ GOOD: Let optimistic updates handle state
+const optimisticId = addOptimisticSet(exerciseId, setData)
+createSetMutation.mutateAsync(data).then((response) => {
+  reconcileSet(optimisticId, response) // ✅ Direct state update only
+  toast.success('Set added successfully')
+})
+```
+
+#### ❌ **CSS Transition Conflicts with Animations**
+**Problem**: `transition-all` CSS properties override custom animation timing.
+
+```tsx
+// ❌ BAD: Transition overrides animation timing
+<button className={`transition-all duration-200 ${
+  isRecording ? 'recording-pulse' : 'hover:bg-gray-700'
+}`}>
+```
+
+**Why It Fails**:
+- `transition-all duration-200` applies 200ms transitions to ALL properties
+- Overrides the animation's 3.5s timing for transform/box-shadow
+- Results in hyperactive animations instead of smooth pulses
+
+```tsx
+// ✅ GOOD: Conditional transitions
+<button className={`${
+  isRecording
+    ? 'recording-pulse'
+    : 'hover:bg-gray-700 transition-all duration-200'
+}`}>
+```
+
+#### ❌ **Missing Accessibility Descriptions**
+**Problem**: Radix UI modals require `DialogDescription` or `aria-describedby` for screen readers.
+
+```tsx
+// ❌ BAD: Missing description causes console warnings
+<DialogContent>
+  <DialogHeader>
+    <DialogTitle>Add Set</DialogTitle>
+  </DialogHeader>
+```
+
+```tsx
+// ✅ GOOD: Always include descriptions
+<DialogContent>
+  <DialogHeader>
+    <DialogTitle>Add Set</DialogTitle>
+    <DialogDescription>
+      Enter the weight and number of reps for this set
+    </DialogDescription>
+  </DialogHeader>
+```
+
+### Design Principles for Responsive UX
+
+#### ✅ **Optimistic-First Pattern**
+```tsx
+const handleUserAction = async (data) => {
+  // 1. Immediate optimistic update
+  const optimisticId = addOptimisticData(data)
+
+  // 2. Close UI immediately (no waiting)
+  closeModal()
+
+  // 3. Background API reconciliation
+  apiMutation.mutateAsync(data).then((serverResponse) => {
+    reconcileData(optimisticId, serverResponse)
+    toast.success('Success')
+  }).catch(() => {
+    cleanupFailedOperation(optimisticId)
+    toast.error('Failed to save')
+  })
+}
+```
+
+#### ✅ **Operation Queueing for Dependencies**
+When operations depend on pending results (e.g., adding sets to optimistic exercises):
+
+```tsx
+// Handle dependency chains elegantly
+if (isOptimisticId(parentId)) {
+  // Queue operation until parent resolves
+  const pendingOperation = createPendingOperation(
+    'ADD_SET',
+    data,
+    () => executeWhenReady(realParentId),
+    () => rollbackOnFailure(),
+    parentId // dependency
+  )
+  addPendingOperation(pendingOperation)
+} else {
+  // Execute immediately for real entities
+  executeNow(parentId)
+}
+```
+
+#### ✅ **Separation of Concerns**
+- **Optimistic updates**: Handle immediate UI responsiveness
+- **Cache invalidation**: Only for data fetched from external sources
+- **Background reconciliation**: Sync optimistic state with server truth
+- **Error handling**: Graceful rollback without blocking user workflow
+
+#### ✅ **Animation State Management**
+```tsx
+// Separate animation concerns from business logic
+<button className={`base-styles ${
+  isActiveState
+    ? 'custom-animation'
+    : 'default-transitions'
+}`}>
+```
+
+### Performance & UX Guidelines
+
+1. **Never block UI for API calls** - Use optimistic updates for all user actions
+2. **Avoid cache invalidation in optimistic flows** - Direct state updates are sufficient
+3. **Handle failures silently** - Show toast notifications, don't interrupt workflow
+4. **Queue dependent operations** - Don't make users wait for operation chains
+5. **Test animation timing** - Ensure CSS doesn't conflict with custom animations
+6. **Always include modal descriptions** - Accessibility is non-negotiable
+
+### Debugging Checklist
+
+When users report "slow" or "unresponsive" UI:
+
+1. **Check for ERR_CANCELED in console** → Remove redundant cache invalidations
+2. **Verify optimistic updates work immediately** → Don't wait for API responses
+3. **Test rapid user actions** → Ensure no race conditions
+4. **Validate animation timing** → Check for CSS transition conflicts
+5. **Monitor toast notifications** → Ensure background operations complete properly
+
+This architecture ensures users can work at full speed while maintaining data consistency through background reconciliation.
