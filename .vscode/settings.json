@@ -1,7 +1,8 @@
 {
     "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
     "python.analysis.extraPaths": [
-      "./backend"
+      "./backend/src/workout_api"
     ],
+    "python.terminal.activateEnvironment": true,
     "local-history.browser.descending": false
   }
