@@ -48,10 +48,11 @@ export function createOptimisticExerciseExecution(
  * Creates optimistic set data
  */
 export function createOptimisticSet(
-  setData: { weight: number; clean_reps: number; forced_reps: number; note_text?: string }
+  setData: { weight: number; clean_reps: number; forced_reps: number; note_text?: string },
+  id?: string
 ): OptimisticSet {
   return {
-    id: generateOptimisticId(),
+    id: id || generateOptimisticId(),
     weight: setData.weight,
     clean_reps: setData.clean_reps,
     forced_reps: setData.forced_reps,

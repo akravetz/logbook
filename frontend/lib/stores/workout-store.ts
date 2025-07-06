@@ -185,7 +185,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   // Optimistic set operations
   addOptimisticSet: (exerciseId, setData) => {
     const optimisticId = generateOptimisticId()
-    const optimisticSet = createOptimisticSet(setData)
+    const optimisticSet = createOptimisticSet(setData, optimisticId)
 
     set((state) => ({
       activeWorkout: state.activeWorkout
