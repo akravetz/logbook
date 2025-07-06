@@ -1,9 +1,9 @@
 "use client"
 
-import { useSearchExercisesApiV1ExercisesGet } from "@/lib/api/generated"
+import { useFuzzyExerciseSearch } from "@/lib/hooks/use-fuzzy-exercise-search"
 
 export default function ExercisesPage() {
-  const { data: exercisesData, isLoading } = useSearchExercisesApiV1ExercisesGet({
+  const { data: exercisesData, isLoading } = useFuzzyExerciseSearch({
     page: 1,
     size: 20,
   })

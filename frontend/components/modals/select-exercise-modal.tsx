@@ -13,10 +13,9 @@ import { useWorkoutStore } from '@/lib/stores/workout-store'
 import {
   useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPut
 } from '@/lib/api/generated'
-import { useTaggedSearchExercises } from '@/lib/hooks/use-tagged-queries'
+import { useFuzzyExerciseSearch } from '@/lib/hooks/use-fuzzy-exercise-search'
 import { useCacheUtils } from '@/lib/cache-tags'
 import type { ExerciseExecutionRequest, ExerciseResponse } from '@/lib/api/model'
-import { useDebounce } from '@/lib/hooks/use-debounce'
 import { logger } from '@/lib/logger'
 import { toast } from 'sonner'
 
@@ -26,10 +25,8 @@ export function SelectExerciseModal() {
   const { invalidateWorkoutData } = useCacheUtils()
   const [searchTerm, setSearchTerm] = useState('')
 
-  const debouncedSearchTerm = useDebounce(searchTerm, 300)
-
-  const { data: searchResults, isLoading } = useTaggedSearchExercises({
-    name: debouncedSearchTerm || undefined,
+  const { data: searchResults, isLoading } = useFuzzyExerciseSearch({
+    name: searchTerm || undefined,
     page: 1,
     size: 50,
   }, {
@@ -162,13 +159,13 @@ export function SelectExerciseModal() {
               ))}
             </div>
           ) : Object.keys(groupedExercises).length > 0 ? (
-            Object.entries(groupedExercises).map(([bodyPart, exercises]) => (
+            Object.entries(groupedExercises).map(([bodyPart, exercises]: [string, ExerciseResponse[]]) => (
               <div key={bodyPart}>
                 <h3 className="font-semibold text-gray-900 mb-2">
                   {capitalizeBodyPart(bodyPart)}
                 </h3>
                 <div className="space-y-2">
-                  {exercises.map((exercise) => (
+                  {exercises.map((exercise: ExerciseResponse) => (
                     <button
                       key={exercise.id}
                       onClick={() => handleSelectExercise(exercise)}
