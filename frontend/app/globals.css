@@ -93,18 +93,7 @@
     @apply fixed inset-0 bg-black/50 z-50;
   }
 
-  /* Keyboard-aware modal positioning */
-  .modal-keyboard-aware {
-    transition: transform 0.2s ease-out, top 0.2s ease-out, max-height 0.2s ease-out;
-  }
 
-  .modal-keyboard-aware.keyboard-visible {
-    transform: translateX(-50%) translateY(0) !important;
-  }
-
-  .modal-keyboard-aware.keyboard-hidden {
-    transform: translateX(-50%) translateY(-50%) !important;
-  }
 
   /* Card with shadow for mobile */
   .card-mobile {
