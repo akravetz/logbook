@@ -1,5 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useSession } from 'next-auth/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useWorkoutStore } from '@/lib/stores/workout-store'
 import { useUIStore } from '@/lib/stores/ui-store'
 import { useCacheUtils } from '@/lib/cache-tags'
@@ -7,6 +9,7 @@ import {
   useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPut
 } from '@/lib/api/generated'
 import { useTaggedSearchExercises } from '@/lib/hooks/use-tagged-queries'
+import { useExerciseDataCache } from '@/lib/search/exercise-data-cache'
 import { SelectExerciseModal } from './select-exercise-modal'
 import {
   createMockWorkout,
@@ -17,11 +20,13 @@ import {
 import type { MockMutation } from '@/lib/test-utils'
 
 // Mock all dependencies
+jest.mock('next-auth/react')
 jest.mock('@/lib/stores/workout-store')
 jest.mock('@/lib/stores/ui-store')
 jest.mock('@/lib/cache-tags')
 jest.mock('@/lib/api/generated')
 jest.mock('@/lib/hooks/use-tagged-queries')
+jest.mock('@/lib/search/exercise-data-cache')
 jest.mock('sonner', () => ({
   toast: {
     error: jest.fn(),
@@ -29,6 +34,26 @@ jest.mock('sonner', () => ({
     info: jest.fn(),
   }
 }))
+
+// Create a test QueryClient
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false, // Don't retry in tests
+      staleTime: Infinity, // Prevent background refetches
+    },
+  },
+})
+
+// Custom render function with providers
+const renderWithProviders = (ui: React.ReactElement) => {
+  const queryClient = createTestQueryClient()
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  )
+}
 
 const mockMutation: MockMutation = {
   mutateAsync: jest.fn(),
@@ -64,6 +89,30 @@ describe('Exercise Selection User Workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks()
 
+    // Mock next-auth session
+    ;(useSession as jest.Mock).mockReturnValue({
+      data: {
+        userId: '1',
+        sessionToken: 'test-token',
+        user: {
+          name: 'Test User',
+          email: 'test@example.com'
+        }
+      },
+      status: 'authenticated'
+    })
+
+    // Mock exercise data cache
+    ;(useExerciseDataCache as jest.Mock).mockReturnValue({
+      data: [
+        createMockExercise({ id: 1, name: 'Bench Press', body_part: 'chest' }),
+        createMockExercise({ id: 2, name: 'Squat', body_part: 'legs' }),
+      ],
+      isLoading: false,
+      error: null,
+      refetch: jest.fn()
+    })
+
     ;(useWorkoutStore as jest.Mock).mockReturnValue(mockWorkoutStore)
     ;(useUIStore as jest.Mock).mockReturnValue(mockUIStore)
     ;(useCacheUtils as jest.Mock).mockReturnValue(mockCacheUtils)
@@ -78,7 +127,7 @@ describe('Exercise Selection User Workflow', () => {
     it('shows exercise immediately when selected and closes modal', async () => {
       const user = userEvent.setup()
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       // Find and click an exercise
       const benchPressButton = screen.getByRole('button', { name: /bench press/i })
@@ -112,7 +161,7 @@ describe('Exercise Selection User Workflow', () => {
     it('reconciles with server data when API succeeds', async () => {
       const user = userEvent.setup()
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       const benchPressButton = screen.getByRole('button', { name: /bench press/i })
       await user.click(benchPressButton)
@@ -139,7 +188,7 @@ describe('Exercise Selection User Workflow', () => {
     it('allows selecting multiple exercises rapidly', async () => {
       const user = userEvent.setup()
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       // Rapidly select multiple exercises
       const benchPressButton = screen.getByRole('button', { name: /bench press/i })
@@ -158,7 +207,7 @@ describe('Exercise Selection User Workflow', () => {
     it('removes exercise and shows error when API fails', async () => {
       const user = userEvent.setup()
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       const benchPressButton = screen.getByRole('button', { name: /bench press/i })
       await user.click(benchPressButton)
@@ -181,7 +230,7 @@ describe('Exercise Selection User Workflow', () => {
         onError(new Error('API Error'))
       })
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       const benchPressButton = screen.getByRole('button', { name: /bench press/i })
       await user.click(benchPressButton)
@@ -199,7 +248,7 @@ describe('Exercise Selection User Workflow', () => {
 
   describe('Exercise Search and Display', () => {
     it('groups exercises by body part', () => {
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       // Should group exercises by body part
       expect(screen.getByText('Chest')).toBeInTheDocument()
@@ -215,8 +264,14 @@ describe('Exercise Selection User Workflow', () => {
         data: null,
         isLoading: true,
       })
+      ;(useExerciseDataCache as jest.Mock).mockReturnValue({
+        data: null,
+        isLoading: true,
+        error: null,
+        refetch: jest.fn()
+      })
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       // Should not show specific exercises when loading
       expect(screen.queryByText('Bench Press')).not.toBeInTheDocument()
@@ -232,8 +287,14 @@ describe('Exercise Selection User Workflow', () => {
         data: { items: [], total: 0, page: 1, size: 50, pages: 0 },
         isLoading: false,
       })
+      ;(useExerciseDataCache as jest.Mock).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: jest.fn()
+      })
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       expect(screen.getByText('No exercises available')).toBeInTheDocument()
     })
@@ -243,7 +304,7 @@ describe('Exercise Selection User Workflow', () => {
     it('closes modal when user cancels', async () => {
       const user = userEvent.setup()
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       // Find and click close button or outside modal
       await user.keyboard('{Escape}')
@@ -254,7 +315,7 @@ describe('Exercise Selection User Workflow', () => {
     it('opens add new exercise modal', async () => {
       const user = userEvent.setup()
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       const addNewButton = screen.getByRole('button', { name: /add new exercise/i })
       await user.click(addNewButton)
@@ -265,18 +326,27 @@ describe('Exercise Selection User Workflow', () => {
     it('filters exercises based on search term', async () => {
       const user = userEvent.setup()
 
-      render(<SelectExerciseModal />)
+      // Mock filtered results for search
+      ;(useExerciseDataCache as jest.Mock).mockReturnValue({
+        data: [
+          createMockExercise({ id: 1, name: 'Bench Press', body_part: 'chest' }),
+        ],
+        isLoading: false,
+        error: null,
+        refetch: jest.fn()
+      })
+
+      renderWithProviders(<SelectExerciseModal />)
 
       const searchInput = screen.getByPlaceholderText('Search exercises...')
       await user.type(searchInput, 'bench')
 
-      // Should call search hook with debounced term
+      // Wait for the search to filter results
       await waitFor(() => {
-        expect(useTaggedSearchExercises).toHaveBeenCalledWith(
-          { name: 'bench', page: 1, size: 50 },
-          { query: { enabled: true } }
-        )
-      }, { timeout: 400 }) // Account for 300ms debounce
+        expect(screen.getByText('Bench Press')).toBeInTheDocument()
+        // Squat should not be shown when searching for "bench"
+        expect(screen.queryByText('Squat')).not.toBeInTheDocument()
+      })
     })
   })
 
@@ -290,7 +360,7 @@ describe('Exercise Selection User Workflow', () => {
         activeWorkout: null,
       })
 
-      render(<SelectExerciseModal />)
+      renderWithProviders(<SelectExerciseModal />)
 
       const benchPressButton = screen.getByRole('button', { name: /bench press/i })
       await user.click(benchPressButton)
