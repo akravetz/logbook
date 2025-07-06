@@ -8,6 +8,7 @@ import { useCreateWorkoutApiV1WorkoutsPost } from '@/lib/api/generated'
 import { useTaggedListWorkouts } from '@/lib/hooks/use-tagged-queries'
 import { useCacheUtils } from '@/lib/cache-tags'
 import { useWorkoutStore } from '@/lib/stores/workout-store'
+import { logger } from '@/lib/logger'
 
 export function WorkoutsListScreen() {
   const router = useRouter()
@@ -35,10 +36,8 @@ export function WorkoutsListScreen() {
       startTimer()
       router.push(`/workout/${result.id}`)
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to create workout:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to create workout:', error)
     }
   }
 

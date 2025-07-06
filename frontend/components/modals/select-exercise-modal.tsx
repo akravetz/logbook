@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from 'react'
-import { Search, Plus, X } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { useTaggedSearchExercises } from '@/lib/hooks/use-tagged-queries'
 import { useCacheUtils } from '@/lib/cache-tags'
 import type { ExerciseExecutionRequest, ExerciseResponse } from '@/lib/api/model'
 import { useDebounce } from '@/lib/hooks/use-debounce'
+import { logger } from '@/lib/logger'
 
 export function SelectExerciseModal() {
   const { modals, closeAllModals, openAddNewExerciseModal } = useUIStore()
@@ -79,10 +80,8 @@ export function SelectExerciseModal() {
       // Close modal
       closeAllModals()
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to add exercise to workout:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to add exercise to workout:', error)
     } finally {
       setIsAdding(null)
     }
@@ -112,14 +111,8 @@ export function SelectExerciseModal() {
   return (
     <Dialog open={modals.selectExercise} onOpenChange={handleClose}>
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
-        <DialogHeader className="flex flex-row items-center justify-between">
+        <DialogHeader>
           <DialogTitle>Select Exercise</DialogTitle>
-          <button
-            onClick={handleClose}
-            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </DialogHeader>
 
         {/* Search Bar */}

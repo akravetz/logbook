@@ -16,6 +16,7 @@ import {
   useGetExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdGet
 } from '@/lib/api/generated'
 import type { SetCreate } from '@/lib/api/model'
+import { logger } from '@/lib/logger'
 
 interface FormData {
   weight: number
@@ -77,10 +78,8 @@ export function AddSetModal() {
       reset()
       closeAllModals()
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to create set:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to create set:', error)
     } finally {
       setIsSubmitting(false)
     }

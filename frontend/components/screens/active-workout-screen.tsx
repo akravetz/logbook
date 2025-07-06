@@ -29,6 +29,7 @@ import {
   useReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
 } from '@/lib/api/generated'
 import { useCacheUtils } from '@/lib/cache-tags'
+import { logger } from '@/lib/logger'
 import type { ExerciseExecutionRequest, SetCreate, ExerciseExecutionResponse } from '@/lib/api/model'
 
 interface ActiveWorkoutScreenProps {
@@ -108,6 +109,7 @@ function SortableExerciseCard({
               <button
                 className="p-2 hover:bg-gray-100 rounded transition-colors"
                 onClick={() => onOpenVoiceNoteModal(execution.exercise_id, execution.exercise_name)}
+                aria-label={`Add voice note for ${execution.exercise_name}`}
               >
                 <Mic className="w-5 h-5 text-gray-400" />
               </button>
@@ -139,6 +141,7 @@ function SortableExerciseCard({
                         onClick={() => onOpenEditSetModal(execution.exercise_id, set.id, set)}
                         className="text-blue-600 font-medium"
                         disabled={deletingSetId === set.id}
+                        aria-label={`Edit set ${index + 1} for ${execution.exercise_name}`}
                       >
                         Edit
                       </button>
@@ -146,6 +149,7 @@ function SortableExerciseCard({
                         onClick={() => onDeleteSet(execution.exercise_id, set.id)}
                         disabled={deletingSetId === set.id}
                         className="p-1 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-50 rounded transition-colors"
+                        aria-label={`Delete set ${index + 1} for ${execution.exercise_name}`}
                       >
                         <Trash2 className={`w-4 h-4 ${deletingSetId === set.id ? 'text-red-400 animate-pulse' : 'text-gray-400 hover:text-red-600'}`} />
                       </button>
@@ -166,6 +170,7 @@ function SortableExerciseCard({
               modality: execution.exercise_modality,
             })}
             className="w-full mt-4 py-3 border border-gray-300 rounded-lg font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            aria-label={`Add set to ${execution.exercise_name}`}
           >
             <Plus className="w-4 h-4" />
             Add Set
@@ -234,18 +239,16 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
       // Show appropriate feedback based on whether workout was deleted or finished
       if (result.deleted) {
         // Empty workout was deleted - user feedback could be added here
-        console.log('Empty workout deleted')
+        logger.info('Empty workout deleted')
       } else {
         // Workout was finished normally - user feedback could be added here
-        console.log('Workout completed!')
+        logger.info('Workout completed!')
       }
 
       router.push('/')
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to finish workout:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to finish workout:', error)
     }
   }
 
@@ -292,10 +295,8 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
       // Update local state
       updateExerciseInWorkout(updatedExecution)
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to delete set:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to delete set:', error)
     } finally {
       setDeletingSetId(null)
     }
@@ -343,10 +344,8 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
         // Rollback on error
         reorderExercises(oldExercises)
 
-        // Log error for debugging in development
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to reorder exercises:', error)
-        }
+        // Log error for debugging
+        logger.error('Failed to reorder exercises:', error)
       } finally {
         setIsReordering(false)
       }
@@ -431,6 +430,7 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
           <button
             onClick={openSelectExerciseModal}
             className="w-full mt-4 py-4 border border-gray-300 rounded-lg font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            aria-label="Add exercise to workout"
           >
             <Plus className="w-5 h-5" />
             Add Exercise

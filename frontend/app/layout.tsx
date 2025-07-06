@@ -13,7 +13,7 @@ const geistSans = Geist({
 })
 
 export const metadata: Metadata = {
-  title: "LogBK - Workout Tracker",
+  title: "Get Swole",
   description: "Your personal workout tracking companion",
 }
 

@@ -17,7 +17,7 @@
     "react/jsx-boolean-value": ["error", "never"],
 
     // General JavaScript/ES6+ rules
-    "no-console": "warn",
+    "no-console": "off",
     "no-debugger": "error",
     "no-alert": "warn",
     "prefer-const": "error",

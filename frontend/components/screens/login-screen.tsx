@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
+import { logger } from "@/lib/logger"
 
 export function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false)
@@ -25,10 +26,8 @@ export function LoginScreen() {
       }
 
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error("Unexpected error:", error)
-      }
+      // Log error for debugging
+      logger.error("Unexpected error:", error)
       setError("An unexpected error occurred. Please try again.")
       setIsLoading(false)
     }
@@ -39,10 +38,10 @@ export function LoginScreen() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to Workout Tracker
+            Sign in to Get Swole
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Track your workouts and monitor your progress
+            Build for lifters. Powered by AI.
           </p>
         </div>
 

@@ -15,6 +15,7 @@ import {
   useTranscribeAudioApiV1VoiceTranscribePost
 } from '@/lib/api/generated'
 import { useCacheUtils } from '@/lib/cache-tags'
+import { logger } from '@/lib/logger'
 
 // Utility function to detect supported audio MIME types
 function getSupportedAudioMimeType(): { mimeType: string; extension: string } {
@@ -81,7 +82,7 @@ export function VoiceNoteModal() {
       mediaRecorder.start()
       setIsRecording(true)
     } catch (error) {
-      console.error('Error starting recording:', error)
+      logger.error('Error starting recording:', error)
       alert('Could not access microphone. Please check permissions.')
     }
   }
@@ -139,7 +140,7 @@ export function VoiceNoteModal() {
       setIsProcessing(false)
       closeAllModals()
     } catch (error) {
-      console.error('Error transcribing audio:', error)
+      logger.error('Error transcribing audio:', error)
       alert('Failed to transcribe audio. Please try again.')
       setIsProcessing(false)
     }

@@ -3,6 +3,7 @@
 import React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { logger } from "@/lib/logger"
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -20,10 +21,8 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error for debugging in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error("Error caught by boundary:", error, errorInfo)
-    }
+    // Log error for debugging
+    logger.error("Error caught by boundary:", error, errorInfo)
   }
 
   render() {
