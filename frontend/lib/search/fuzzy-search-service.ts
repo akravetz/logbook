@@ -31,6 +31,7 @@ export interface SearchResult {
 export class FuzzySearchService {
   private fuse: Fuse<ExerciseResponse> | null = null
   private exercises: ExerciseResponse[] = []
+  private exercisesReference: ExerciseResponse[] | null = null
 
   constructor() {
     this.initializeFuse()
@@ -51,9 +52,18 @@ export class FuzzySearchService {
 
   /**
    * Update the exercise dataset for searching
+   * Only rebuilds the search index if the exercises array reference has changed
    */
   setExercises(exercises: ExerciseResponse[]) {
+    // Check if the exercises array reference has changed
+    // React Query maintains referential stability, so === check is sufficient
+    if (this.exercisesReference === exercises) {
+      return // No change, skip expensive re-indexing
+    }
+
     this.exercises = exercises
+    this.exercisesReference = exercises
+
     if (this.fuse) {
       this.fuse.setCollection(exercises)
     }

@@ -209,6 +209,36 @@ describe('FuzzySearchService', () => {
     })
   })
 
+  describe('Performance optimizations', () => {
+    it('should not rebuild index when setExercises is called with same array reference', () => {
+      const service = new FuzzySearchService()
+
+      // Set exercises for the first time
+      service.setExercises(mockExercises)
+
+      // Mock the setCollection method to track calls
+      const mockSetCollection = jest.fn()
+      // Access the private fuse instance through type assertion
+      const fuseInstance = (service as any).fuse
+      if (fuseInstance) {
+        fuseInstance.setCollection = mockSetCollection
+      }
+
+      // Call setExercises with the same array reference
+      service.setExercises(mockExercises)
+
+      // setCollection should not have been called again
+      expect(mockSetCollection).not.toHaveBeenCalled()
+
+      // Call setExercises with a different array (same content, different reference)
+      const differentReferenceExercises = [...mockExercises]
+      service.setExercises(differentReferenceExercises)
+
+      // setCollection should have been called this time
+      expect(mockSetCollection).toHaveBeenCalledWith(differentReferenceExercises)
+    })
+  })
+
   describe('Utility methods', () => {
     it('should get distinct body parts', () => {
       const bodyParts = service.getDistinctBodyParts(null)
