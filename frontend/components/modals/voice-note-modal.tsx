@@ -15,8 +15,9 @@ import {
   useUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPatch,
   useTranscribeAudioApiV1VoiceTranscribePost
 } from '@/lib/api/generated'
+import { useOptimisticMutation } from '@/lib/hooks/use-optimistic-mutation'
 import { logger } from '@/lib/logger'
-import { toast } from 'sonner'
+import type { ExerciseExecutionUpdate } from '@/lib/api/model'
 
 // Utility function to detect supported audio MIME types
 function getSupportedAudioMimeType(): { mimeType: string; extension: string } {
@@ -44,13 +45,59 @@ export function VoiceNoteModal() {
   const { modals, closeAllModals } = useUIStore()
   const { activeWorkout, updateExerciseInWorkout } = useWorkoutStore()
   const [isRecording, setIsRecording] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const audioFormatRef = useRef<{ mimeType: string; extension: string } | null>(null)
 
   const updateExerciseMutation = useUpdateExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPatch()
   const transcribeMutation = useTranscribeAudioApiV1VoiceTranscribePost()
+
+  // Optimistic voice note mutation
+  const voiceNoteMutation = useOptimisticMutation({
+    addOptimistic: (data: { workoutId: number; exerciseId: number; data: ExerciseExecutionUpdate }) => {
+      if (!activeWorkout?.id || !modals.voiceNote.exerciseId) {
+        throw new Error('No active workout or exercise selected')
+      }
+
+      // Find and update the exercise in local state with transcribed text
+      const currentExecution = activeWorkout.exercise_executions?.find(
+        (ex) => ex.exercise_id === modals.voiceNote.exerciseId
+      )
+
+      if (currentExecution && data.data.note_text) {
+        const updatedExecution = {
+          ...currentExecution,
+          note_text: data.data.note_text
+        }
+        updateExerciseInWorkout(updatedExecution)
+      }
+
+      return `voice-note-${modals.voiceNote.exerciseId}-${Date.now()}`
+    },
+    reconcile: (optimisticId: string, serverData: any) => {
+      // Server data is already applied through the mutation
+      // Local state is already updated optimistically
+    },
+    cleanup: (optimisticId: string) => {
+      if (!activeWorkout?.id || !modals.voiceNote.exerciseId) return
+
+      // Remove placeholder text on error
+      const currentExecution = activeWorkout.exercise_executions?.find(
+        (ex) => ex.exercise_id === modals.voiceNote.exerciseId
+      )
+
+      if (currentExecution) {
+        const updatedExecution = {
+          ...currentExecution,
+          note_text: ''
+        }
+        updateExerciseInWorkout(updatedExecution)
+      }
+    },
+    mutation: updateExerciseMutation,
+    onSuccess: () => 'Voice note transcribed successfully',
+    onError: () => 'Failed to transcribe voice note'
+  })
 
   const startRecording = async () => {
     try {
@@ -98,7 +145,6 @@ export function VoiceNoteModal() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
-      setIsProcessing(false) // Reset processing state since we're not blocking UI
     }
   }
 
@@ -129,7 +175,7 @@ export function VoiceNoteModal() {
 
       const format = audioFormatRef.current || getSupportedAudioMimeType()
 
-      // Call transcription API using the generated hook
+      // Call transcription API
       const transcriptionResult = await transcribeMutation.mutateAsync({
         data: {
           audio_file: new File([audioBlob], `voice_note.${format.extension}`, {
@@ -140,51 +186,20 @@ export function VoiceNoteModal() {
 
       const transcriptionText = transcriptionResult.transcribed_text
 
-      // Update the exercise note with the transcribed text
-      await updateExerciseMutation.mutateAsync({
+      // Use optimistic mutation to update exercise note
+      await voiceNoteMutation.execute({
         workoutId: activeWorkout.id,
         exerciseId: modals.voiceNote.exerciseId,
-        data: { note_text: transcriptionText }
+        data: { note_text: transcriptionText } as ExerciseExecutionUpdate
       })
-
-      // Find and update the exercise in local state
-      const currentExecution = activeWorkout.exercise_executions?.find(
-        (ex) => ex.exercise_id === modals.voiceNote.exerciseId
-      )
-
-      if (currentExecution) {
-        const updatedExecution = {
-          ...currentExecution,
-          note_text: transcriptionText
-        }
-        updateExerciseInWorkout(updatedExecution)
-      }
-
-      toast.success('Voice note transcribed successfully')
     } catch (error) {
       logger.error('Error transcribing audio:', error)
-
-      // Replace placeholder with empty text on error
-      if (activeWorkout?.id && modals.voiceNote.exerciseId) {
-        const currentExecution = activeWorkout.exercise_executions?.find(
-          (ex) => ex.exercise_id === modals.voiceNote.exerciseId
-        )
-
-        if (currentExecution) {
-          const updatedExecution = {
-            ...currentExecution,
-            note_text: ''
-          }
-          updateExerciseInWorkout(updatedExecution)
-        }
-      }
-
-      toast.error('Failed to transcribe voice note')
+      // Cleanup is handled by the optimistic mutation hook
     }
   }
 
   const handleMouseDown = () => {
-    if (!isRecording && !isProcessing) {
+    if (!isRecording && !voiceNoteMutation.isExecuting) {
       startRecording()
     }
   }
@@ -226,12 +241,12 @@ export function VoiceNoteModal() {
               onMouseUp={handleMouseUp}
               onTouchStart={handleMouseDown}
               onTouchEnd={handleMouseUp}
-              disabled={isProcessing}
+              disabled={voiceNoteMutation.isExecuting}
               className={`w-32 h-32 rounded-full flex items-center justify-center ${
                 isRecording
                   ? 'bg-red-500 recording-pulse'
                   : 'bg-gray-800 hover:bg-gray-700 transition-all duration-200'
-              } ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              } ${voiceNoteMutation.isExecuting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <Mic className={`${isRecording ? 'w-14 h-14' : 'w-12 h-12'} text-white transition-all duration-200`} />
             </button>
@@ -239,19 +254,19 @@ export function VoiceNoteModal() {
 
           <div className="text-center">
             <h3 className="text-xl font-semibold mb-2">
-              {isRecording ? 'Recording...' : isProcessing ? 'Processing...' : 'Tap and hold to record'}
+              {isRecording ? 'Recording...' : voiceNoteMutation.isExecuting ? 'Processing...' : 'Tap and hold to record'}
             </h3>
             <p className="text-gray-600">
               {isRecording
                 ? 'Release to stop and transcribe'
-                : isProcessing
+                : voiceNoteMutation.isExecuting
                   ? 'Converting speech to text...'
                   : 'Hold to record your voice note'
               }
             </p>
           </div>
 
-          {!isRecording && !isProcessing && (
+          {!isRecording && !voiceNoteMutation.isExecuting && (
             <button
               onClick={handleClose}
               className="mt-8 px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"

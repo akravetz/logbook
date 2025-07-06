@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import {
   Dialog,
@@ -16,8 +16,8 @@ import {
   useUpdateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsSetIdPatch,
   useGetExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdGet
 } from '@/lib/api/generated'
+import { useOptimisticMutation } from '@/lib/hooks/use-optimistic-mutation'
 import type { SetUpdate } from '@/lib/api/model'
-import { logger } from '@/lib/logger'
 
 interface FormData {
   weight: number
@@ -28,7 +28,6 @@ interface FormData {
 export function EditSetModal() {
   const { modals, closeAllModals } = useUIStore()
   const { activeWorkout, updateExerciseInWorkout } = useWorkoutStore()
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { register, handleSubmit, watch, setValue, reset } = useForm<FormData>()
 
@@ -45,6 +44,42 @@ export function EditSetModal() {
     }
   )
 
+  // Optimistic set update mutation
+  const editSetMutation = useOptimisticMutation({
+    addOptimistic: (data: { workoutId: number; exerciseId: number; setId: number; data: SetUpdate }) => {
+      // For set updates, we optimistically update the set data in the local state
+      if (!activeWorkout) return 'temp-set-update'
+
+      const exercise = activeWorkout.exercise_executions?.find(ex => ex.exercise_id === data.exerciseId)
+      if (exercise) {
+        const updatedSets = exercise.sets.map(set =>
+          set.id === data.setId ? { ...set, ...data.data } : set
+        )
+        const updatedExercise = { ...exercise, sets: updatedSets }
+        updateExerciseInWorkout(updatedExercise)
+      }
+
+      return `set-update-${data.setId}-${Date.now()}`
+    },
+    reconcile: async (optimisticId: string, serverData: any) => {
+      // Refetch the exercise execution to get the updated data from server
+      const { data: updatedExecution } = await refetchExecution()
+      if (updatedExecution) {
+        updateExerciseInWorkout(updatedExecution)
+      }
+    },
+    cleanup: async (optimisticId: string) => {
+      // On error, refetch to restore correct state
+      const { data: updatedExecution } = await refetchExecution()
+      if (updatedExecution) {
+        updateExerciseInWorkout(updatedExecution)
+      }
+    },
+    mutation: updateSetMutation,
+    onSuccess: () => 'Set updated successfully',
+    onError: () => 'Failed to update set'
+  })
+
   // Set form values when modal opens
   useEffect(() => {
     if (modals.editSet.open && modals.editSet.currentData) {
@@ -59,37 +94,23 @@ export function EditSetModal() {
   const onSubmit = async (data: FormData) => {
     if (!activeWorkout?.id || !modals.editSet.exerciseId || !modals.editSet.setId) return
 
-    setIsSubmitting(true)
-
-    try {
-      const setData: SetUpdate = {
-        weight: data.weight,
-        clean_reps: data.clean_reps,
-        forced_reps: data.forced_reps,
-      }
-
-      await updateSetMutation.mutateAsync({
-        workoutId: activeWorkout.id,
-        exerciseId: modals.editSet.exerciseId,
-        setId: modals.editSet.setId,
-        data: setData,
-      })
-
-      // Refetch the exercise execution to update the UI
-      const { data: updatedExecution } = await refetchExecution()
-      if (updatedExecution) {
-        updateExerciseInWorkout(updatedExecution)
-      }
-
-      // Reset form and close modal
-      reset()
-      closeAllModals()
-    } catch (error) {
-      // Log error for debugging
-      logger.error('Failed to update set:', error)
-    } finally {
-      setIsSubmitting(false)
+    const setData: SetUpdate = {
+      weight: data.weight,
+      clean_reps: data.clean_reps,
+      forced_reps: data.forced_reps,
     }
+
+    // Close modal immediately (optimistic update)
+    reset()
+    closeAllModals()
+
+    // Use optimistic mutation hook
+    await editSetMutation.execute({
+      workoutId: activeWorkout.id,
+      exerciseId: modals.editSet.exerciseId,
+      setId: modals.editSet.setId,
+      data: setData
+    })
   }
 
   const handleClose = () => {
@@ -186,16 +207,16 @@ export function EditSetModal() {
               type="button"
               onClick={handleClose}
               className="btn-secondary flex-1"
-              disabled={isSubmitting}
+              disabled={editSetMutation.isExecuting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="btn-primary flex-1"
-              disabled={isSubmitting}
+              disabled={editSetMutation.isExecuting}
             >
-              {isSubmitting ? 'Updating...' : 'Update Set'}
+              {editSetMutation.isExecuting ? 'Updating...' : 'Update Set'}
             </button>
           </div>
         </form>

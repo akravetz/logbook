@@ -16,10 +16,10 @@ import {
   useCreateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsPost,
   useGetExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdGet
 } from '@/lib/api/generated'
+import { useOptimisticMutation } from '@/lib/hooks/use-optimistic-mutation'
 import type { SetCreate } from '@/lib/api/model'
 import { logger } from '@/lib/logger'
-import { toast } from 'sonner'
-import { isOptimisticId, createPendingOperation } from '@/lib/utils/optimistic'
+import { isOptimisticId } from '@/lib/utils/optimistic'
 
 interface FormData {
   weight: number
@@ -48,79 +48,55 @@ export function AddSetModal() {
 
   const createSetMutation = useCreateSetApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdSetsPost()
 
-  // Refetch exercise execution after adding set
-  const { refetch: refetchExecution } = useGetExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdGet(
-    activeWorkout?.id || 0,
-    modals.addSet.exerciseId || 0,
-    {
-      query: {
-        enabled: false,
+  // Optimistic set creation mutation
+  const addSetMutation = useOptimisticMutation({
+    addOptimistic: (data: { workoutId: number; exerciseId: number; data: SetCreate }) => {
+      const optimisticId = addOptimisticSet(data.exerciseId, data.data)
+      return optimisticId
+    },
+    reconcile: (optimisticId: string, serverData: any) => {
+      reconcileSet(optimisticId, serverData)
+    },
+    cleanup: (optimisticId: string) => {
+      cleanupFailedSetOperation(optimisticId)
+    },
+    mutation: createSetMutation,
+    getDependency: (data: { workoutId: number; exerciseId: number; data: SetCreate }) => {
+      // Find the exercise to check if it's optimistic
+      const targetExercise = activeWorkout?.exercise_executions?.find(ex =>
+        ex.exercise_id === data.exerciseId || (ex as any).id === data.exerciseId
+      )
+
+      // Return the exercise ID if it's optimistic (for dependency queueing)
+      if (targetExercise && isOptimisticId((targetExercise as any).id)) {
+        return (targetExercise as any).id
       }
-    }
-  )
+      return null
+    },
+    addPendingOperation,
+    onSuccess: () => 'Set added successfully',
+    onError: () => 'Failed to add set'
+  })
 
   const onSubmit = async (data: FormData) => {
     if (!activeWorkout?.id || !modals.addSet.exerciseId) return
 
-    const setData = {
+    const setData: SetCreate = {
       weight: data.weight,
       clean_reps: data.clean_reps,
       forced_reps: data.forced_reps,
     }
 
-    const exerciseId = modals.addSet.exerciseId
-
-    // Find the exercise to check if it's optimistic
-    const targetExercise = activeWorkout.exercise_executions?.find(ex =>
-      ex.exercise_id === exerciseId || (ex as any).id === exerciseId
-    )
-
-    // 1. Add optimistic set immediately
-    const optimisticId = addOptimisticSet(exerciseId, setData)
-
-    // 2. Close modal immediately (no waiting)
+    // Close modal immediately (no waiting)
     reset()
     closeAllModals()
 
-    // 3. Handle API call based on whether the exercise is optimistic or not
-    if (targetExercise && isOptimisticId((targetExercise as any).id)) {
-      // Exercise is still optimistic - queue the set creation
-      const pendingOperation = createPendingOperation(
-        'ADD_SET',
-        { exerciseId, setData, optimisticId },
-        async () => {
-          // This will execute once the exercise is reconciled
-          const realExerciseId = targetExercise.exercise_id
-          const serverResponse = await createSetMutation.mutateAsync({
-            workoutId: activeWorkout.id,
-            exerciseId: realExerciseId,
-            data: setData,
-          })
-          reconcileSet(optimisticId, serverResponse)
-          toast.success('Set added successfully')
-        },
-        () => {
-          // Rollback on failure
-          cleanupFailedSetOperation(optimisticId)
-        },
-        (targetExercise as any).id // Depends on the optimistic exercise ID
-      )
-
-      addPendingOperation(pendingOperation)
-    } else {
-      // Exercise is real - make API call immediately
-      createSetMutation.mutateAsync({
-        workoutId: activeWorkout.id,
-        exerciseId: exerciseId as number,
-        data: setData,
-      }).then(async (serverResponse) => {
-        reconcileSet(optimisticId, serverResponse)
-        toast.success('Set added successfully')
-      }).catch((error) => {
-        logger.error('Failed to create set:', error)
-        cleanupFailedSetOperation(optimisticId)
-      })
-    }
+    // Use optimistic mutation hook
+    await addSetMutation.execute({
+      workoutId: activeWorkout.id,
+      exerciseId: modals.addSet.exerciseId,
+      data: setData
+    })
   }
 
   const handleClose = () => {

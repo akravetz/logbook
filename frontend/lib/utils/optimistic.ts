@@ -98,7 +98,7 @@ export interface OptimisticSet {
  */
 export interface PendingOperation {
   id: string
-  type: 'ADD_SET' | 'UPDATE_SET' | 'DELETE_SET' | 'ADD_EXERCISE_NOTE'
+  type: 'ADD_SET' | 'UPDATE_SET' | 'DELETE_SET' | 'ADD_EXERCISE_NOTE' | 'OPTIMISTIC_MUTATION'
   dependsOn?: string // ID of operation this depends on
   data: any
   execute: () => Promise<void>
