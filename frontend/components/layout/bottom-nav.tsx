@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname, useRouter } from 'next/navigation'
-import { User, Dumbbell, ListChecks } from 'lucide-react'
+import { User, Dumbbell, ListChecks, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -19,6 +19,11 @@ const navItems = [
     icon: ListChecks,
     label: 'Exercises',
     path: '/exercises',
+  },
+  {
+    icon: Bot,
+    label: 'Ask AI',
+    path: '/ask-ai',
   },
 ]
 
