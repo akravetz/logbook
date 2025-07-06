@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import type { WorkoutResponse, ExerciseExecutionResponse } from '@/lib/api/model'
+import { generateOptimisticId, isOptimisticId, createOptimisticExerciseExecution, type OptimisticExerciseExecution } from '@/lib/utils/optimistic'
+import { toast } from 'sonner'
 
 interface WorkoutState {
   // Active workout
@@ -19,6 +21,12 @@ interface WorkoutState {
   updateExerciseInWorkout: (exercise: ExerciseExecutionResponse) => void
   removeExerciseFromWorkout: (exerciseId: number) => void
   reorderExercises: (exercises: ExerciseExecutionResponse[]) => void
+
+  // Optimistic updates
+  addOptimisticExercise: (exercise: { id: number; name: string; body_part: string; modality: string }) => string
+  reconcileExerciseExecution: (optimisticId: string, serverData: ExerciseExecutionResponse) => void
+  removeOptimisticExercise: (optimisticId: string) => void
+  cleanupFailedOperations: (optimisticId: string) => void
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
@@ -66,6 +74,60 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           }
         : null,
     })),
+
+  // Optimistic exercise addition
+  addOptimisticExercise: (exercise) => {
+    const optimisticId = generateOptimisticId()
+    const exerciseOrder = (get().activeWorkout?.exercise_executions?.length || 0) + 1
+
+    const optimisticExecution = createOptimisticExerciseExecution(exercise, exerciseOrder)
+
+    set((state) => ({
+      activeWorkout: state.activeWorkout
+        ? {
+            ...state.activeWorkout,
+            exercise_executions: [...(state.activeWorkout.exercise_executions || []), optimisticExecution as any],
+          }
+        : null,
+    }))
+
+    return optimisticId
+  },
+
+  // Reconcile optimistic data with server response
+  reconcileExerciseExecution: (optimisticId, serverData) =>
+    set((state) => ({
+      activeWorkout: state.activeWorkout
+        ? {
+            ...state.activeWorkout,
+            exercise_executions: state.activeWorkout.exercise_executions?.map((ex) =>
+              (ex as any).id === optimisticId ? serverData : ex
+            ),
+          }
+        : null,
+    })),
+
+  // Remove optimistic exercise (on failure)
+  removeOptimisticExercise: (optimisticId) =>
+    set((state) => ({
+      activeWorkout: state.activeWorkout
+        ? {
+            ...state.activeWorkout,
+            exercise_executions: state.activeWorkout.exercise_executions?.filter(
+              (ex) => (ex as any).id !== optimisticId
+            ),
+          }
+        : null,
+    })),
+
+  // Cleanup failed operations and notify user
+  cleanupFailedOperations: (optimisticId) => {
+    get().removeOptimisticExercise(optimisticId)
+    toast.error('Exercise couldn\'t be added', {
+      duration: 3000,
+      position: 'bottom-right'
+    })
+  },
 
   updateExerciseInWorkout: (updatedExercise) =>
     set((state) => ({

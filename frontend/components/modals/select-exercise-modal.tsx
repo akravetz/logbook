@@ -18,13 +18,13 @@ import { useCacheUtils } from '@/lib/cache-tags'
 import type { ExerciseExecutionRequest, ExerciseResponse } from '@/lib/api/model'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { logger } from '@/lib/logger'
+import { toast } from 'sonner'
 
 export function SelectExerciseModal() {
   const { modals, closeAllModals, openAddNewExerciseModal } = useUIStore()
-  const { activeWorkout, addExerciseToWorkout } = useWorkoutStore()
+  const { activeWorkout, addOptimisticExercise, reconcileExerciseExecution, cleanupFailedOperations } = useWorkoutStore()
   const { invalidateWorkoutData } = useCacheUtils()
   const [searchTerm, setSearchTerm] = useState('')
-  const [isAdding, setIsAdding] = useState<number | null>(null)
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
@@ -54,37 +54,47 @@ export function SelectExerciseModal() {
     }, {} as Record<string, ExerciseResponse[]>)
   }, [searchResults?.items])
 
-  const handleSelectExercise = async (exercise: ExerciseResponse) => {
-    if (!activeWorkout?.id || isAdding === exercise.id) return
+  const handleSelectExercise = (exercise: ExerciseResponse) => {
+    if (!activeWorkout?.id) return
 
-    setIsAdding(exercise.id)
+    // 1. Immediate optimistic update
+    const optimisticId = addOptimisticExercise({
+      id: exercise.id,
+      name: exercise.name,
+      body_part: exercise.body_part,
+      modality: exercise.modality
+    })
 
-    try {
-      const executionData: ExerciseExecutionRequest = {
-        sets: [],
-        exercise_order: (activeWorkout.exercise_executions?.length || 0) + 1,
-      }
+    // 2. Close modal immediately
+    closeAllModals()
 
-      const executionResult = await upsertExecutionMutation.mutateAsync({
-        workoutId: activeWorkout.id,
-        exerciseId: exercise.id,
-        data: executionData,
-      })
-
-      // Invalidate workout data using cache tags
-      await invalidateWorkoutData()
-
-      // Update local state
-      addExerciseToWorkout(executionResult)
-
-      // Close modal
-      closeAllModals()
-    } catch (error) {
-      // Log error for debugging
-      logger.error('Failed to add exercise to workout:', error)
-    } finally {
-      setIsAdding(null)
+    // 3. Background API call with reconciliation
+    const executionData: ExerciseExecutionRequest = {
+      sets: [],
+      exercise_order: (activeWorkout.exercise_executions?.length || 0) + 1,
     }
+
+    upsertExecutionMutation.mutate({
+      workoutId: activeWorkout.id,
+      exerciseId: exercise.id,
+      data: executionData,
+    }, {
+      onSuccess: async (serverData) => {
+        // Reconcile optimistic data with server response
+        reconcileExerciseExecution(optimisticId, serverData)
+
+        // Invalidate cache for background sync
+        await invalidateWorkoutData()
+
+        logger.info('Exercise added successfully:', exercise.name)
+      },
+      onError: (error) => {
+        // Silent failure handling
+        cleanupFailedOperations(optimisticId)
+
+        logger.error('Failed to add exercise to workout:', error)
+      }
+    })
   }
 
   const handleClose = () => {
@@ -162,8 +172,7 @@ export function SelectExerciseModal() {
                     <button
                       key={exercise.id}
                       onClick={() => handleSelectExercise(exercise)}
-                      disabled={isAdding === exercise.id}
-                      className="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
