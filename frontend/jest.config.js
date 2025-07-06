@@ -7,14 +7,13 @@ const createJestConfig = nextJest({
 
 // Add any custom config to be passed to Jest
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/__tests__/setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     // Handle module aliases (this will be automatically configured for you based on your tsconfig.json paths)
     '^@/(.*)$': '<rootDir>/$1',
   },
   testMatch: [
-    '<rootDir>/**/__tests__/**/*.{test,spec}.{js,jsx,ts,tsx}',
     '<rootDir>/**/*.{test,spec}.{js,jsx,ts,tsx}',
   ],
   collectCoverageFrom: [
@@ -24,7 +23,7 @@ const customJestConfig = {
     '!**/.next/**',
     '!**/coverage/**',
     '!jest.config.js',
-    '!**/__tests__/**',
+    '!**/*.test.{js,jsx,ts,tsx}',
     '!**/types/**',
   ],
   coverageReporters: ['text', 'lcov', 'html'],

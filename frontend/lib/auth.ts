@@ -2,9 +2,10 @@ import { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import { verifyAuthTokenApiV1AuthVerifyTokenPost } from "@/lib/api/generated"
 import type { AuthTokenRequest, AuthTokenResponse } from "@/lib/api/model"
+import { logger } from "@/lib/logger"
 
 // Debug API configuration at module load
-console.log("🔧 Auth module loaded - API Configuration:", {
+logger.debug("🔧 Auth module loaded - API Configuration:", {
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   NODE_ENV: process.env.NODE_ENV,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
@@ -19,7 +20,7 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
-      console.log("🔍 SignIn callback started", {
+      logger.debug("🔍 SignIn callback started", {
         provider: account?.provider,
         hasAccessToken: !!account?.access_token,
         userId: user?.id,
@@ -28,7 +29,7 @@ export const authOptions: NextAuthOptions = {
 
       if (account?.provider === "google" && account.access_token) {
         try {
-          console.log("🚀 Starting Google token verification", {
+          logger.debug("🚀 Starting Google token verification", {
             apiUrl: process.env.NEXT_PUBLIC_API_URL,
             accessTokenLength: account.access_token.length,
           })
@@ -38,9 +39,9 @@ export const authOptions: NextAuthOptions = {
             access_token: account.access_token,
           }
 
-          console.log("📤 Making API request to verify token...")
+          logger.debug("📤 Making API request to verify token...")
           const response = await verifyAuthTokenApiV1AuthVerifyTokenPost(authTokenRequest)
-          console.log("✅ API response received", {
+          logger.debug("✅ API response received", {
             hasSessionToken: !!response.session_token,
             userId: response.user.id,
             userEmail: response.user.email,
@@ -50,10 +51,10 @@ export const authOptions: NextAuthOptions = {
           user.sessionToken = response.session_token
           user.id = response.user.id.toString()
 
-          console.log("✅ SignIn callback successful")
+          logger.debug("✅ SignIn callback successful")
           return true
         } catch (error) {
-          console.error("❌ Error in signIn callback:", {
+          logger.error("❌ Error in signIn callback:", {
             error: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
             apiUrl: process.env.NEXT_PUBLIC_API_URL,
@@ -63,11 +64,11 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      console.log("❌ SignIn callback rejected - invalid provider or missing token")
+      logger.debug("❌ SignIn callback rejected - invalid provider or missing token")
       return false
     },
     async jwt({ token, user }) {
-      console.log("🔑 JWT callback", {
+      logger.debug("🔑 JWT callback", {
         hasUser: !!user,
         hasUserSessionToken: !!user?.sessionToken,
         hasTokenSessionToken: !!token.sessionToken,
@@ -78,12 +79,12 @@ export const authOptions: NextAuthOptions = {
       if (user?.sessionToken) {
         token.sessionToken = user.sessionToken
         token.userId = user.id
-        console.log("✅ JWT token updated with session data")
+        logger.debug("✅ JWT token updated with session data")
       }
       return token
     },
     async session({ session, token }) {
-      console.log("📋 Session callback", {
+      logger.debug("📋 Session callback", {
         hasTokenSessionToken: !!token.sessionToken,
         hasTokenUserId: !!token.userId,
         userEmail: session.user?.email,
@@ -93,7 +94,7 @@ export const authOptions: NextAuthOptions = {
       session.sessionToken = token.sessionToken as string
       session.userId = token.userId as string
 
-      console.log("✅ Session data prepared for client")
+      logger.debug("✅ Session data prepared for client")
       return session
     }
   },

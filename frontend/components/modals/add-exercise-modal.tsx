@@ -22,6 +22,7 @@ import {
   useUpsertExerciseExecutionApiV1WorkoutsWorkoutIdExerciseExecutionsExerciseIdPut
 } from '@/lib/api/generated'
 import type { ExerciseCreate, ExerciseExecutionRequest, ExerciseModality } from '@/lib/api/model'
+import { logger } from '@/lib/logger'
 
 interface FormData {
   name: string
@@ -92,10 +93,8 @@ export function AddExerciseModal() {
       reset()
       closeAllModals()
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to create exercise:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to create exercise:', error)
     } finally {
       setIsSubmitting(false)
     }
