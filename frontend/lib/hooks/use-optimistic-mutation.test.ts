@@ -40,7 +40,7 @@ interface ServerResponse {
 }
 
 // Mock mutation that we can control
-const createMockMutation = (shouldSucceed = true, delay = 0): UseMutationResult<ServerResponse, Error, TestData> => ({
+const createMockMutation = (shouldSucceed = true, delay = 0): UseMutationResult<ServerResponse, any, TestData> => ({
   mutateAsync: jest.fn().mockImplementation((data: TestData) =>
     new Promise((resolve, reject) => {
       setTimeout(() => {

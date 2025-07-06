@@ -17,7 +17,7 @@ import {
 } from '@/lib/api/generated'
 import { useOptimisticMutation } from '@/lib/hooks/use-optimistic-mutation'
 import { logger } from '@/lib/logger'
-import type { ExerciseExecutionUpdate } from '@/lib/api/model'
+import type { ExerciseExecutionUpdate, ExerciseExecutionResponse } from '@/lib/api/model'
 
 // Utility function to detect supported audio MIME types
 function getSupportedAudioMimeType(): { mimeType: string; extension: string } {
@@ -43,7 +43,7 @@ function getSupportedAudioMimeType(): { mimeType: string; extension: string } {
 
 export function VoiceNoteModal() {
   const { modals, closeAllModals } = useUIStore()
-  const { activeWorkout, updateExerciseInWorkout } = useWorkoutStore()
+  const { activeWorkout, updateExerciseInWorkout, addPendingOperation } = useWorkoutStore()
   const [isRecording, setIsRecording] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -54,6 +54,13 @@ export function VoiceNoteModal() {
 
   // Optimistic voice note mutation
   const voiceNoteMutation = useOptimisticMutation({
+    getDependency: (data: { workoutId: number; exerciseId: number; data: ExerciseExecutionUpdate }) => {
+      // Check if workout ID is optimistic (negative)
+      if (data.workoutId < 0) {
+        return `workout-creation-${Math.abs(data.workoutId)}`
+      }
+      return null
+    },
     addOptimistic: (data: { workoutId: number; exerciseId: number; data: ExerciseExecutionUpdate }) => {
       if (!activeWorkout?.id || !modals.voiceNote.exerciseId) {
         throw new Error('No active workout or exercise selected')
@@ -74,9 +81,12 @@ export function VoiceNoteModal() {
 
       return `voice-note-${modals.voiceNote.exerciseId}-${Date.now()}`
     },
-    reconcile: (optimisticId: string, serverData: any) => {
-      // Server data is already applied through the mutation
-      // Local state is already updated optimistically
+    reconcile: (optimisticId: string, serverData: ExerciseExecutionResponse) => {
+      // Update local state with authoritative server data
+      // serverData is the complete ExerciseExecutionResponse from the server
+      if (serverData && activeWorkout?.id && modals.voiceNote.exerciseId) {
+        updateExerciseInWorkout(serverData)
+      }
     },
     cleanup: (optimisticId: string) => {
       if (!activeWorkout?.id || !modals.voiceNote.exerciseId) return
@@ -94,6 +104,7 @@ export function VoiceNoteModal() {
         updateExerciseInWorkout(updatedExecution)
       }
     },
+    addPendingOperation,
     mutation: updateExerciseMutation,
     onSuccess: () => 'Voice note transcribed successfully',
     onError: () => 'Failed to transcribe voice note'

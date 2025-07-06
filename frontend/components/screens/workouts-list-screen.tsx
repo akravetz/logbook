@@ -2,17 +2,25 @@
 
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { format } from 'date-fns'
-import { useCreateWorkoutApiV1WorkoutsPost } from '@/lib/api/generated'
+import {
+  useCreateWorkoutApiV1WorkoutsPost,
+  getListWorkoutsApiV1WorkoutsGetQueryOptions,
+  type ListWorkoutsApiV1WorkoutsGetQueryResult
+} from '@/lib/api/generated'
 import { useTaggedListWorkouts } from '@/lib/hooks/use-tagged-queries'
 import { useCacheUtils } from '@/lib/cache-tags'
 import { useWorkoutStore } from '@/lib/stores/workout-store'
+import { useOptimisticMutation } from '@/lib/hooks/use-optimistic-mutation'
 import { logger } from '@/lib/logger'
+import type { WorkoutResponse } from '@/lib/api/model'
 
 export function WorkoutsListScreen() {
   const router = useRouter()
   const { data: session } = useSession()
+  const queryClient = useQueryClient()
   const { setActiveWorkout, startTimer } = useWorkoutStore()
   const { invalidateWorkoutData } = useCacheUtils()
 
@@ -25,20 +33,78 @@ export function WorkoutsListScreen() {
   // Create workout mutation
   const createWorkoutMutation = useCreateWorkoutApiV1WorkoutsPost()
 
-  const handleNewWorkout = async () => {
-    try {
-      const result = await createWorkoutMutation.mutateAsync()
+  // Optimistic new workout mutation
+  const newWorkoutMutation = useOptimisticMutation({
+    addOptimistic: () => {
+      // Create optimistic workout object
+      const optimisticWorkout: WorkoutResponse = {
+        id: -Date.now(), // Negative timestamp as temporary ID
+        created_at: new Date().toISOString(),
+        created_by_user_id: -1, // Temporary user ID
+        updated_at: new Date().toISOString(),
+        updated_by_user_id: -1, // Temporary user ID
+        finished_at: null,
+        exercise_executions: []
+      }
 
-      // Invalidate workout data using cache tags
+      // Update workout list cache immediately
+      const queryOptions = getListWorkoutsApiV1WorkoutsGetQueryOptions({ page: 1, size: 20 })
+      const currentData = queryClient.getQueryData<ListWorkoutsApiV1WorkoutsGetQueryResult>(queryOptions.queryKey)
+
+      if (currentData?.items) {
+        const updatedData: ListWorkoutsApiV1WorkoutsGetQueryResult = {
+          ...currentData,
+          items: [optimisticWorkout, ...currentData.items], // Add to beginning of list
+          total: currentData.total + 1
+        }
+        queryClient.setQueryData(queryOptions.queryKey, updatedData)
+      }
+
+      // Set active workout immediately for responsive UI
+      setActiveWorkout(optimisticWorkout)
+      startTimer()
+
+      // Navigate immediately
+      router.push(`/workout/${optimisticWorkout.id}`)
+
+      return `workout-creation-${Math.abs(optimisticWorkout.id)}`
+    },
+    reconcile: async (optimisticId: string, serverData: WorkoutResponse) => {
+      // Update with real workout data from server
+      setActiveWorkout(serverData)
+
+      // Invalidate workout data cache to refresh the list
       await invalidateWorkoutData()
 
-      setActiveWorkout(result)
-      startTimer()
-      router.push(`/workout/${result.id}`)
-    } catch (error) {
-      // Log error for debugging
-      logger.error('Failed to create workout:', error)
-    }
+      // Update URL with real workout ID (navigate to real workout)
+      router.replace(`/workout/${serverData.id}`)
+    },
+    cleanup: async (optimisticId: string) => {
+      // On error, remove optimistic workout from cache
+      const queryOptions = getListWorkoutsApiV1WorkoutsGetQueryOptions({ page: 1, size: 20 })
+      const currentData = queryClient.getQueryData<ListWorkoutsApiV1WorkoutsGetQueryResult>(queryOptions.queryKey)
+
+      if (currentData?.items) {
+        // Remove optimistic workout (has negative ID)
+        const updatedData: ListWorkoutsApiV1WorkoutsGetQueryResult = {
+          ...currentData,
+          items: currentData.items.filter(workout => workout.id > 0), // Remove negative IDs
+          total: Math.max(0, currentData.total - 1)
+        }
+        queryClient.setQueryData(queryOptions.queryKey, updatedData)
+      }
+
+      // Clear active workout and navigate back
+      setActiveWorkout(null)
+      router.push('/workouts')
+    },
+    mutation: createWorkoutMutation,
+    onSuccess: () => 'New workout created successfully',
+    onError: () => 'Failed to create workout'
+  })
+
+  const handleNewWorkout = async () => {
+    await newWorkoutMutation.execute()
   }
 
   const getFirstName = () => {
@@ -74,11 +140,11 @@ export function WorkoutsListScreen() {
         {/* New Workout Button */}
         <button
           onClick={handleNewWorkout}
-          disabled={createWorkoutMutation.isPending}
+          disabled={newWorkoutMutation.isExecuting}
           className="w-full bg-black text-white rounded-lg p-4 flex items-center justify-center gap-3 mb-4 font-medium active:scale-[0.98] transition-transform"
         >
           <Plus className="w-5 h-5" />
-          {createWorkoutMutation.isPending ? 'Creating...' : 'New Workout'}
+          {newWorkoutMutation.isExecuting ? 'Creating...' : 'New Workout'}
         </button>
 
         {/* Workouts */}

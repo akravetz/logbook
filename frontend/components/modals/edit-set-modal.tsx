@@ -27,7 +27,7 @@ interface FormData {
 
 export function EditSetModal() {
   const { modals, closeAllModals } = useUIStore()
-  const { activeWorkout, updateExerciseInWorkout } = useWorkoutStore()
+  const { activeWorkout, updateExerciseInWorkout, addPendingOperation } = useWorkoutStore()
 
   const { register, handleSubmit, watch, setValue, reset } = useForm<FormData>()
 
@@ -46,15 +46,31 @@ export function EditSetModal() {
 
   // Optimistic set update mutation
   const editSetMutation = useOptimisticMutation({
+    getDependency: (data: { workoutId: number; exerciseId: number; setId: number; data: SetUpdate }) => {
+      // Check if workout ID is optimistic (negative)
+      if (data.workoutId < 0) {
+        return `workout-creation-${Math.abs(data.workoutId)}`
+      }
+      return null
+    },
     addOptimistic: (data: { workoutId: number; exerciseId: number; setId: number; data: SetUpdate }) => {
       // For set updates, we optimistically update the set data in the local state
       if (!activeWorkout) return 'temp-set-update'
 
       const exercise = activeWorkout.exercise_executions?.find(ex => ex.exercise_id === data.exerciseId)
-      if (exercise) {
-        const updatedSets = exercise.sets.map(set =>
-          set.id === data.setId ? { ...set, ...data.data } : set
-        )
+      if (exercise && exercise.sets) {
+        const updatedSets = exercise.sets.map(set => {
+          if (set.id === data.setId) {
+            // Only update defined fields from SetUpdate
+            const updatedSet = { ...set }
+            if (data.data.weight !== undefined && data.data.weight !== null) updatedSet.weight = data.data.weight
+            if (data.data.clean_reps !== undefined && data.data.clean_reps !== null) updatedSet.clean_reps = data.data.clean_reps
+            if (data.data.forced_reps !== undefined && data.data.forced_reps !== null) updatedSet.forced_reps = data.data.forced_reps
+            if (data.data.note_text !== undefined && data.data.note_text !== null) updatedSet.note_text = data.data.note_text
+            return updatedSet
+          }
+          return set
+        })
         const updatedExercise = { ...exercise, sets: updatedSets }
         updateExerciseInWorkout(updatedExercise)
       }
@@ -62,7 +78,8 @@ export function EditSetModal() {
       return `set-update-${data.setId}-${Date.now()}`
     },
     reconcile: async (optimisticId: string, serverData: any) => {
-      // Refetch the exercise execution to get the updated data from server
+      // serverData contains the updated SetResponse, but we need the complete exercise
+      // Refetch the entire exercise execution to get the authoritative state
       const { data: updatedExecution } = await refetchExecution()
       if (updatedExecution) {
         updateExerciseInWorkout(updatedExecution)
@@ -75,6 +92,7 @@ export function EditSetModal() {
         updateExerciseInWorkout(updatedExecution)
       }
     },
+    addPendingOperation,
     mutation: updateSetMutation,
     onSuccess: () => 'Set updated successfully',
     onError: () => 'Failed to update set'

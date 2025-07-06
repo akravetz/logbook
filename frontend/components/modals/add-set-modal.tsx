@@ -51,7 +51,14 @@ export function AddSetModal() {
   // Optimistic set creation mutation
   const addSetMutation = useOptimisticMutation({
     addOptimistic: (data: { workoutId: number; exerciseId: number; data: SetCreate }) => {
-      const optimisticId = addOptimisticSet(data.exerciseId, data.data)
+      // Ensure forced_reps has a default value since addOptimisticSet expects number
+      const setData = {
+        weight: data.data.weight,
+        clean_reps: data.data.clean_reps,
+        forced_reps: data.data.forced_reps || 0,
+        note_text: data.data.note_text || ''
+      }
+      const optimisticId = addOptimisticSet(data.exerciseId, setData)
       return optimisticId
     },
     reconcile: (optimisticId: string, serverData: any) => {
@@ -62,6 +69,11 @@ export function AddSetModal() {
     },
     mutation: createSetMutation,
     getDependency: (data: { workoutId: number; exerciseId: number; data: SetCreate }) => {
+      // Check if workout ID is optimistic (negative)
+      if (data.workoutId < 0) {
+        return `workout-creation-${Math.abs(data.workoutId)}`
+      }
+
       // Find the exercise to check if it's optimistic
       const targetExercise = activeWorkout?.exercise_executions?.find(ex =>
         ex.exercise_id === data.exerciseId || (ex as any).id === data.exerciseId

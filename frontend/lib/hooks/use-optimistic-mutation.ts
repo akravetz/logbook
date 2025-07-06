@@ -18,7 +18,7 @@ export interface OptimisticMutationConfig<TData, TServerResponse> {
   cleanup: (optimisticId: string) => void
 
   /** TanStack Query mutation hook result */
-  mutation: UseMutationResult<TServerResponse, Error, TData>
+  mutation: UseMutationResult<TServerResponse, any, TData>
 
   /** Optional: Function to get dependency ID for queueing */
   getDependency?: (data: TData) => string | number | null
@@ -30,7 +30,7 @@ export interface OptimisticMutationConfig<TData, TServerResponse> {
   onSuccess?: (data: TData, serverResponse?: TServerResponse) => string
 
   /** Optional: Error message generator */
-  onError?: (error: Error, data: TData) => string
+  onError?: (error: any, data: TData) => string
 }
 
 /**
@@ -90,7 +90,7 @@ export function useOptimisticMutation<TData, TServerResponse>({
             } catch (error) {
               cleanup(optimisticId!)
               if (onError) {
-                toast.error(onError(error as Error, data))
+                toast.error(onError(error, data))
               }
               // Don't re-throw for queued operations - they should fail silently
               // with only cleanup and error toast
@@ -106,19 +106,11 @@ export function useOptimisticMutation<TData, TServerResponse>({
         addPendingOperation(pendingOperation)
       } else {
         // 3b. Execute immediately if no dependency or dependency is real
-        try {
-          const serverResponse = await mutation.mutateAsync(data)
-          reconcile(optimisticId, serverResponse)
+        const serverResponse = await mutation.mutateAsync(data)
+        reconcile(optimisticId, serverResponse)
 
-          if (onSuccess) {
-            toast.success(onSuccess(data, serverResponse))
-          }
-        } catch (error) {
-          cleanup(optimisticId)
-          if (onError) {
-            toast.error(onError(error as Error, data))
-          }
-          throw error
+        if (onSuccess) {
+          toast.success(onSuccess(data, serverResponse))
         }
       }
     } catch (error) {
@@ -130,7 +122,7 @@ export function useOptimisticMutation<TData, TServerResponse>({
       logger.error('Optimistic mutation failed:', error)
 
       if (onError) {
-        toast.error(onError(error as Error, data))
+        toast.error(onError(error, data))
       }
     } finally {
       // Decrement executing count

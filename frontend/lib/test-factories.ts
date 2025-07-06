@@ -6,6 +6,7 @@ import type {
   ExerciseResponse,
   PageExerciseResponse
 } from '@/lib/api/model'
+import type { ListWorkoutsApiV1WorkoutsGetQueryResult } from '@/lib/api/generated'
 
 export const createMockSet = (overrides: Partial<SetResponse> = {}): SetResponse => ({
   id: 1,
@@ -112,4 +113,31 @@ export const createMockExerciseSearchResults = (
   page: 1,
   size: 50,
   pages: 1,
+})
+
+export const createMockWorkoutList = (
+  workouts: WorkoutResponse[] = []
+): ListWorkoutsApiV1WorkoutsGetQueryResult => ({
+  items: workouts.length > 0 ? workouts : [
+    createMockWorkout({ id: 1 }),
+    createMockWorkout({ id: 2 }),
+    createMockWorkout({ id: 3 }),
+  ],
+  total: workouts.length || 3,
+  page: 1,
+  size: 20,
+  pages: 1,
+})
+
+export const createOptimisticWorkout = (
+  overrides: Partial<WorkoutResponse> = {}
+): WorkoutResponse => ({
+  id: -Date.now(), // Negative ID for optimistic
+  created_by_user_id: -1,
+  updated_by_user_id: -1,
+  finished_at: null,
+  exercise_executions: [],
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  ...overrides,
 })
