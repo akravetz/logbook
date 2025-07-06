@@ -29,6 +29,7 @@ import {
   useReorderExercisesApiV1WorkoutsWorkoutIdExerciseExecutionsReorderPatch
 } from '@/lib/api/generated'
 import { useCacheUtils } from '@/lib/cache-tags'
+import { logger } from '@/lib/logger'
 import type { ExerciseExecutionRequest, SetCreate, ExerciseExecutionResponse } from '@/lib/api/model'
 
 interface ActiveWorkoutScreenProps {
@@ -238,18 +239,16 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
       // Show appropriate feedback based on whether workout was deleted or finished
       if (result.deleted) {
         // Empty workout was deleted - user feedback could be added here
-        console.log('Empty workout deleted')
+        logger.info('Empty workout deleted')
       } else {
         // Workout was finished normally - user feedback could be added here
-        console.log('Workout completed!')
+        logger.info('Workout completed!')
       }
 
       router.push('/')
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to finish workout:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to finish workout:', error)
     }
   }
 
@@ -296,10 +295,8 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
       // Update local state
       updateExerciseInWorkout(updatedExecution)
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to delete set:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to delete set:', error)
     } finally {
       setDeletingSetId(null)
     }
@@ -347,10 +344,8 @@ export function ActiveWorkoutScreen({ workoutId }: ActiveWorkoutScreenProps) {
         // Rollback on error
         reorderExercises(oldExercises)
 
-        // Log error for debugging in development
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to reorder exercises:', error)
-        }
+        // Log error for debugging
+        logger.error('Failed to reorder exercises:', error)
       } finally {
         setIsReordering(false)
       }

@@ -7,6 +7,7 @@ import type {
 
 export const createMockSet = (overrides: Partial<SetResponse> = {}): SetResponse => ({
   id: 1,
+  exercise_id: 1,
   weight: 135,
   clean_reps: 8,
   forced_reps: 0,
@@ -35,6 +36,8 @@ export const createMockWorkout = (
   overrides: Partial<WorkoutResponse> = {}
 ): WorkoutResponse => ({
   id: 1,
+  created_by_user_id: 1,
+  updated_by_user_id: 1,
   finished_at: null,
   exercise_executions: [],
   created_at: new Date().toISOString(),
@@ -54,8 +57,8 @@ export const createActiveWorkoutWithExercises = (
       exercise_modality: index % 2 === 0 ? 'BARBELL' : 'DUMBBELL',
       exercise_order: index + 1,
       sets: [
-        createMockSet({ id: index * 10 + 1, weight: 135 + index * 10 }),
-        createMockSet({ id: index * 10 + 2, weight: 145 + index * 10 }),
+        createMockSet({ id: index * 10 + 1, exercise_id: index + 1, weight: 135 + index * 10 }),
+        createMockSet({ id: index * 10 + 2, exercise_id: index + 1, weight: 145 + index * 10 }),
       ],
     })
   )
@@ -70,7 +73,7 @@ export const createFinishedWorkout = (): WorkoutResponse =>
     finished_at: new Date().toISOString(),
     exercise_executions: [
       createMockExerciseExecution({
-        sets: [createMockSet()],
+        sets: [createMockSet({ exercise_id: 1 })],
       }),
     ],
   })

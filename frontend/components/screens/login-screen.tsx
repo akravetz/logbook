@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
+import { logger } from "@/lib/logger"
 
 export function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false)
@@ -25,10 +26,8 @@ export function LoginScreen() {
       }
 
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error("Unexpected error:", error)
-      }
+      // Log error for debugging
+      logger.error("Unexpected error:", error)
       setError("An unexpected error occurred. Please try again.")
       setIsLoading(false)
     }

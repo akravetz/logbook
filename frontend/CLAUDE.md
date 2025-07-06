@@ -538,6 +538,31 @@ export default {
 
 ## Custom Hooks & Utilities
 
+### Logger Utility
+
+**Location**: `lib/logger.ts`
+
+```tsx
+import { logger } from '@/lib/logger'
+
+// Usage examples
+logger.info('Workout completed!')     // Server: always | Client: dev only
+logger.error('API error:', error)     // Server: always | Client: dev only
+logger.warn('Deprecated feature')     // Server: always | Client: dev only
+logger.debug('Verbose debugging')     // Development only (server + client)
+```
+
+**Logging Behavior**:
+- **Server-side**: Always logs (for debugging and monitoring)
+- **Client-side**: Only logs in development mode
+- **Production client**: No console output to keep browser clean
+
+**Available Methods**:
+- `logger.info()` - Informational messages
+- `logger.error()` - Error messages
+- `logger.warn()` - Warning messages
+- `logger.debug()` - Development-only verbose debugging
+
 ### Debounce Hook
 
 ```tsx

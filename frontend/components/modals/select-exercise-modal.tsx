@@ -17,6 +17,7 @@ import { useTaggedSearchExercises } from '@/lib/hooks/use-tagged-queries'
 import { useCacheUtils } from '@/lib/cache-tags'
 import type { ExerciseExecutionRequest, ExerciseResponse } from '@/lib/api/model'
 import { useDebounce } from '@/lib/hooks/use-debounce'
+import { logger } from '@/lib/logger'
 
 export function SelectExerciseModal() {
   const { modals, closeAllModals, openAddNewExerciseModal } = useUIStore()
@@ -79,10 +80,8 @@ export function SelectExerciseModal() {
       // Close modal
       closeAllModals()
     } catch (error) {
-      // Log error for debugging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to add exercise to workout:', error)
-      }
+      // Log error for debugging
+      logger.error('Failed to add exercise to workout:', error)
     } finally {
       setIsAdding(null)
     }
